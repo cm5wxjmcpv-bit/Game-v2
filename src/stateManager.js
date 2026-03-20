@@ -12,11 +12,24 @@ export class StateManager {
   constructor(initialState) {
     this.current = initialState;
     this.previous = null;
+    this.pausedFrom = null;
   }
 
   set(state) {
     this.previous = this.current;
     this.current = state;
+  }
+
+  pause() {
+    if (this.current === GAME_STATES.PAUSE) return;
+    this.pausedFrom = this.current;
+    this.set(GAME_STATES.PAUSE);
+  }
+
+  resume(defaultState = GAME_STATES.TOWN) {
+    const target = this.pausedFrom || this.previous || defaultState;
+    this.set(target);
+    this.pausedFrom = null;
   }
 
   is(state) {

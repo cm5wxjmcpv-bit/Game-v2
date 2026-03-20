@@ -9,6 +9,10 @@ import { getNearbyPortal, getUnlockedPortalLevels } from './portalSystem.js';
 import { buyFromShop, sellToShop } from './shops.js';
 import { saveGame, loadGame } from './saveSystem.js';
 import { updateStatusEffects } from './statusEffects.js';
+import { loadDatabase } from './dataLoader.js';
+import { Camera } from './camera.js';
+
+const GAMEPLAY_STATES = [GAME_STATES.TOWN, GAME_STATES.LEVEL];
 
 export class Game {
   constructor({ renderer, input, debug, audio, ui }) {
@@ -24,34 +28,50 @@ export class Game {
     this.player = null;
     this.currentMap = null;
     this.currentEnemies = [];
-    this.currentTownId = 'town_hub';
+    this.currentTownId = null;
+    this.camera = new Camera(this.renderer.canvas.width, this.renderer.canvas.height);
     this.fx = { hitMarkers: [] };
   }
 
   async init() {
     this.db = await loadDatabase();
-    this.ui.showMainMenu(this.startNew.bind(this), this.tryLoadSave.bind(this));
+    this.currentTownId = this.db.world.start.townId;
+    this.ui.showMainMenu(this.startNew.bind(this), this.tryLoadSave.bind(this), this.db.classes);
   }
 
   startNew(classId) {
-    this.player = createPlayer(this.db.classesById[classId], this.db.itemsById);
+    const classData = this.db.classesById[classId];
+    if (!classData) {
+      this.ui.flash(`Unknown class: ${classId}`);
+      return;
+    }
+
+    this.player = createPlayer(classData, this.db.itemsById, this.db.world.start);
     this.loadTown(this.currentTownId);
     this.state.set(GAME_STATES.TOWN);
     this.ui.hideOverlay();
+    this.saveCheckpoint();
   }
 
   tryLoadSave() {
     const save = loadGame();
     if (!save) return this.ui.flash('No save found.');
+
     this.player = save.player;
-    this.currentTownId = save.currentTownId;
+    this.currentTownId = save.currentTownId || this.db.world.start.townId;
     this.loadTown(this.currentTownId);
     this.state.set(GAME_STATES.TOWN);
     this.ui.hideOverlay();
   }
 
   loadTown(townId) {
-    this.currentMap = structuredClone(this.db.townsById[townId]);
+    const town = this.db.townsById[townId];
+    if (!town) {
+      this.ui.flash(`Town not found: ${townId}`);
+      return;
+    }
+
+    this.currentMap = structuredClone(town);
     this.currentTownId = townId;
     this.currentEnemies = [];
     this.player.x = this.currentMap.spawn.x;
@@ -59,8 +79,14 @@ export class Game {
   }
 
   loadLevel(levelId) {
-    this.currentMap = structuredClone(this.db.levelsById[levelId]);
-    this.currentEnemies = this.currentMap.objects.enemySpawns.map((spawn) => {
+    const level = this.db.levelsById[levelId];
+    if (!level) {
+      this.ui.flash(`Level not found: ${levelId}`);
+      return;
+    }
+
+    this.currentMap = structuredClone(level);
+    this.currentEnemies = (this.currentMap.objects.enemySpawns || []).map((spawn) => {
       const template = this.db.enemiesById[spawn.enemyId];
       return createEnemy(template, spawn);
     });
@@ -74,11 +100,11 @@ export class Game {
     if (!this.player || !this.currentMap) return;
 
     if (this.input.wasActionPressed('debug')) this.debug.toggle();
-    if (this.input.wasActionPressed('pause')) {
-      this.state.set(this.state.is(GAME_STATES.PAUSE) ? GAME_STATES.LEVEL : GAME_STATES.PAUSE);
-    }
+    if (this.input.wasActionPressed('pause')) this.togglePause();
 
-    if (!this.state.is(GAME_STATES.PAUSE)) {
+    const hasOverlay = this.ui.isOverlayOpen();
+    const canSimulate = this.isGameplayState() && !this.state.is(GAME_STATES.PAUSE) && !hasOverlay;
+    if (canSimulate) {
       this.updateMovement(dt);
       this.updateInteraction();
       if (this.state.is(GAME_STATES.LEVEL)) {
@@ -86,13 +112,36 @@ export class Game {
         updateAutoAttack(this, dt);
       }
       updateStatusEffects(this.player, dt);
-      const tileDef = this.db.tileDefs[this.currentMap.tiles[Math.floor(this.player.y)][Math.floor(this.player.x)]];
-      applyTileEffect(this, tileDef);
+      this.applyCurrentTileEffect();
     }
 
     this.ui.renderHud(this);
     this.renderer.render(this);
     this.input.clearFrameState();
+  }
+
+  togglePause() {
+    if (this.state.is(GAME_STATES.PAUSE)) {
+      this.state.resume(this.currentEnemies.length > 0 ? GAME_STATES.LEVEL : GAME_STATES.TOWN);
+      return;
+    }
+
+    if (this.isGameplayState()) {
+      this.state.pause();
+    }
+  }
+
+  isGameplayState() {
+    return GAMEPLAY_STATES.includes(this.state.current);
+  }
+
+  applyCurrentTileEffect() {
+    const tx = Math.floor(this.player.x);
+    const ty = Math.floor(this.player.y);
+    const tileId = this.currentMap.tiles[ty]?.[tx];
+    const tileDef = this.db.tileDefs[tileId];
+    if (!tileDef) return;
+    applyTileEffect(this, tileDef);
   }
 
   updateMovement(dt) {
@@ -182,40 +231,4 @@ export class Game {
   saveCheckpoint() {
     saveGame({ player: this.player, currentTownId: this.currentTownId });
   }
-}
-
-async function loadJSON(path) {
-  const res = await fetch(path);
-  return res.json();
-}
-
-async function loadDatabase() {
-  const [tiles, tileEffects, texturePack, world, classes, items, enemies, shops, progression] = await Promise.all([
-    loadJSON('./data/tiles/tiles.json'),
-    loadJSON('./data/tiles/effects.json'),
-    loadJSON('./data/texturepacks/default-pack.json'),
-    loadJSON('./data/world/world.json'),
-    loadJSON('./data/classes/classes.json'),
-    loadJSON('./data/items/items.json'),
-    loadJSON('./data/enemies/enemies.json'),
-    loadJSON('./data/shops/shops.json'),
-    loadJSON('./data/world/progression.json'),
-  ]);
-
-  const townMaps = await Promise.all(world.towns.map((id) => loadJSON(`./data/towns/${id}.json`)));
-  const levelMaps = await Promise.all(world.levels.map((id) => loadJSON(`./data/levels/${id}.json`)));
-
-  return {
-    tileDefs: Object.fromEntries(tiles.tiles.map((t) => [t.id, t])),
-    tileEffects: Object.fromEntries(tileEffects.effects.map((e) => [e.id, e])),
-    texturePack: Object.fromEntries(texturePack.textures.map((t) => [t.id, t])),
-    classesById: Object.fromEntries(classes.classes.map((c) => [c.id, c])),
-    itemsById: Object.fromEntries(items.items.map((i) => [i.id, i])),
-    enemiesById: Object.fromEntries(enemies.enemies.map((e) => [e.id, e])),
-    shopsById: Object.fromEntries(shops.shops.map((s) => [s.id, s])),
-    townsById: Object.fromEntries(townMaps.map((m) => [m.id, m])),
-    levelsById: Object.fromEntries(levelMaps.map((m) => [m.id, m])),
-    progression,
-    world,
-  };
 }

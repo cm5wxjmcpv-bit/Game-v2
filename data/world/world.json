@@ -1,5 +1,11 @@
 {
   "towns": ["town_hub", "town_harbor"],
   "levels": ["level_fields", "level_swamp", "level_lava"],
-  "startTown": "town_hub"
+  "startTown": "town_hub",
+  "start": {
+    "townId": "town_hub",
+    "unlockedTowns": ["town_hub"],
+    "unlockedLevels": ["level_fields"],
+    "gold": 100
+  }
 }
