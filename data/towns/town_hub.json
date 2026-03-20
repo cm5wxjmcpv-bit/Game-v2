@@ -651,7 +651,7 @@
         "x": 26,
         "y": 16,
         "levels": [
-          "Firdtleveltest",
+          "testlevel3",
           "level_swamp",
           "level_lava"
         ]
