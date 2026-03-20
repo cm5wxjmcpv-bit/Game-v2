@@ -1,0 +1,5 @@
+{
+  "towns": ["town_hub", "town_harbor"],
+  "levels": ["level_fields", "level_swamp", "level_lava"],
+  "startTown": "town_hub"
+}
