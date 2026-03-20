@@ -15,24 +15,25 @@ const ui = {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
   },
-  showMainMenu(onStart, onLoad) {
+  isOverlayOpen() {
+    return !overlay.classList.contains('hidden');
+  },
+  showMainMenu(onStart, onLoad, classes = []) {
     overlay.classList.remove('hidden');
     overlay.innerHTML = `<div class="modal"><h2>Pixel Engine</h2><p>Reusable 2D engine shell.</p>
       <div class="row"><button id="new-game">New Game</button><button id="load-game">Load Save</button></div></div>`;
-    document.getElementById('new-game').onclick = () => ui.showClassSelect(onStart);
+    document.getElementById('new-game').onclick = () => ui.showClassSelect(onStart, classes);
     document.getElementById('load-game').onclick = () => onLoad();
   },
-  showClassSelect(onStart) {
-    fetch('./data/classes/classes.json').then((r) => r.json()).then((data) => {
-      overlay.classList.remove('hidden');
-      overlay.innerHTML = `<div class="modal"><h2>Choose Class</h2><div id="class-opts" class="row"></div></div>`;
-      const host = document.getElementById('class-opts');
-      data.classes.forEach((c) => {
-        const btn = document.createElement('button');
-        btn.textContent = `${c.name} (HP ${c.stats.maxHp}, ATK ${c.stats.attack})`;
-        btn.onclick = () => onStart(c.id);
-        host.appendChild(btn);
-      });
+  showClassSelect(onStart, classes = []) {
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `<div class="modal"><h2>Choose Class</h2><div id="class-opts" class="row"></div></div>`;
+    const host = document.getElementById('class-opts');
+    classes.forEach((c) => {
+      const btn = document.createElement('button');
+      btn.textContent = `${c.name} (HP ${c.stats.maxHp}, ATK ${c.stats.attack})`;
+      btn.onclick = () => onStart(c.id);
+      host.appendChild(btn);
     });
   },
   showLevelSelect(levelIds, completed, onPick) {
@@ -112,7 +113,7 @@ const ui = {
     contextPanel.innerHTML = `<h3>Context</h3>
       <p>State: ${game.state.current}</p>
       <p>Town: ${game.currentTownId}</p>
-      <p class="small">Move: WASD / Arrow | Interact: E | Pause: Esc | Debug: \\`</p>`;
+      <p class="small">Move: WASD / Arrow | Interact: E | Pause: Esc | Debug: \`</p>`;
   },
   flash(text) {
     contextPanel.innerHTML += `<p class="small">${text}</p>`;

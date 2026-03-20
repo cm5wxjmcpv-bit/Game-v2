@@ -9,10 +9,10 @@ const DEFAULT_BINDINGS = {
 };
 
 export class InputManager {
-  constructor() {
+  constructor(bindings = DEFAULT_BINDINGS) {
     this.keysDown = new Set();
     this.justPressed = new Set();
-    this.bindings = DEFAULT_BINDINGS;
+    this.bindings = { ...DEFAULT_BINDINGS, ...bindings };
     window.addEventListener('keydown', (e) => {
       if (!this.keysDown.has(e.code)) this.justPressed.add(e.code);
       this.keysDown.add(e.code);
@@ -20,12 +20,18 @@ export class InputManager {
     window.addEventListener('keyup', (e) => this.keysDown.delete(e.code));
   }
 
+  bindAction(action, keys) {
+    this.bindings[action] = keys;
+  }
+
   isActionDown(action) {
-    return this.bindings[action].some((code) => this.keysDown.has(code));
+    const keys = this.bindings[action] || [];
+    return keys.some((code) => this.keysDown.has(code));
   }
 
   wasActionPressed(action) {
-    return this.bindings[action].some((code) => this.justPressed.has(code));
+    const keys = this.bindings[action] || [];
+    return keys.some((code) => this.justPressed.has(code));
   }
 
   clearFrameState() {

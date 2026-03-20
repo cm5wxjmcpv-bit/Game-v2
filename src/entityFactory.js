@@ -1,14 +1,14 @@
-export function createPlayer(classData, itemsById) {
+export function createPlayer(classData, itemsById, startConfig = {}) {
   const weaponId = classData.startingGear.weapon;
   return {
     id: 'player',
     classId: classData.id,
     type: 'player',
-    x: 2,
-    y: 2,
+    x: 0,
+    y: 0,
     speed: classData.movement.base,
     facing: 'down',
-    gold: 100,
+    gold: startConfig.gold ?? 100,
     stats: {
       ...classData.stats,
       hp: classData.stats.maxHp,
@@ -29,7 +29,10 @@ export function createPlayer(classData, itemsById) {
       accessory2: null,
     },
     effects: [],
-    unlocks: { towns: ['town_hub'], levels: ['level_fields'] },
+    unlocks: {
+      towns: [...(startConfig.unlockedTowns || [])],
+      levels: [...(startConfig.unlockedLevels || [])],
+    },
     completedLevels: [],
     cooldowns: { autoAttack: 0 },
     baseWeapon: itemsById[weaponId],

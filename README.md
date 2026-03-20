@@ -22,14 +22,14 @@ Then open `http://localhost:8080`.
 - `data/classes/classes.json` → class stats, starting gear, growth, movement, bag slots.
 - `data/tiles/tiles.json` + `data/tiles/effects.json` → tile definitions + tile effect rules.
 - `data/texturepacks/*.json` → texture mapping per tile texture key.
-- `data/world/world.json` + `data/world/progression.json` → world map list + level unlock flow.
+- `data/world/world.json` + `data/world/progression.json` → world map list + level unlock flow + start configuration.
 
 ## Engine modules
 
 Core engine logic is split in `/src` so each system can evolve independently:
 
-- loop/bootstrap: `main.js`, `game.js`
-- render/input/state: `renderer.js`, `miniMap.js`, `input.js`, `stateManager.js`
+- loop/bootstrap: `main.js`, `game.js`, `dataLoader.js`
+- render/input/state: `renderer.js`, `camera.js`, `miniMap.js`, `input.js`, `stateManager.js`
 - gameplay systems: `combat.js`, `enemyAI.js`, `collision.js`, `drops.js`, `shops.js`
 - player systems: `inventory.js`, `equipment.js`, `progression.js`, `statusEffects.js`
 - world systems: `portalSystem.js`, `tileEffects.js`
