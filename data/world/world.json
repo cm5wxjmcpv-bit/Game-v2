@@ -1,6 +1,6 @@
 {
   "towns": ["town_hub", "town_harbor"],
-  "levels": ["level_fields", "level_swamp", "level_lava", "Custom level 1"],
+  "levels": ["level_fields", "level_swamp", "level_lava", "Firdtleveltest"],
   "startTown": "town_hub",
   "start": {
     "townId": "town_hub",
