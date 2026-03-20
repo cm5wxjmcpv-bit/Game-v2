@@ -651,7 +651,7 @@
         "x": 26,
         "y": 16,
         "levels": [
-          "level_fields",
+          "Firdtleveltest",
           "level_swamp",
           "level_lava"
         ]
