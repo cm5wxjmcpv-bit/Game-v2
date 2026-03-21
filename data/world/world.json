@@ -7,8 +7,7 @@
     "level_fields",
     "level_swamp",
     "level_lava",
-    "testlevel3",
-    "Firdtleveltest"
+    "testlevel3"
   ],
   "startTown": "town_hub",
   "start": {
@@ -18,8 +17,7 @@
     ],
     "unlockedLevels": [
       "level_fields",
-      "testlevel3",
-      "Firdtleveltest"
+      "testlevel3"
     ],
     "gold": 100
   }
