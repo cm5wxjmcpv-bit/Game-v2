@@ -5,6 +5,7 @@
   ],
   "levels": [
     "level_fields",
+    "Adam1",
     "level_swamp",
     "level_lava",
     "testlevel3"
@@ -17,6 +18,7 @@
     ],
     "unlockedLevels": [
       "level_fields",
+      "Adam1",
       "testlevel3"
     ],
     "gold": 100
