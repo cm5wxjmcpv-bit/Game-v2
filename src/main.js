@@ -137,7 +137,6 @@ const renderer = new Renderer(canvas);
 const input = new InputManager();
 const debug = new DebugSystem();
 const audio = new AudioSystem();
-audio.register('heal', './assets/audio/heal.wav');
 
 const game = new Game({ renderer, input, debug, audio, ui });
 await game.init();
