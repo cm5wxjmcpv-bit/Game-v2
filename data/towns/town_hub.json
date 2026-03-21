@@ -652,6 +652,7 @@
         "y": 16,
         "levels": [
           "testlevel3",
+          "Adam1",
           "level_swamp",
           "level_lava"
         ]
