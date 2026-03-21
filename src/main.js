@@ -11,9 +11,8 @@ const playerPanel = document.getElementById('player-panel');
 const contextPanel = document.getElementById('context-panel');
 
 function resizeCanvasToViewport() {
-  const dpr = window.devicePixelRatio || 1;
-  const width = Math.floor(window.innerWidth * dpr);
-  const height = Math.floor(window.innerHeight * dpr);
+  const width = Math.floor(window.innerWidth);
+  const height = Math.floor(window.innerHeight);
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
