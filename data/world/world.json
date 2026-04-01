@@ -1,0 +1,28 @@
+{
+  "towns": [
+    "town_hub",
+    "town_harbor"
+  ],
+  "levels": [
+    "level_fields",
+    "TTest1",
+    "Adam1",
+    "level_swamp",
+    "level_lava",
+    "testlevel3"
+  ],
+  "startTown": "town_hub",
+  "start": {
+    "townId": "town_hub",
+    "unlockedTowns": [
+      "town_hub"
+    ],
+    "unlockedLevels": [
+      "level_fields",
+      "TTest1",
+      "Adam1",
+      "testlevel3"
+    ],
+    "gold": 100
+  }
+}

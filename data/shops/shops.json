@@ -1,0 +1,34 @@
+{
+  "shops": [
+    {
+      "id": "shop_blacksmith_t1",
+      "name": "Forge Point",
+      "type": "blacksmith",
+      "bagUpgradeCost": 80,
+      "stock": [
+        { "itemId": "weapon_wood_sword", "buyPrice": 24, "sellPrice": 12, "stock": null },
+        { "itemId": "armor_chain", "buyPrice": 70, "sellPrice": 30, "stock": 2 }
+      ]
+    },
+    {
+      "id": "shop_potion_t1",
+      "name": "Vial & Herb",
+      "type": "potion",
+      "bagUpgradeCost": 60,
+      "stock": [
+        { "itemId": "potion_small", "buyPrice": 10, "sellPrice": 4, "stock": null },
+        { "itemId": "ore_iron", "buyPrice": 8, "sellPrice": 3, "stock": 20 }
+      ]
+    },
+    {
+      "id": "shop_rare_t2",
+      "name": "Curio Vault",
+      "type": "special",
+      "bagUpgradeCost": 140,
+      "stock": [
+        { "itemId": "acc_lucky_charm", "buyPrice": 120, "sellPrice": 65, "stock": 1 },
+        { "itemId": "gem_amber", "buyPrice": 45, "sellPrice": 20, "stock": 4 }
+      ]
+    }
+  ]
+}
