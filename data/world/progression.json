@@ -1,7 +1,0 @@
-{
-  "unlocks": {
-    "level_fields": ["level_swamp"],
-    "level_swamp": ["level_lava"],
-    "level_lava": []
-  }
-}
