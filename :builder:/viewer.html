@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D Level Viewer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>2D Level Viewer</h1>
+    <p>Visual checker for builder JSON and engine-ready JSON.</p>
+  </header>
+
+  <main class="layout viewer-layout">
+    <aside class="panel controls-panel">
+      <h2>Load Level</h2>
+      <div class="actions">
+        <label for="viewerImportInput" class="file-label">Load JSON File</label>
+        <input id="viewerImportInput" type="file" accept="application/json" />
+        <button id="loadPreviewBtn" type="button" class="secondary-btn">Load Preview from Builder</button>
+        <button id="backToBuilderBtn" type="button">Back to Builder</button>
+      </div>
+
+      <div class="status-box">
+        <p><strong>Map:</strong> <span id="viewerMapTypeLabel">level</span> (<span id="viewerMapIdLabel">unknown</span>)</p>
+        <p><strong>Grid Size:</strong> <span id="viewerGridSizeLabel">0</span> x <span id="viewerGridSizeLabel2">0</span></p>
+        <p id="viewerMessage" class="message" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="legend">
+        <h3>Tile/Object IDs</h3>
+        <ul id="viewerTileLegend"></ul>
+      </div>
+    </aside>
+
+    <section class="panel editor-panel">
+      <h2>Viewer Grid</h2>
+      <div id="viewerGridContainer" class="grid-container" aria-label="Level viewer grid"></div>
+    </section>
+  </main>
+
+  <script src="viewer.js"></script>
+</body>
+</html>
