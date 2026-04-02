@@ -10,6 +10,7 @@
   const TEXTURE_HISTORY_LIMIT = 30;
   const MAP_HISTORY_LIMIT = 30;
   const MAX_MAP_SIDE = 200;
+  const TEXTURE_EXPORT_ENGINE_DIR = 'assets/textures/starter';
   const TEXTURE_COLORS = ['#000000', '#ffffff', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#a855f7', '#06b6d4', null];
   const TEXTURE_SIZES = [16, 32, 64];
   const ENGINE_TILE_IDS = {
@@ -1866,7 +1867,7 @@
     const baseFilename = getTextureExportBaseFilename();
     const payload = {
       key: baseFilename,
-      path: 'assets/textures/starter/' + baseFilename + '.png'
+      path: TEXTURE_EXPORT_ENGINE_DIR + '/' + baseFilename + '.png'
     };
     downloadJsonFile(payload, baseFilename + '_entry.json');
     updateTextureStatus('Engine texture entry exported.');
