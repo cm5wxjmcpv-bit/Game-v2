@@ -1,1 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D Level Builder</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>2D Level Builder (v2)</h1>
+    <p>Create maps for the builder and export clean engine-ready JSON.</p>
+  </header>
 
+  <nav class="tab-bar" aria-label="Builder tabs">
+    <button id="tabMapEditorBtn" type="button" class="tab-btn active">Map Editor</button>
+    <button id="tabViewerBtn" type="button" class="tab-btn">Viewer</button>
+    <button id="tabItemEditorBtn" type="button" class="tab-btn">Item Editor</button>
+    <button id="tabTextureBuilderBtn" type="button" class="tab-btn">Texture Builder</button>
+  </nav>
+
+  <main id="mapEditorTab" class="layout tab-panel active" data-tab-panel="mapEditor">
+    <aside class="panel controls-panel">
+      <h2>Map Setup</h2>
+      <div class="actions">
+        <label class="field-label" for="mapTypeSelect">Map Type</label>
+        <select id="mapTypeSelect" class="text-input">
+          <option value="level">Level</option>
+          <option value="town">Town</option>
+        </select>
+
+        <label class="field-label" for="mapIdInput">Map ID</label>
+        <input id="mapIdInput" class="text-input" type="text" value="level_001" />
+
+        <label class="field-label" for="mapNameInput">Map Name</label>
+        <input id="mapNameInput" class="text-input" type="text" value="Starter Level" />
+
+        <div class="size-row">
+          <div>
+            <label class="field-label" for="mapWidthInput">Width</label>
+            <input id="mapWidthInput" class="text-input" type="number" min="1" max="200" value="30" />
+          </div>
+          <div>
+            <label class="field-label" for="mapHeightInput">Height</label>
+            <input id="mapHeightInput" class="text-input" type="number" min="1" max="200" value="30" />
+          </div>
+        </div>
+        <button id="applySizeBtn" type="button" class="secondary-btn">Apply Map Size</button>
+      </div>
+
+      <h2>Tiles & Tools</h2>
+      <div class="tool-row tool-grid">
+        <button id="layerTileBtn" type="button" class="secondary-btn">Tile Layer</button>
+        <button id="layerObjectBtn" type="button" class="secondary-btn">Object Layer</button>
+      </div>
+      <div id="palette" class="palette-groups" aria-label="Grouped palette"></div>
+
+      <div class="tool-row tool-grid">
+        <button id="paintToolBtn" type="button" class="secondary-btn">Paint Tool</button>
+        <button id="fillToolBtn" type="button" class="secondary-btn">Fill Tool</button>
+        <button id="eraserBtn" type="button" class="secondary-btn">Eraser</button>
+        <button id="mapHBarToolBtn" type="button" class="secondary-btn">Horizontal Bar</button>
+        <button id="mapVBarToolBtn" type="button" class="secondary-btn">Vertical Bar</button>
+        <button id="mapLineToolBtn" type="button" class="secondary-btn">Angled Line</button>
+      </div>
+      <div class="actions">
+        <label class="field-label" for="mapBrushSizeSelect">Brush Size</label>
+        <select id="mapBrushSizeSelect" class="text-input">
+          <option value="1">1px</option>
+          <option value="2">2px</option>
+          <option value="3">3px</option>
+          <option value="4">4px</option>
+          <option value="5">5px</option>
+        </select>
+
+        <label class="field-label" for="mapBarLengthInput">Bar/Line Length</label>
+        <input id="mapBarLengthInput" class="text-input" type="number" min="1" max="256" value="8" />
+
+        <label class="field-label" for="mapBarThicknessInput">Bar/Line Thickness</label>
+        <input id="mapBarThicknessInput" class="text-input" type="number" min="1" max="32" value="1" />
+      </div>
+      <div class="item-editor-actions">
+        <button id="mapUndoBtn" type="button" class="secondary-btn">Undo</button>
+        <button id="mapRedoBtn" type="button" class="secondary-btn">Redo</button>
+      </div>
+
+      <h2>Map Actions</h2>
+      <div class="actions">
+        <button id="exportBtn" type="button">Export Raw JSON</button>
+        <button id="exportGameBtn" type="button">Export Engine JSON</button>
+        <label for="importInput" class="file-label">Import JSON</label>
+        <input id="importInput" type="file" accept="application/json" />
+        <button id="clearBtn" type="button" class="danger-btn">Clear Map</button>
+        <button id="openViewerBtn" type="button" class="secondary-btn">Open Viewer (Preview Current Map)</button>
+      </div>
+
+      <div class="status-box">
+        <p><strong>Map:</strong> <span id="mapTypeLabel">level</span> (<span id="mapIdLabel">level_001</span>)</p>
+        <p><strong>Layer:</strong> <span id="activeLayerLabel">Tile Layer</span></p>
+        <p><strong>Selected:</strong> <span id="selectedToolLabel">None</span></p>
+        <p><strong>Tool:</strong> <span id="activeToolLabel">Paint</span></p>
+        <p><strong>Grid Size:</strong> <span id="gridSizeLabel">0</span> x <span id="gridSizeLabel2">0</span></p>
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="legend">
+        <h3>Tile/Object IDs</h3>
+        <ul id="tileLegend"></ul>
+      </div>
+    </aside>
+
+    <section class="panel editor-panel">
+      <h2>Editor Grid</h2>
+      <div id="gridContainer" class="grid-container" aria-label="Level editor grid"></div>
+    </section>
+  </main>
+
+  <main id="viewerTab" class="layout tab-panel" data-tab-panel="viewer">
+    <section class="panel viewer-tab-panel">
+      <h2>Viewer</h2>
+      <p>Open the standalone map viewer to preview the current map data.</p>
+      <button id="openViewerFromTabBtn" type="button">Open Viewer</button>
+    </section>
+  </main>
+
+  <main id="itemEditorTab" class="layout tab-panel" data-tab-panel="itemEditor">
+    <section class="panel item-editor-panel">
+      <h2>Item Editor</h2>
+      <div class="item-editor-actions">
+        <button id="itemNewBtn" type="button">New Item</button>
+        <button id="itemSaveBtn" type="button" class="secondary-btn">Save Item</button>
+        <button id="itemDeleteBtn" type="button" class="danger-btn">Delete Item</button>
+        <button id="itemExportBtn" type="button" class="secondary-btn">Export Items JSON</button>
+        <label for="itemImportInput" class="file-label">Import Items JSON</label>
+        <input id="itemImportInput" type="file" accept="application/json" />
+      </div>
+      <div class="item-editor-layout">
+        <aside class="item-list-panel">
+          <h3>Items</h3>
+          <div id="itemList" class="item-list" aria-label="Item list"></div>
+        </aside>
+        <section class="item-form-panel">
+          <h3>Item Form</h3>
+          <div id="itemEditorMessage" class="message" role="status" aria-live="polite"></div>
+          <form id="itemForm" class="item-form" novalidate>
+            <label class="field-label" for="itemIdInput">ID</label>
+            <input id="itemIdInput" class="text-input" type="text" required />
+
+            <label class="field-label" for="itemNameInput">Name</label>
+            <input id="itemNameInput" class="text-input" type="text" />
+
+            <label class="field-label" for="itemCategorySelect">Category</label>
+            <select id="itemCategorySelect" class="text-input">
+              <option value="weapon">weapon</option>
+              <option value="armor">armor</option>
+              <option value="accessory">accessory</option>
+              <option value="consumable">consumable</option>
+              <option value="material">material</option>
+              <option value="key_item">key_item</option>
+            </select>
+
+            <label class="field-label" for="itemBaseValueInput">Base Value</label>
+            <input id="itemBaseValueInput" class="text-input" type="number" step="1" />
+
+            <label class="field-label" for="itemStackableInput">Stackable</label>
+            <select id="itemStackableInput" class="text-input">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+
+            <label class="field-label" for="itemRaritySelect">Rarity</label>
+            <select id="itemRaritySelect" class="text-input">
+              <option value="common">common</option>
+              <option value="uncommon">uncommon</option>
+              <option value="rare">rare</option>
+              <option value="epic">epic</option>
+              <option value="legendary">legendary</option>
+            </select>
+
+            <div id="equipSlotRow" class="conditional-row">
+              <label class="field-label" for="itemEquipSlotInput">Equip Slot</label>
+              <input id="itemEquipSlotInput" class="text-input" type="text" />
+            </div>
+
+            <div id="modsRow" class="conditional-row">
+              <label class="field-label" for="itemModsInput">Mods (JSON object)</label>
+              <textarea id="itemModsInput" class="text-input" rows="4">{}</textarea>
+            </div>
+
+            <div id="weaponFields" class="conditional-group">
+              <label class="field-label" for="itemPowerInput">Power</label>
+              <input id="itemPowerInput" class="text-input" type="number" step="1" />
+
+              <label class="field-label" for="itemAttackRangeInput">Attack Range</label>
+              <input id="itemAttackRangeInput" class="text-input" type="number" step="0.01" />
+
+              <label class="field-label" for="itemCooldownInput">Cooldown</label>
+              <input id="itemCooldownInput" class="text-input" type="number" step="0.01" />
+            </div>
+
+            <div id="consumableFields" class="conditional-group">
+              <label class="field-label" for="itemEffectTypeInput">Effect Type</label>
+              <input id="itemEffectTypeInput" class="text-input" type="text" />
+
+              <label class="field-label" for="itemEffectValueInput">Effect Value</label>
+              <input id="itemEffectValueInput" class="text-input" type="number" step="0.01" />
+
+              <label class="field-label" for="itemEffectDurationInput">Effect Duration</label>
+              <input id="itemEffectDurationInput" class="text-input" type="number" step="0.01" />
+            </div>
+          </form>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <main id="textureBuilderTab" class="layout tab-panel" data-tab-panel="textureBuilder">
+    <aside class="panel controls-panel">
+      <h2>Texture Setup</h2>
+      <div class="actions">
+        <label class="field-label" for="textureSizeSelect">Texture Size</label>
+        <select id="textureSizeSelect" class="text-input">
+          <option value="16">16x16</option>
+          <option value="32">32x32</option>
+          <option value="64">64x64</option>
+        </select>
+      </div>
+
+      <h2>Texture Colors & Tools</h2>
+      <label class="field-label" for="textureColorPicker">Custom Color</label>
+      <input id="textureColorPicker" class="text-input" type="color" value="#000000" />
+      <div id="texturePalette" class="texture-color-palette" aria-label="Texture color palette"></div>
+      <div class="tool-row tool-grid">
+        <button id="texturePaintToolBtn" type="button" class="secondary-btn">Paint Tool</button>
+        <button id="textureFillToolBtn" type="button" class="secondary-btn">Fill Tool</button>
+        <button id="textureEraserBtn" type="button" class="secondary-btn">Eraser</button>
+        <button id="textureHighlighterToolBtn" type="button" class="secondary-btn">Highlighter</button>
+        <button id="textureEyedropperToolBtn" type="button" class="secondary-btn">Eyedropper</button>
+        <button id="textureHBarToolBtn" type="button" class="secondary-btn">Horizontal Bar</button>
+        <button id="textureVBarToolBtn" type="button" class="secondary-btn">Vertical Bar</button>
+        <button id="textureLineToolBtn" type="button" class="secondary-btn">Angled Line</button>
+      </div>
+      <div class="actions">
+        <label class="field-label" for="textureBrushSizeSelect">Brush Size</label>
+        <select id="textureBrushSizeSelect" class="text-input">
+          <option value="1">1px</option>
+          <option value="2">2px</option>
+          <option value="3">3px</option>
+          <option value="4">4px</option>
+          <option value="5">5px</option>
+        </select>
+
+        <label class="field-label" for="textureHighlighterOpacityInput">Highlighter Opacity</label>
+        <input id="textureHighlighterOpacityInput" class="text-input" type="range" min="0.05" max="1" step="0.05" value="0.35" />
+
+        <label class="field-label" for="textureBarLengthInput">Bar/Line Length</label>
+        <input id="textureBarLengthInput" class="text-input" type="number" min="1" max="256" value="8" />
+
+        <label class="field-label" for="textureBarThicknessInput">Bar/Line Thickness</label>
+        <input id="textureBarThicknessInput" class="text-input" type="number" min="1" max="32" value="1" />
+      </div>
+
+      <h2>Texture Layers</h2>
+      <div class="item-editor-actions">
+        <button id="textureUndoBtn" type="button" class="secondary-btn">Undo</button>
+        <button id="textureRedoBtn" type="button" class="secondary-btn">Redo</button>
+        <button id="textureAddLayerBtn" type="button" class="secondary-btn">Add Layer</button>
+        <button id="textureClearLayerBtn" type="button" class="danger-btn">Clear Active Layer</button>
+      </div>
+      <div id="textureLayerList" class="texture-layer-list" aria-label="Texture layer list"></div>
+
+      <h2>Texture Actions</h2>
+      <div class="actions">
+        <label class="field-label" for="textureFilenameInput">Texture Filename</label>
+        <input id="textureFilenameInput" class="text-input" type="text" value="texture_16x16" />
+        <button id="textureSaveToLibraryBtn" type="button" class="secondary-btn">Save to Custom Texture Library</button>
+        <button id="textureExportBtn" type="button">Export Texture JSON</button>
+        <button id="textureExportPngBtn" type="button" class="secondary-btn">Export Texture PNG</button>
+        <button id="textureExportEngineEntryBtn" type="button" class="secondary-btn">Export Engine Texture Entry</button>
+        <label for="textureImportInput" class="file-label">Import Texture JSON</label>
+        <input id="textureImportInput" type="file" accept="application/json" />
+      </div>
+
+      <h2>Custom Texture Library</h2>
+      <div class="actions">
+        <button id="textureLibraryExportBtn" type="button" class="secondary-btn">Export Custom Texture Library</button>
+        <label for="textureLibraryImportInput" class="file-label">Import Custom Texture Library</label>
+        <input id="textureLibraryImportInput" type="file" accept="application/json" />
+      </div>
+      <div id="textureLibraryList" class="item-list" aria-label="Custom texture library list"></div>
+
+      <div class="status-box">
+        <p><strong>Size:</strong> <span id="textureSizeLabel">16</span> x <span id="textureSizeLabel2">16</span></p>
+        <p><strong>Selected Color:</strong> <span id="textureSelectedColorLabel">#000000</span></p>
+        <p><strong>Tool:</strong> <span id="textureActiveToolLabel">Paint</span></p>
+        <p id="textureMessage" class="message" role="status" aria-live="polite"></p>
+      </div>
+    </aside>
+
+    <section class="panel editor-panel">
+      <h2>Texture Grid</h2>
+      <div id="textureGridContainer" class="texture-grid-container" aria-label="Texture editor grid"></div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
