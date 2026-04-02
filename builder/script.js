@@ -10,6 +10,8 @@
   const TEXTURE_HISTORY_LIMIT = 30;
   const MAP_HISTORY_LIMIT = 30;
   const MAX_MAP_SIDE = 200;
+  const TEXTURE_EXPORT_ENGINE_DIR = 'assets/textures/starter';
+  const GAME_TEXTURE_PACK_PATH = '../data/texturepacks/default-pack.json';
   const TEXTURE_COLORS = ['#000000', '#ffffff', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#a855f7', '#06b6d4', null];
   const TEXTURE_SIZES = [16, 32, 64];
   const ENGINE_TILE_IDS = {
@@ -483,6 +485,11 @@
       version: 1,
       textures: []
     },
+    gameTexturePack: {
+      loaded: false,
+      textures: [],
+      error: ''
+    },
     selectedItemIndex: -1,
     textureBuilder: {
       size: 16,
@@ -530,7 +537,55 @@
     updateItemConditionalFields();
     initializeTextureBuilder();
     renderCustomTextureLibraryList();
+    loadGameTexturePackReadOnly();
     updateStatus('Ready. Click or drag on the grid to paint tiles and markers.');
+  }
+
+  function normalizeGameTexturePackPayload(payload) {
+    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.textures)) {
+      throw new Error('Texture pack payload must be an object with a textures array.');
+    }
+    return payload.textures.map(function (entry, index) {
+      const id = String(entry && entry.id ? entry.id : '').trim();
+      if (!id) {
+        throw new Error('Texture at index ' + index + ' is missing an id.');
+      }
+      const color = typeof entry.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(entry.color)
+        ? entry.color.toLowerCase()
+        : '#9ca3af';
+      const image = typeof entry.image === 'string' ? entry.image : '';
+      return {
+        id: id,
+        color: color,
+        image: image
+      };
+    });
+  }
+
+  function loadGameTexturePackReadOnly() {
+    // Read-only integration: builder only reads game texture pack metadata for visibility/alignment.
+    // No writes are made to game files, and builder keeps working if this fetch fails.
+    fetch(GAME_TEXTURE_PACK_PATH, { cache: 'no-store' })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        const normalized = normalizeGameTexturePackPayload(payload);
+        state.gameTexturePack.loaded = true;
+        state.gameTexturePack.textures = normalized;
+        state.gameTexturePack.error = '';
+        renderLegend();
+      })
+      .catch(function (error) {
+        state.gameTexturePack.loaded = false;
+        state.gameTexturePack.textures = [];
+        state.gameTexturePack.error = error && error.message ? error.message : 'Unknown error';
+        renderLegend();
+        updateStatus('Ready. Game texture pack read failed (' + state.gameTexturePack.error + '). Builder fallback is active.', true);
+      });
   }
 
   function createLayerGrid(width, height, value) {
@@ -764,6 +819,25 @@
     }).forEach(function (entry) {
       const li = document.createElement('li');
       li.textContent = entry.id + ' [' + entry.layer + ']';
+      dom.tileLegend.appendChild(li);
+    });
+
+    const divider = document.createElement('li');
+    divider.textContent = '--- Game Texture Pack (read-only) ---';
+    dom.tileLegend.appendChild(divider);
+
+    if (!state.gameTexturePack.loaded) {
+      const unavailable = document.createElement('li');
+      unavailable.textContent = state.gameTexturePack.error
+        ? 'Unavailable: ' + state.gameTexturePack.error
+        : 'Loading from ' + GAME_TEXTURE_PACK_PATH + '...';
+      dom.tileLegend.appendChild(unavailable);
+      return;
+    }
+
+    state.gameTexturePack.textures.forEach(function (texture) {
+      const li = document.createElement('li');
+      li.textContent = texture.id + (texture.image ? ' -> ' + texture.image : '');
       dom.tileLegend.appendChild(li);
     });
   }
@@ -1866,7 +1940,7 @@
     const baseFilename = getTextureExportBaseFilename();
     const payload = {
       key: baseFilename,
-      path: 'assets/textures/starter/' + baseFilename + '.png'
+      path: TEXTURE_EXPORT_ENGINE_DIR + '/' + baseFilename + '.png'
     };
     downloadJsonFile(payload, baseFilename + '_entry.json');
     updateTextureStatus('Engine texture entry exported.');
