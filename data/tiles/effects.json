@@ -1,8 +1,0 @@
-{
-  "effects": [
-    { "id": "lava_kill", "type": "instantKill" },
-    { "id": "water_dot", "type": "damageOverTime", "amount": 1, "interval": 1 },
-    { "id": "swamp_slow", "type": "slow", "multiplier": 0.5 },
-    { "id": "poison_dot", "type": "damageOverTime", "amount": 2, "interval": 1 }
-  ]
-}
