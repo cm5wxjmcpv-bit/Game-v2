@@ -1,0 +1,11 @@
+{
+  "tables": [
+    {
+      "id": "ttest1_randoms",
+      "entries": [
+        { "encounterId": "slimes_intro", "weight": 70 },
+        { "encounterId": "wolves_1", "weight": 30 }
+      ]
+    }
+  ]
+}

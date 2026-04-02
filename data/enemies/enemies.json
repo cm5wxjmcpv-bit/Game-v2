@@ -1,0 +1,44 @@
+{
+  "enemies": [
+    {
+      "id": "slime_green",
+      "name": "Green Slime",
+      "stats": { "maxHp": 12, "defense": 1 },
+      "sprites": {
+        "battle": "data/sprites/monsters/swampMonster_battle.png",
+        "inLevel": "data/sprites/monsters/swampMonster_inLevel.png"
+      },
+      "ai": { "behavior": "wanderer", "speed": 1.4, "patrolRange": 2, "aggroRange": 3.2, "leashRange": 7 },
+      "combat": { "attack": 2, "attackRange": 1.1, "cooldown": 1.4 },
+      "dropTable": {
+        "goldRange": [2, 5],
+        "guaranteed": [{ "itemId": "ore_iron", "count": 1 }],
+        "rare": [{ "itemId": "gem_amber", "count": 1, "chance": 0.08 }]
+      }
+    },
+    {
+      "id": "wolf_runner",
+      "name": "Runner Wolf",
+      "stats": { "maxHp": 18, "defense": 2 },
+      "ai": { "behavior": "runner", "speed": 2.3, "patrolRange": 3, "aggroRange": 4.5, "leashRange": 9 },
+      "combat": { "attack": 4, "attackRange": 1.2, "cooldown": 1.0 },
+      "dropTable": {
+        "goldRange": [4, 9],
+        "guaranteed": [],
+        "rare": [{ "itemId": "potion_small", "count": 1, "chance": 0.15 }]
+      }
+    },
+    {
+      "id": "guardian_golem",
+      "name": "Guardian Golem",
+      "stats": { "maxHp": 42, "defense": 5 },
+      "ai": { "behavior": "tank", "speed": 1.1, "patrolRange": 1, "aggroRange": 5, "leashRange": 6 },
+      "combat": { "attack": 7, "attackRange": 1.3, "cooldown": 1.6 },
+      "dropTable": {
+        "goldRange": [12, 20],
+        "guaranteed": [{ "itemId": "ore_iron", "count": 3 }],
+        "rare": [{ "itemId": "acc_lucky_charm", "count": 1, "chance": 0.02 }]
+      }
+    }
+  ]
+}
