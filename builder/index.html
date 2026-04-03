@@ -54,6 +54,14 @@
         <button id="layerObjectBtn" type="button" class="secondary-btn">Object Layer</button>
       </div>
       <div id="palette" class="palette-groups" aria-label="Grouped palette"></div>
+      <section class="game-texture-pack-panel" aria-label="Game texture pack (read-only)">
+        <h3>Game Texture Pack</h3>
+        <label class="checkbox-row" for="gameTexturePackUseSelectionToggle">
+          <input id="gameTexturePackUseSelectionToggle" type="checkbox" />
+          Use Game Texture Pack Selection (inspect-only for now)
+        </label>
+        <div id="gameTexturePackList" class="game-texture-pack-list"></div>
+      </section>
 
       <div class="tool-row tool-grid">
         <button id="paintToolBtn" type="button" class="secondary-btn">Paint Tool</button>
@@ -93,6 +101,16 @@
         <button id="clearBtn" type="button" class="danger-btn">Clear Map</button>
         <button id="openViewerBtn" type="button" class="secondary-btn">Open Viewer (Preview Current Map)</button>
       </div>
+
+      <section class="game-sync-preview-panel" aria-label="Game sync preview">
+        <h3>Game Sync Preview (Read-only)</h3>
+        <p><strong>Level:</strong> <span id="gameSyncLevelLabel">level_001 (Starter Level)</span></p>
+        <p><strong>Used Custom Textures:</strong> <span id="gameSyncUsedCountLabel">0</span></p>
+        <p><strong>Missing in Local Library:</strong> <span id="gameSyncMissingCountLabel">0</span></p>
+        <div id="gameSyncWarnings" class="game-sync-warnings"></div>
+        <div id="gameSyncTextureList" class="game-sync-texture-list"></div>
+        <button id="exportGameSyncManifestBtn" type="button" class="secondary-btn">Export Game Sync Manifest</button>
+      </section>
 
       <div class="status-box">
         <p><strong>Map:</strong> <span id="mapTypeLabel">level</span> (<span id="mapIdLabel">level_001</span>)</p>
