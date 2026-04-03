@@ -266,6 +266,50 @@ button:hover,
   display: block;
 }
 
+.game-sync-preview-panel {
+  border: 1px solid #c7cfdd;
+  border-radius: 6px;
+  background: #f9fbff;
+  padding: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.game-sync-preview-panel h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.game-sync-preview-panel p {
+  margin: 0.25rem 0;
+  font-size: 0.86rem;
+}
+
+.game-sync-warnings {
+  margin: 0.45rem 0;
+  color: #9a3412;
+  font-size: 0.82rem;
+}
+
+.game-sync-texture-list {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 170px;
+  overflow: auto;
+  margin-bottom: 0.5rem;
+}
+
+.game-sync-texture-entry {
+  border: 1px solid #c6cfdd;
+  border-radius: 6px;
+  padding: 0.4rem;
+  background: #fff;
+}
+
+.game-sync-texture-entry.missing {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
 .secondary-btn {
   background: #f7f8fc;
 }

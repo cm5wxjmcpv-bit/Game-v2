@@ -102,6 +102,16 @@
         <button id="openViewerBtn" type="button" class="secondary-btn">Open Viewer (Preview Current Map)</button>
       </div>
 
+      <section class="game-sync-preview-panel" aria-label="Game sync preview">
+        <h3>Game Sync Preview (Read-only)</h3>
+        <p><strong>Level:</strong> <span id="gameSyncLevelLabel">level_001 (Starter Level)</span></p>
+        <p><strong>Used Custom Textures:</strong> <span id="gameSyncUsedCountLabel">0</span></p>
+        <p><strong>Missing in Local Library:</strong> <span id="gameSyncMissingCountLabel">0</span></p>
+        <div id="gameSyncWarnings" class="game-sync-warnings"></div>
+        <div id="gameSyncTextureList" class="game-sync-texture-list"></div>
+        <button id="exportGameSyncManifestBtn" type="button" class="secondary-btn">Export Game Sync Manifest</button>
+      </section>
+
       <div class="status-box">
         <p><strong>Map:</strong> <span id="mapTypeLabel">level</span> (<span id="mapIdLabel">level_001</span>)</p>
         <p><strong>Layer:</strong> <span id="activeLayerLabel">Tile Layer</span></p>

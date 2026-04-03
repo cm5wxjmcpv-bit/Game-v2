@@ -396,6 +396,12 @@
     gridSizeLabel: document.getElementById('gridSizeLabel'),
     gridSizeLabel2: document.getElementById('gridSizeLabel2'),
     message: document.getElementById('message'),
+    gameSyncLevelLabel: document.getElementById('gameSyncLevelLabel'),
+    gameSyncUsedCountLabel: document.getElementById('gameSyncUsedCountLabel'),
+    gameSyncMissingCountLabel: document.getElementById('gameSyncMissingCountLabel'),
+    gameSyncWarnings: document.getElementById('gameSyncWarnings'),
+    gameSyncTextureList: document.getElementById('gameSyncTextureList'),
+    exportGameSyncManifestBtn: document.getElementById('exportGameSyncManifestBtn'),
     tileLegend: document.getElementById('tileLegend'),
     exportBtn: document.getElementById('exportBtn'),
     exportGameBtn: document.getElementById('exportGameBtn'),
@@ -519,6 +525,7 @@
       useSelectionMode: false,
       lastWarningKey: ''
     },
+    gameSyncPreviewManifest: null,
     selectedItemIndex: -1,
     textureBuilder: {
       size: 16,
@@ -552,6 +559,7 @@
     renderGameTexturePackSelector();
     renderLegend();
     renderGrid();
+    renderGameSyncPreview();
     bindEvents();
     updateActiveLayerButtons();
     updateActiveToolButtonState();
@@ -962,6 +970,7 @@
 
     dom.gridSizeLabel.textContent = String(state.width);
     dom.gridSizeLabel2.textContent = String(state.height);
+    renderGameSyncPreview();
   }
 
   function applyCellVisual(cell, markerEl, tileId, objectId) {
@@ -1134,14 +1143,19 @@
     dom.mapIdInput.addEventListener('input', function () {
       state.mapId = normalizeMapId(dom.mapIdInput.value);
       updateMapLabels();
+      renderGameSyncPreview();
     });
 
     dom.mapNameInput.addEventListener('input', function () {
       state.mapName = dom.mapNameInput.value.trim() || 'Untitled Map';
+      renderGameSyncPreview();
     });
 
     dom.exportBtn.addEventListener('click', exportRawMapToFile);
     dom.exportGameBtn.addEventListener('click', exportEngineMapToFile);
+    if (dom.exportGameSyncManifestBtn) {
+      dom.exportGameSyncManifestBtn.addEventListener('click', exportGameSyncManifestToFile);
+    }
 
     dom.importInput.addEventListener('change', function (event) {
       if (!event.target.files || !event.target.files[0]) {
@@ -2581,6 +2595,7 @@
       const empty = document.createElement('p');
       empty.textContent = 'No custom textures saved yet.';
       dom.textureLibraryList.appendChild(empty);
+      renderGameSyncPreview();
       return;
     }
 
@@ -2596,6 +2611,7 @@
         '</div>';
       dom.textureLibraryList.appendChild(row);
     });
+    renderGameSyncPreview();
   }
 
   function deleteCustomTextureFromLibrary(textureId) {
@@ -3852,6 +3868,113 @@
       state.activeTool === 'hbar' ? 'Horizontal Bar' :
         state.activeTool === 'vbar' ? 'Vertical Bar' :
           state.activeTool === 'line' ? 'Angled Line' : 'Paint';
+  }
+
+  function scanUsedCustomTextureIdsFromTileLayer() {
+    const used = new Set();
+    for (let row = 0; row < state.height; row += 1) {
+      for (let col = 0; col < state.width; col += 1) {
+        const tileId = state.tileLayer[row][col];
+        if (isCustomTextureId(tileId)) {
+          used.add(tileId);
+        }
+      }
+    }
+    return Array.from(used).sort();
+  }
+
+  function buildGameSyncManifest() {
+    const usedCustomIds = scanUsedCustomTextureIdsFromTileLayer();
+    const libraryById = state.customTextureLibrary.textures.reduce(function (acc, texture) {
+      acc[texture.id] = texture;
+      return acc;
+    }, {});
+
+    const textures = usedCustomIds.map(function (customId) {
+      const foundTexture = libraryById[customId] || null;
+      const filenameBase = sanitizeTextureFilename(customId) || customId;
+      return {
+        id: customId,
+        foundInLocalLibrary: !!foundTexture,
+        localTextureName: foundTexture ? foundTexture.name : '',
+        proposedPngFilename: filenameBase + '.png',
+        proposedEnginePath: TEXTURE_EXPORT_ENGINE_DIR + '/' + filenameBase + '.png',
+        proposedEngineEntryFilename: filenameBase + '_entry.json',
+        proposedTargetFiles: {
+          texturePng: 'assets/textures/starter/' + filenameBase + '.png',
+          textureEntry: 'data/texturepacks/default-pack.json'
+        }
+      };
+    });
+
+    const missingTextures = textures.filter(function (entry) {
+      return !entry.foundInLocalLibrary;
+    }).map(function (entry) {
+      return entry.id;
+    });
+
+    return {
+      type: 'game_sync_manifest',
+      version: 1,
+      level: {
+        id: state.mapId,
+        name: state.mapName
+      },
+      textures: textures,
+      missingTextures: missingTextures,
+      proposedLevelFilename: state.mapId + '.json',
+      proposedLevelTargetFile: 'data/levels/' + state.mapId + '.json'
+    };
+  }
+
+  function renderGameSyncPreview() {
+    if (!dom.gameSyncLevelLabel || !dom.gameSyncTextureList || !dom.gameSyncWarnings) {
+      return;
+    }
+    const manifest = buildGameSyncManifest();
+    state.gameSyncPreviewManifest = manifest;
+
+    dom.gameSyncLevelLabel.textContent = manifest.level.id + ' (' + manifest.level.name + ')';
+    dom.gameSyncUsedCountLabel.textContent = String(manifest.textures.length);
+    dom.gameSyncMissingCountLabel.textContent = String(manifest.missingTextures.length);
+    dom.gameSyncWarnings.textContent = manifest.missingTextures.length
+      ? 'Missing local textures: ' + manifest.missingTextures.join(', ') + '. Future sync would fail for these IDs.'
+      : '';
+
+    dom.gameSyncTextureList.innerHTML = '';
+    if (!manifest.textures.length) {
+      const empty = document.createElement('div');
+      empty.className = 'game-sync-texture-entry';
+      empty.textContent = 'No custom textures are currently used in this level.';
+      dom.gameSyncTextureList.appendChild(empty);
+      return;
+    }
+
+    manifest.textures.forEach(function (entry) {
+      const row = document.createElement('div');
+      row.className = 'game-sync-texture-entry';
+      if (!entry.foundInLocalLibrary) {
+        row.classList.add('missing');
+      }
+      row.innerHTML =
+        '<strong>' + escapeHtml(entry.id) + '</strong><br>' +
+        '<small>Local: ' + escapeHtml(entry.foundInLocalLibrary ? 'found (' + entry.localTextureName + ')' : 'missing') + '</small><br>' +
+        '<small>PNG: ' + escapeHtml(entry.proposedPngFilename) + '</small><br>' +
+        '<small>Path: ' + escapeHtml(entry.proposedEnginePath) + '</small>';
+      dom.gameSyncTextureList.appendChild(row);
+    });
+  }
+
+  function exportGameSyncManifestToFile() {
+    const manifest = buildGameSyncManifest();
+    state.gameSyncPreviewManifest = manifest;
+    downloadJsonFile(manifest, state.mapId + '_game_sync_manifest.json');
+    renderGameSyncPreview();
+    if (manifest.missingTextures.length) {
+      updateStatus('Game sync manifest exported with missing textures: ' + manifest.missingTextures.join(', '), true);
+    } else {
+      updateStatus('Game sync manifest exported.');
+    }
   }
 
   function exportRawMapToFile() {
