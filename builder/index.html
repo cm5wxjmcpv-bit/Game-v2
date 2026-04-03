@@ -113,9 +113,14 @@
           <button id="exportGameSyncManifestBtn" type="button" class="secondary-btn">Export Game Sync Manifest</button>
           <button id="runGameSyncPreflightBtn" type="button" class="secondary-btn">Run Game Sync Preflight</button>
           <button id="prepareGameSyncPackageBtn" type="button" class="secondary-btn">Prepare Game Sync Package</button>
+          <label class="field-label" for="backendDryRunUrlInput">Backend Dry Run URL</label>
+          <input id="backendDryRunUrlInput" type="text" class="text-input" placeholder="https://your-backend.example.com/api/game-sync/dry-run" />
+          <button id="sendGameSyncDryRunBtn" type="button" class="secondary-btn">Send Package to Backend (Dry Run)</button>
         </div>
         <div id="gameSyncPreflightSummary" class="game-sync-preflight-summary">Preflight not run yet.</div>
         <div id="gameSyncPreflightList" class="game-sync-preflight-list"></div>
+        <div id="gameSyncDryRunSummary" class="game-sync-dryrun-summary">Backend dry run not sent yet.</div>
+        <div id="gameSyncDryRunList" class="game-sync-dryrun-list"></div>
       </section>
 
       <div class="status-box">

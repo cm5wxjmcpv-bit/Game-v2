@@ -12,6 +12,9 @@
   const MAX_MAP_SIDE = 200;
   const TEXTURE_EXPORT_ENGINE_DIR = 'assets/textures/starter';
   const GAME_TEXTURE_PACK_PATH = '../data/texturepacks/default-pack.json';
+  const BACKEND_SYNC_DRY_RUN_URL = typeof window !== 'undefined' && typeof window.BUILDER_SYNC_DRY_RUN_URL === 'string'
+    ? window.BUILDER_SYNC_DRY_RUN_URL
+    : '';
   const TEXTURE_COLORS = ['#000000', '#ffffff', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#a855f7', '#06b6d4', null];
   const TEXTURE_SIZES = [16, 32, 64];
   const ENGINE_TILE_IDS = {
@@ -406,6 +409,10 @@
     prepareGameSyncPackageBtn: document.getElementById('prepareGameSyncPackageBtn'),
     gameSyncPreflightSummary: document.getElementById('gameSyncPreflightSummary'),
     gameSyncPreflightList: document.getElementById('gameSyncPreflightList'),
+    backendDryRunUrlInput: document.getElementById('backendDryRunUrlInput'),
+    sendGameSyncDryRunBtn: document.getElementById('sendGameSyncDryRunBtn'),
+    gameSyncDryRunSummary: document.getElementById('gameSyncDryRunSummary'),
+    gameSyncDryRunList: document.getElementById('gameSyncDryRunList'),
     tileLegend: document.getElementById('tileLegend'),
     exportBtn: document.getElementById('exportBtn'),
     exportGameBtn: document.getElementById('exportGameBtn'),
@@ -532,6 +539,8 @@
     gameSyncPreviewManifest: null,
     gameSyncPreflight: null,
     gameSyncPreparedPackage: null,
+    gameSyncDryRunResult: null,
+    gameSyncDryRunInFlight: false,
     selectedItemIndex: -1,
     textureBuilder: {
       size: 16,
@@ -567,12 +576,16 @@
     renderGrid();
     renderGameSyncPreview();
     renderGameSyncPreflight();
+    renderGameSyncDryRunResult();
     bindEvents();
     updateActiveLayerButtons();
     updateActiveToolButtonState();
     dom.mapBrushSizeSelect.value = String(state.mapBrushSize);
     dom.mapBarLengthInput.value = String(state.mapBarLength);
     dom.mapBarThicknessInput.value = String(state.mapBarThickness);
+    if (dom.backendDryRunUrlInput) {
+      dom.backendDryRunUrlInput.value = BACKEND_SYNC_DRY_RUN_URL;
+    }
     updateMapUndoRedoButtons();
     syncMapInputsFromState();
     updateMapLabels();
@@ -1168,6 +1181,9 @@
     }
     if (dom.prepareGameSyncPackageBtn) {
       dom.prepareGameSyncPackageBtn.addEventListener('click', prepareGameSyncPackageToFile);
+    }
+    if (dom.sendGameSyncDryRunBtn) {
+      dom.sendGameSyncDryRunBtn.addEventListener('click', sendGameSyncPackageToBackendDryRun);
     }
 
     dom.importInput.addEventListener('change', function (event) {
@@ -3948,6 +3964,8 @@
     state.gameSyncPreviewManifest = manifest;
     state.gameSyncPreflight = null;
     state.gameSyncPreparedPackage = null;
+    state.gameSyncDryRunResult = null;
+    state.gameSyncDryRunInFlight = false;
 
     dom.gameSyncLevelLabel.textContent = manifest.level.id + ' (' + manifest.level.name + ')';
     dom.gameSyncUsedCountLabel.textContent = String(manifest.textures.length);
@@ -3963,6 +3981,7 @@
       empty.textContent = 'No custom textures are currently used in this level.';
       dom.gameSyncTextureList.appendChild(empty);
       renderGameSyncPreflight();
+      renderGameSyncDryRunResult();
       return;
     }
 
@@ -3980,6 +3999,7 @@
       dom.gameSyncTextureList.appendChild(row);
     });
     renderGameSyncPreflight();
+    renderGameSyncDryRunResult();
   }
 
   function exportGameSyncManifestToFile() {
@@ -4143,6 +4163,7 @@
     });
 
     dom.prepareGameSyncPackageBtn.disabled = !result.ok;
+    renderGameSyncDryRunResult();
   }
 
   function runGameSyncPreflight() {
@@ -4209,6 +4230,203 @@
     state.gameSyncPreparedPackage = packagePayload;
     downloadJsonFile(packagePayload, state.mapId + '_game_sync_package.json');
     updateStatus('Game sync package prepared and exported (upload intentionally deferred).');
+  }
+
+  function validateGameSyncPackageForDryRun(packagePayload) {
+    if (!packagePayload || typeof packagePayload !== 'object') {
+      return 'Package payload is missing.';
+    }
+    if (packagePayload.type !== 'game_sync_package' || packagePayload.version !== 1) {
+      return 'Package payload has invalid type/version.';
+    }
+    if (!packagePayload.levelFile || typeof packagePayload.levelFile !== 'object') {
+      return 'Package payload is missing levelFile.';
+    }
+    if (!Array.isArray(packagePayload.textures)) {
+      return 'Package payload is missing textures array.';
+    }
+    return '';
+  }
+
+  function normalizeGameSyncDryRunResponse(payload) {
+    const errors = [];
+    const warnings = [];
+    const wouldWrite = payload && payload.wouldWrite && typeof payload.wouldWrite === 'object'
+      ? payload.wouldWrite
+      : { levelFile: null, textures: [], texturePackPatch: [] };
+
+    if (!payload || typeof payload !== 'object') {
+      return {
+        ok: false,
+        mode: 'dry_run',
+        validated: false,
+        errors: ['Backend response is not a JSON object.'],
+        warnings: [],
+        wouldWrite: wouldWrite
+      };
+    }
+
+    if (payload.mode !== 'dry_run') {
+      warnings.push('Backend mode is "' + String(payload.mode) + '" instead of "dry_run".');
+    }
+    if (!Array.isArray(payload.errors)) {
+      errors.push('Backend response is missing an errors array.');
+    }
+    if (!Array.isArray(payload.warnings)) {
+      warnings.push('Backend response is missing a warnings array.');
+    }
+
+    return {
+      ok: !!payload.ok,
+      mode: typeof payload.mode === 'string' ? payload.mode : 'dry_run',
+      validated: !!payload.validated,
+      errors: (Array.isArray(payload.errors) ? payload.errors : []).concat(errors),
+      warnings: (Array.isArray(payload.warnings) ? payload.warnings : []).concat(warnings),
+      wouldWrite: wouldWrite
+    };
+  }
+
+  function renderGameSyncDryRunResult() {
+    if (!dom.gameSyncDryRunSummary || !dom.gameSyncDryRunList || !dom.sendGameSyncDryRunBtn) {
+      return;
+    }
+    const result = state.gameSyncDryRunResult;
+    dom.gameSyncDryRunSummary.classList.remove('ok', 'warn', 'error');
+    dom.gameSyncDryRunList.innerHTML = '';
+
+    const canSend = !!(state.gameSyncPreflight && state.gameSyncPreflight.ok && !state.gameSyncDryRunInFlight);
+    dom.sendGameSyncDryRunBtn.disabled = !canSend;
+
+    if (state.gameSyncDryRunInFlight) {
+      dom.gameSyncDryRunSummary.classList.add('warn');
+      dom.gameSyncDryRunSummary.textContent = 'Sending package to backend dry-run endpoint...';
+      return;
+    }
+
+    if (!result) {
+      dom.gameSyncDryRunSummary.textContent = 'Backend dry run not sent yet.';
+      return;
+    }
+
+    if (result.ok && result.validated && result.errors.length === 0) {
+      dom.gameSyncDryRunSummary.classList.add(result.warnings.length ? 'warn' : 'ok');
+      dom.gameSyncDryRunSummary.textContent = 'Backend dry run passed (' + result.mode + ').';
+    } else {
+      dom.gameSyncDryRunSummary.classList.add('error');
+      dom.gameSyncDryRunSummary.textContent = 'Backend dry run failed (' + result.mode + ').';
+    }
+
+    result.errors.forEach(function (entry) {
+      const row = document.createElement('div');
+      row.className = 'game-sync-preflight-entry error';
+      row.textContent = 'ERROR: ' + entry;
+      dom.gameSyncDryRunList.appendChild(row);
+    });
+    result.warnings.forEach(function (entry) {
+      const row = document.createElement('div');
+      row.className = 'game-sync-preflight-entry warn';
+      row.textContent = 'WARNING: ' + entry;
+      dom.gameSyncDryRunList.appendChild(row);
+    });
+
+    if (result.wouldWrite && result.wouldWrite.levelFile) {
+      const levelRow = document.createElement('div');
+      levelRow.className = 'game-sync-preflight-entry ok';
+      levelRow.textContent = 'Would write level file: ' + String(result.wouldWrite.levelFile.targetPath || '(unknown)');
+      dom.gameSyncDryRunList.appendChild(levelRow);
+    }
+    const textureWrites = result.wouldWrite && Array.isArray(result.wouldWrite.textures) ? result.wouldWrite.textures.length : 0;
+    const textureRow = document.createElement('div');
+    textureRow.className = 'game-sync-preflight-entry ok';
+    textureRow.textContent = 'Would write texture files: ' + String(textureWrites);
+    dom.gameSyncDryRunList.appendChild(textureRow);
+  }
+
+  function sendGameSyncPackageToBackendDryRun() {
+    if (state.gameSyncDryRunInFlight) {
+      return;
+    }
+
+    const preflight = buildGameSyncPreflight();
+    state.gameSyncPreflight = preflight;
+    renderGameSyncPreflight();
+    if (!preflight.ok) {
+      updateStatus('Cannot send package: preflight failed.', true);
+      renderGameSyncDryRunResult();
+      return;
+    }
+
+    const packagePayload = buildGameSyncPackage(preflight);
+    const packageError = validateGameSyncPackageForDryRun(packagePayload);
+    if (packageError) {
+      state.gameSyncDryRunResult = {
+        ok: false,
+        mode: 'dry_run',
+        validated: false,
+        errors: [packageError],
+        warnings: [],
+        wouldWrite: { levelFile: null, textures: [], texturePackPatch: [] }
+      };
+      renderGameSyncDryRunResult();
+      updateStatus('Cannot send package: invalid package payload.', true);
+      return;
+    }
+
+    const endpointUrl = dom.backendDryRunUrlInput ? String(dom.backendDryRunUrlInput.value || '').trim() : '';
+    if (!endpointUrl) {
+      state.gameSyncDryRunResult = {
+        ok: false,
+        mode: 'dry_run',
+        validated: false,
+        errors: ['Backend Dry Run URL is not configured.'],
+        warnings: [],
+        wouldWrite: { levelFile: null, textures: [], texturePackPatch: [] }
+      };
+      renderGameSyncDryRunResult();
+      updateStatus('Cannot send package: configure Backend Dry Run URL first.', true);
+      return;
+    }
+
+    state.gameSyncPreparedPackage = packagePayload;
+    state.gameSyncDryRunInFlight = true;
+    renderGameSyncDryRunResult();
+
+    fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(packagePayload)
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+        return response.json();
+      })
+      .then(function (responsePayload) {
+        state.gameSyncDryRunResult = normalizeGameSyncDryRunResponse(responsePayload);
+        if (state.gameSyncDryRunResult.ok && state.gameSyncDryRunResult.validated && !state.gameSyncDryRunResult.errors.length) {
+          updateStatus('Backend dry run completed successfully.');
+        } else {
+          updateStatus('Backend dry run returned validation issues.', true);
+        }
+      })
+      .catch(function (error) {
+        state.gameSyncDryRunResult = {
+          ok: false,
+          mode: 'dry_run',
+          validated: false,
+          errors: ['Request failed: ' + (error && error.message ? error.message : 'unknown error')],
+          warnings: [],
+          wouldWrite: { levelFile: null, textures: [], texturePackPatch: [] }
+        };
+        updateStatus('Backend dry run request failed.', true);
+      })
+      .finally(function () {
+        state.gameSyncDryRunInFlight = false;
+        renderGameSyncDryRunResult();
+      });
   }
 
   function exportRawMapToFile() {
