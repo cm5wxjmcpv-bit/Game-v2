@@ -210,6 +210,62 @@ button:hover,
   margin-bottom: 1rem;
 }
 
+.game-texture-pack-panel {
+  border: 1px solid #c7cfdd;
+  border-radius: 6px;
+  background: #f9fbff;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.game-texture-pack-panel h3 {
+  margin: 0 0 0.45rem 0;
+  font-size: 0.95rem;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.84rem;
+  color: #2f3f57;
+}
+
+.game-texture-pack-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.game-texture-pack-entry {
+  border: 1px solid #c6cfdd;
+  border-radius: 6px;
+  padding: 0.4rem;
+  background: #fff;
+  text-align: left;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+}
+
+.game-texture-pack-entry strong,
+.game-texture-pack-entry small {
+  grid-column: 2;
+}
+
+.game-texture-pack-entry.active {
+  outline: 2px solid #2563eb;
+  border-color: #2563eb;
+}
+
+.game-texture-pack-entry small {
+  color: #51627a;
+  display: block;
+}
+
 .secondary-btn {
   background: #f7f8fc;
 }
