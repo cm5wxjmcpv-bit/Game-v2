@@ -109,7 +109,13 @@
         <p><strong>Missing in Local Library:</strong> <span id="gameSyncMissingCountLabel">0</span></p>
         <div id="gameSyncWarnings" class="game-sync-warnings"></div>
         <div id="gameSyncTextureList" class="game-sync-texture-list"></div>
-        <button id="exportGameSyncManifestBtn" type="button" class="secondary-btn">Export Game Sync Manifest</button>
+        <div class="game-sync-actions">
+          <button id="exportGameSyncManifestBtn" type="button" class="secondary-btn">Export Game Sync Manifest</button>
+          <button id="runGameSyncPreflightBtn" type="button" class="secondary-btn">Run Game Sync Preflight</button>
+          <button id="prepareGameSyncPackageBtn" type="button" class="secondary-btn">Prepare Game Sync Package</button>
+        </div>
+        <div id="gameSyncPreflightSummary" class="game-sync-preflight-summary">Preflight not run yet.</div>
+        <div id="gameSyncPreflightList" class="game-sync-preflight-list"></div>
       </section>
 
       <div class="status-box">

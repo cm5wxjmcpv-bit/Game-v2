@@ -402,6 +402,10 @@
     gameSyncWarnings: document.getElementById('gameSyncWarnings'),
     gameSyncTextureList: document.getElementById('gameSyncTextureList'),
     exportGameSyncManifestBtn: document.getElementById('exportGameSyncManifestBtn'),
+    runGameSyncPreflightBtn: document.getElementById('runGameSyncPreflightBtn'),
+    prepareGameSyncPackageBtn: document.getElementById('prepareGameSyncPackageBtn'),
+    gameSyncPreflightSummary: document.getElementById('gameSyncPreflightSummary'),
+    gameSyncPreflightList: document.getElementById('gameSyncPreflightList'),
     tileLegend: document.getElementById('tileLegend'),
     exportBtn: document.getElementById('exportBtn'),
     exportGameBtn: document.getElementById('exportGameBtn'),
@@ -526,6 +530,8 @@
       lastWarningKey: ''
     },
     gameSyncPreviewManifest: null,
+    gameSyncPreflight: null,
+    gameSyncPreparedPackage: null,
     selectedItemIndex: -1,
     textureBuilder: {
       size: 16,
@@ -560,6 +566,7 @@
     renderLegend();
     renderGrid();
     renderGameSyncPreview();
+    renderGameSyncPreflight();
     bindEvents();
     updateActiveLayerButtons();
     updateActiveToolButtonState();
@@ -1155,6 +1162,12 @@
     dom.exportGameBtn.addEventListener('click', exportEngineMapToFile);
     if (dom.exportGameSyncManifestBtn) {
       dom.exportGameSyncManifestBtn.addEventListener('click', exportGameSyncManifestToFile);
+    }
+    if (dom.runGameSyncPreflightBtn) {
+      dom.runGameSyncPreflightBtn.addEventListener('click', runGameSyncPreflight);
+    }
+    if (dom.prepareGameSyncPackageBtn) {
+      dom.prepareGameSyncPackageBtn.addEventListener('click', prepareGameSyncPackageToFile);
     }
 
     dom.importInput.addEventListener('change', function (event) {
@@ -3933,6 +3946,8 @@
     }
     const manifest = buildGameSyncManifest();
     state.gameSyncPreviewManifest = manifest;
+    state.gameSyncPreflight = null;
+    state.gameSyncPreparedPackage = null;
 
     dom.gameSyncLevelLabel.textContent = manifest.level.id + ' (' + manifest.level.name + ')';
     dom.gameSyncUsedCountLabel.textContent = String(manifest.textures.length);
@@ -3947,6 +3962,7 @@
       empty.className = 'game-sync-texture-entry';
       empty.textContent = 'No custom textures are currently used in this level.';
       dom.gameSyncTextureList.appendChild(empty);
+      renderGameSyncPreflight();
       return;
     }
 
@@ -3963,6 +3979,7 @@
         '<small>Path: ' + escapeHtml(entry.proposedEnginePath) + '</small>';
       dom.gameSyncTextureList.appendChild(row);
     });
+    renderGameSyncPreflight();
   }
 
   function exportGameSyncManifestToFile() {
@@ -3975,6 +3992,223 @@
     } else {
       updateStatus('Game sync manifest exported.');
     }
+  }
+
+  function buildGameSyncPreflight() {
+    const manifest = buildGameSyncManifest();
+    const errors = [];
+    const warnings = [];
+    const textureChecks = [];
+    const levelCheck = {
+      proposedLevelFilename: manifest.proposedLevelFilename,
+      targetPath: manifest.proposedLevelTargetFile,
+      valid: true,
+      issues: []
+    };
+
+    if (manifest.missingTextures.length) {
+      errors.push('Missing local textures: ' + manifest.missingTextures.join(', '));
+    }
+
+    const normalizedMapId = normalizeMapId(state.mapId);
+    if (!state.mapId || !state.mapId.trim()) {
+      levelCheck.valid = false;
+      levelCheck.issues.push('Map ID is empty.');
+      errors.push('Map ID is empty.');
+    } else if (normalizedMapId !== state.mapId) {
+      levelCheck.valid = false;
+      levelCheck.issues.push('Map ID should be normalized to "' + normalizedMapId + '".');
+      errors.push('Map ID is not in safe normalized format.');
+    }
+
+    if (manifest.proposedLevelTargetFile !== 'data/levels/' + state.mapId + '.json') {
+      levelCheck.valid = false;
+      levelCheck.issues.push('Proposed level target path is invalid.');
+      errors.push('Proposed level target path is invalid.');
+    }
+
+    const packEntries = state.gameTexturePack.loaded ? state.gameTexturePack.textures : [];
+    if (!state.gameTexturePack.loaded) {
+      warnings.push('Game texture pack is not loaded; collision checks may be incomplete.');
+    }
+
+    manifest.textures.forEach(function (entry) {
+      const issues = [];
+      let status = 'safe_new_entry';
+
+      if (!entry.id || !String(entry.id).trim()) {
+        status = 'conflict';
+        issues.push('Texture ID is empty.');
+      }
+      if (!entry.proposedPngFilename || sanitizeTextureFilename(entry.id) + '.png' !== entry.proposedPngFilename) {
+        status = 'conflict';
+        issues.push('PNG filename is not safely normalized.');
+      }
+      if (!entry.proposedEnginePath || entry.proposedEnginePath.indexOf(TEXTURE_EXPORT_ENGINE_DIR + '/') !== 0) {
+        status = 'conflict';
+        issues.push('Engine path is outside allowed texture export directory.');
+      }
+
+      const byId = packEntries.find(function (packEntry) {
+        return packEntry.id === entry.id;
+      }) || null;
+      const byPath = packEntries.find(function (packEntry) {
+        return packEntry.image === entry.proposedEnginePath;
+      }) || null;
+
+      if (byId && byId.image === entry.proposedEnginePath) {
+        status = 'existing_matching_entry';
+      } else if (byId && byId.image !== entry.proposedEnginePath) {
+        status = 'conflicting_id';
+        issues.push('Game texture pack already has id "' + entry.id + '" with different image path "' + (byId.image || '') + '".');
+      } else if (byPath && byPath.id !== entry.id) {
+        status = 'conflicting_path';
+        issues.push('Game texture pack path "' + entry.proposedEnginePath + '" is already used by id "' + byPath.id + '".');
+      }
+
+      if (issues.length) {
+        if (status.indexOf('conflicting') === 0 || status === 'conflict') {
+          errors.push('Texture "' + entry.id + '": ' + issues.join(' '));
+        } else {
+          warnings.push('Texture "' + entry.id + '": ' + issues.join(' '));
+        }
+      }
+
+      textureChecks.push({
+        id: entry.id,
+        status: status,
+        foundInLocalLibrary: entry.foundInLocalLibrary,
+        proposedPngFilename: entry.proposedPngFilename,
+        proposedEnginePath: entry.proposedEnginePath,
+        issues: issues
+      });
+    });
+
+    const ok = errors.length === 0;
+    return {
+      type: 'game_sync_preflight',
+      version: 1,
+      ok: ok,
+      errors: errors,
+      warnings: warnings,
+      textureChecks: textureChecks,
+      levelCheck: levelCheck
+    };
+  }
+
+  function renderGameSyncPreflight() {
+    if (!dom.gameSyncPreflightSummary || !dom.gameSyncPreflightList || !dom.prepareGameSyncPackageBtn) {
+      return;
+    }
+    const result = state.gameSyncPreflight;
+    dom.gameSyncPreflightSummary.classList.remove('ok', 'warn', 'error');
+    dom.gameSyncPreflightList.innerHTML = '';
+
+    if (!result) {
+      dom.gameSyncPreflightSummary.textContent = 'Preflight not run yet.';
+      dom.prepareGameSyncPackageBtn.disabled = true;
+      return;
+    }
+
+    if (result.ok && !result.warnings.length) {
+      dom.gameSyncPreflightSummary.classList.add('ok');
+      dom.gameSyncPreflightSummary.textContent = 'Preflight passed. Package preparation is allowed.';
+    } else if (result.ok) {
+      dom.gameSyncPreflightSummary.classList.add('warn');
+      dom.gameSyncPreflightSummary.textContent = 'Preflight passed with warnings. Package preparation is allowed.';
+    } else {
+      dom.gameSyncPreflightSummary.classList.add('error');
+      dom.gameSyncPreflightSummary.textContent = 'Preflight failed. Fix errors before package preparation.';
+    }
+
+    result.errors.forEach(function (item) {
+      const row = document.createElement('div');
+      row.className = 'game-sync-preflight-entry error';
+      row.textContent = 'ERROR: ' + item;
+      dom.gameSyncPreflightList.appendChild(row);
+    });
+    result.warnings.forEach(function (item) {
+      const row = document.createElement('div');
+      row.className = 'game-sync-preflight-entry warn';
+      row.textContent = 'WARNING: ' + item;
+      dom.gameSyncPreflightList.appendChild(row);
+    });
+    result.textureChecks.forEach(function (check) {
+      const row = document.createElement('div');
+      const rowClass = check.status.indexOf('conflicting') === 0 || check.status === 'conflict' ? 'error'
+        : check.status === 'existing_matching_entry' ? 'warn' : 'ok';
+      row.className = 'game-sync-preflight-entry ' + rowClass;
+      row.textContent = check.id + ': ' + check.status;
+      dom.gameSyncPreflightList.appendChild(row);
+    });
+
+    dom.prepareGameSyncPackageBtn.disabled = !result.ok;
+  }
+
+  function runGameSyncPreflight() {
+    const result = buildGameSyncPreflight();
+    state.gameSyncPreflight = result;
+    renderGameSyncPreflight();
+    if (result.ok) {
+      updateStatus('Game sync preflight passed' + (result.warnings.length ? ' with warnings.' : '.'));
+    } else {
+      updateStatus('Game sync preflight failed. Review errors in Game Sync Preview.', true);
+    }
+  }
+
+  function buildGameSyncPackage(preflight) {
+    const manifest = buildGameSyncManifest();
+    const engineLevelPayload = serializeEngineMap();
+    const textures = manifest.textures.map(function (entry) {
+      const check = preflight.textureChecks.find(function (candidate) {
+        return candidate.id === entry.id;
+      }) || null;
+      return {
+        id: entry.id,
+        pngFilename: entry.proposedPngFilename,
+        targetPath: entry.proposedEnginePath,
+        localTextureAvailable: entry.foundInLocalLibrary,
+        entryPatch: {
+          id: entry.id,
+          image: entry.proposedEnginePath
+        },
+        preflightStatus: check ? check.status : 'unknown'
+      };
+    });
+
+    return {
+      type: 'game_sync_package',
+      version: 1,
+      uploadDeferred: true,
+      uploadDeferredReason: 'Direct repository upload is intentionally deferred in this client-side builder step.',
+      levelFile: {
+        filename: manifest.proposedLevelFilename,
+        targetPath: manifest.proposedLevelTargetFile,
+        payload: engineLevelPayload
+      },
+      textures: textures,
+      texturePackPatchTarget: 'data/texturepacks/default-pack.json',
+      texturePackAdditions: textures.map(function (texture) {
+        return texture.entryPatch;
+      }),
+      manifest: manifest,
+      preflight: preflight
+    };
+  }
+
+  function prepareGameSyncPackageToFile() {
+    const preflight = buildGameSyncPreflight();
+    state.gameSyncPreflight = preflight;
+    renderGameSyncPreflight();
+    if (!preflight.ok) {
+      updateStatus('Cannot prepare game sync package: preflight failed.', true);
+      return;
+    }
+
+    const packagePayload = buildGameSyncPackage(preflight);
+    state.gameSyncPreparedPackage = packagePayload;
+    downloadJsonFile(packagePayload, state.mapId + '_game_sync_package.json');
+    updateStatus('Game sync package prepared and exported (upload intentionally deferred).');
   }
 
   function exportRawMapToFile() {
