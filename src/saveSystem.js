@@ -1,6 +1,6 @@
 import { getActiveGameId } from './gameManifest.js';
 
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 const DEFAULT_SLOT = 1;
 const LEGACY_SAVE_KEYS = ['pixel_engine_save_v2', 'pixel_engine_save_v1'];
 
@@ -33,7 +33,8 @@ export function loadGame(slot = DEFAULT_SLOT) {
 }
 
 function validateSnapshot(snapshot) {
-  return Boolean(snapshot?.player && typeof snapshot.currentTownId === 'string');
+  if (!snapshot?.player) return false;
+  return typeof snapshot.currentSceneId === 'string' || typeof snapshot.currentTownId === 'string';
 }
 
 function withSaveMetadata(payload, slot) {

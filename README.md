@@ -2,7 +2,7 @@
 
 A modular 2D pixel-art browser **engine** built with plain HTML, CSS, and JavaScript.
 
-The current RPG is retained as the first engine test package, `sample-rpg`. The engine now selects a game through a manifest instead of treating the repository's RPG content as the engine itself.
+The current RPG is retained as the first engine test package, `sample-rpg`. The engine selects a game through a manifest instead of treating the repository's RPG content as the engine itself.
 
 ## Run locally
 
@@ -12,14 +12,15 @@ Because the engine loads JSON via `fetch`, run from a local static server:
 python -m http.server 8080
 ```
 
-Then open either package:
+Then open a package:
 
 ```text
 http://localhost:8080/?game=sample-rpg
 http://localhost:8080/?game=sandbox-demo
+http://localhost:8080/?game=scene-demo
 ```
 
-The `game` query parameter selects `games/<game-id>/game.json`. When it is omitted or invalid, the engine loads `sample-rpg`.
+The `game` query parameter selects `games/<game-id>/game.json`. When it is omitted or unsafe, the engine loads `sample-rpg`.
 
 ## Game packages
 
@@ -37,15 +38,29 @@ The manifest provides:
 - paths to world, map, item, enemy, shop, encounter, tile, and texture data
 - the content root used to resolve those paths
 
-The first package uses:
+The current packages are:
 
-```text
-games/sample-rpg/game.json
-```
+- `sample-rpg`: the existing RPG content retained through backward-compatible paths
+- `sandbox-demo`: an independent package using the legacy town schema
+- `scene-demo`: a package that starts in a generalized neutral scene
 
-For transition safety, `sample-rpg` currently points to the existing `/data` content. This lets the manifest loader and game-specific save system be verified before moving or deleting working content.
+For transition safety, `sample-rpg` currently points to the existing `/data` content. This lets the generalized runtime be verified before moving or deleting working content.
 
-A second independent package is included at `games/sandbox-demo/`. It contains its own world, map, tiles, textures, class, and item data and proves that another game can load without modifying engine code.
+## Generalized scenes
+
+The loader creates one scene registry from:
+
+- legacy towns
+- legacy levels
+- generic scenes listed in `world.scenes`
+
+Legacy towns are normalized as `safe` scenes. Legacy levels are normalized as `adventure` scenes. Generic maps can explicitly use `safe`, `adventure`, or `neutral` mode through their `scene` metadata.
+
+The runtime uses `loadScene()` internally. Existing `loadTown()` and `loadLevel()` calls remain supported as compatibility wrappers.
+
+Game manifests and individual scenes can configure movement, collision, inventory, equipment, shops, combat, random encounters, and progression. Movement, collision, shops, combat, random encounters, and progression are currently enforced by the runtime. Player/entity generalization is still required before inventory and equipment assumptions can be fully removed.
+
+See `games/README.md` for the complete package, scene, and system contracts.
 
 ## Content layout
 
@@ -66,6 +81,7 @@ The current sample package resolves these existing data sources:
 Core engine logic is split in `/src` so each system can evolve independently:
 
 - game package selection: `gameManifest.js`
+- scene and system contracts: `sceneRuntime.js`, `systemConfig.js`
 - loop/bootstrap: `main.js`, `game.js`, `dataLoader.js`
 - render/input/state: `renderer.js`, `camera.js`, `miniMap.js`, `input.js`, `stateManager.js`
 - gameplay systems: `combat.js`, `enemyAI.js`, `collision.js`, `drops.js`, `shops.js`
@@ -75,32 +91,34 @@ Core engine logic is split in `/src` so each system can evolve independently:
 
 ## Save isolation
 
-Browser saves are now namespaced by game ID and slot:
+Browser saves are namespaced by game ID and slot:
 
 ```text
 pixel_engine_save_<game-id>_slot_1
 ```
 
-Legacy `pixel_engine_save_v1` and `pixel_engine_save_v2` saves remain readable by `sample-rpg`.
+Scene-aware saves include the current scene and last safe scene while retaining the legacy `currentTownId` field. Legacy `pixel_engine_save_v1` and `pixel_engine_save_v2` saves remain readable by `sample-rpg`.
 
 ## Automated audit
 
-Install the audit dependency and run the full data, source, and browser checks:
+Install the audit dependency and run the full data, contract, unit, and browser checks:
 
 ```bash
 npm install
 npm run audit
 ```
 
-GitHub Actions runs the same audit for pull requests into `main`. The audit validates package manifests, JSON and map references, assets, JavaScript syntax, HTML references, both game packages, browser saves, the builder, and the standalone viewer.
+GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scene contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, the builder, and the standalone viewer.
 
 ## Builder
 
-The builder remains available under `/builder/`. A later engine milestone will make the builder select and edit a specific game package instead of assuming the sample RPG paths.
+The builder remains available under `/builder/`. A later milestone will make the builder select and edit a specific game package and scene instead of assuming the sample RPG paths.
 
-## Future hooks already present
+## Remaining generalization work
 
-- quests, NPCs, dialogue, and cutscene placeholder paths through map objects and the player quest log
-- expandable progression through XP, level hooks, and spendable-stat hooks
-- cloud-save adapter stub in `saveSystem.js`
-- AI behavior tags with boss-ready behavior wiring
+- component-based entities and interactions
+- generic player definitions and package-controlled sprites
+- complete inventory and equipment removal for games that disable those systems
+- builder game-project and scene selection
+- moving the original RPG content fully under `games/sample-rpg/`
+- formal save migration functions for future schema changes

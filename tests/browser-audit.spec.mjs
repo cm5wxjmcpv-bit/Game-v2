@@ -81,15 +81,30 @@ test('sandbox-demo loads independently and uses an isolated save key', async ({ 
   monitor.assertClean('sandbox-demo');
 });
 
+test('generic scene package starts in the neutral scene runtime state', async ({ page }) => {
+  const monitor = monitorPage(page);
+  await page.goto('/?game=scene-demo');
+  await startFirstClass(page);
+
+  await expect(page.locator('#context-panel')).toContainText('State: scene');
+  const saveKeys = await page.evaluate(() => Object.keys(localStorage));
+  expect(saveKeys).toContain('pixel_engine_save_scene-demo_slot_1');
+
+  monitor.assertClean('scene-demo');
+});
+
 test('game saves remain isolated in the same browser origin', async ({ page }) => {
   await page.goto('/?game=sample-rpg');
   await startFirstClass(page);
   await page.goto('/?game=sandbox-demo');
   await startFirstClass(page);
+  await page.goto('/?game=scene-demo');
+  await startFirstClass(page);
 
   const saveKeys = await page.evaluate(() => Object.keys(localStorage).sort());
   expect(saveKeys).toContain('pixel_engine_save_sample-rpg_slot_1');
   expect(saveKeys).toContain('pixel_engine_save_sandbox-demo_slot_1');
+  expect(saveKeys).toContain('pixel_engine_save_scene-demo_slot_1');
 });
 
 test('unsafe game IDs fall back to the default package', async ({ page }) => {

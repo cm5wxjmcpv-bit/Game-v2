@@ -1,0 +1,20 @@
+{
+  "id": "fallback_room",
+  "name": "Fallback Room",
+  "width": 4,
+  "height": 4,
+  "tiles": [
+    ["scene_wall", "scene_wall", "scene_wall", "scene_wall"],
+    ["scene_wall", "scene_floor", "scene_floor", "scene_wall"],
+    ["scene_wall", "scene_floor", "scene_floor", "scene_wall"],
+    ["scene_wall", "scene_wall", "scene_wall", "scene_wall"]
+  ],
+  "objects": {
+    "portals": [],
+    "shops": [],
+    "fountains": [],
+    "enemySpawns": [],
+    "battleTriggers": []
+  },
+  "spawn": { "x": 1, "y": 1 }
+}

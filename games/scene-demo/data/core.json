@@ -1,0 +1,40 @@
+{
+  "tiles": [
+    { "id": "scene_floor", "walkable": true, "texture": "scene_floor", "minimapColor": "#64748b" },
+    { "id": "scene_wall", "walkable": false, "texture": "scene_wall", "minimapColor": "#1e293b" }
+  ],
+  "effects": [],
+  "textures": [
+    { "id": "scene_floor", "color": "#64748b" },
+    { "id": "scene_wall", "color": "#1e293b" }
+  ],
+  "classes": [
+    {
+      "id": "scene_actor",
+      "name": "Scene Actor",
+      "stats": { "maxHp": 10, "attack": 1, "defense": 1, "agility": 1 },
+      "growth": { "maxHp": 0, "attack": 0, "defense": 0, "agility": 0 },
+      "startingGear": { "weapon": "scene_tool", "armor": null },
+      "movement": { "base": 3 },
+      "bagSlots": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "scene_tool",
+      "name": "Scene Tool",
+      "category": "weapons",
+      "equipSlot": "weapon",
+      "power": 0,
+      "attackRange": 1,
+      "cooldown": 1,
+      "mods": {},
+      "baseValue": 0
+    }
+  ],
+  "enemies": [],
+  "shops": [],
+  "unlocks": {},
+  "encounters": [],
+  "tables": []
+}
