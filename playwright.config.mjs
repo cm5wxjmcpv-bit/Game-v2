@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const hardeningMatch = '**/site-hardening.spec.mjs';
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.mjs',
@@ -19,6 +21,21 @@ export default defineConfig({
     {
       name: 'chromium-desktop',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium-mobile',
+      testMatch: hardeningMatch,
+      use: { ...devices['iPhone 13'] },
+    },
+    {
+      name: 'firefox-desktop',
+      testMatch: hardeningMatch,
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit-mobile',
+      testMatch: hardeningMatch,
+      use: { ...devices['iPhone 13'], browserName: 'webkit' },
     },
   ],
   webServer: {
