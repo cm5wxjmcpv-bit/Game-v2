@@ -7,6 +7,7 @@ import {
   createMapBridgeHandoff,
 } from './map-bridge-model.js';
 import './workspace-publish-ui.js';
+import './workspace-object-ui.js';
 
 const publishStyles = document.createElement('link');
 publishStyles.rel = 'stylesheet';
