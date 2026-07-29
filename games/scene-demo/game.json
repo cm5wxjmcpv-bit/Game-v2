@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "scene-demo",
+  "name": "Generic Scene Demo",
+  "version": "0.1.0",
+  "engineVersion": "0.2.0",
+  "description": "A minimal package that starts in a neutral generic scene and verifies runtime system switches.",
+  "contentRoot": "./",
+  "startScene": {
+    "type": "map",
+    "id": "scene_lab"
+  },
+  "systems": {
+    "movement": true,
+    "collision": false,
+    "inventory": false,
+    "equipment": false,
+    "shops": false,
+    "combat": false,
+    "randomEncounters": false,
+    "progression": false
+  },
+  "data": {
+    "tiles": "data/core.json",
+    "tileEffects": "data/core.json",
+    "texturePack": "data/core.json",
+    "world": "data/world.json",
+    "classes": "data/core.json",
+    "items": "data/core.json",
+    "enemies": "data/core.json",
+    "shops": "data/core.json",
+    "progression": "data/core.json",
+    "encounters": "data/core.json",
+    "encounterTables": "data/core.json",
+    "townsDirectory": "data/towns",
+    "levelsDirectory": "data/levels",
+    "scenesDirectory": "data/scenes"
+  }
+}
