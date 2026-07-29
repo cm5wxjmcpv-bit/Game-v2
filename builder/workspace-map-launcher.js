@@ -18,6 +18,13 @@ consumeReturnedMap();
 document.addEventListener('DOMContentLoaded', () => {
   installMapEditorButton();
   showPendingNotice();
+  import('./workspace-object-ui.js').catch((error) => {
+    const message = document.getElementById('workspaceMessage');
+    if (message) {
+      message.textContent = `Scene object editor could not load: ${error.message}`;
+      message.classList.add('error');
+    }
+  });
 });
 
 function readJson(key) {

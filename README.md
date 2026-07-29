@@ -129,7 +129,7 @@ npm install
 npm run audit
 ```
 
-GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, the builder package catalog, workspace/map-editor bridge and controlled-publishing contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, the focused map bridge, the mocked draft-PR workflow, and the standalone viewer.
+GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, legacy scene-object editing, the builder package catalog, workspace/map-editor bridge and controlled-publishing contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, the focused map bridge, the mocked draft-PR workflow, and the standalone viewer.
 
 ## Builder
 
@@ -159,6 +159,20 @@ From the workspace, select a scene and choose **Edit Tiles & Spawn**. A focused 
 
 Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, and unknown metadata are preserved. A resize is rejected when preserved content would fall outside the new bounds.
 
+### Visual legacy scene objects
+
+The workspace **Scene Objects** tab edits the object arrays retained for backward compatibility:
+
+- portals
+- shops
+- fountains
+- enemy spawns
+- battle triggers
+
+Select a scene and object type, choose an existing object or create a new one, then click the scene preview to place it. Typed fields cover the known runtime properties, while **Additional JSON** preserves package-specific fields not represented by the form. The editor validates coordinates, required IDs or destinations, and battle-trigger bounds. It does not add synthetic IDs to existing object arrays.
+
+Object changes are merged into the same package-specific browser draft used by component entities and actors. Scene exports, workspace bundles, map-editor handoffs, and Publish plans therefore receive the current object arrays without replacing unknown object groups or metadata.
+
 ### Controlled draft-PR publishing
 
 The workspace **Publish** tab can send reviewed actor and scene changes to GitHub without writing directly to `main`.
@@ -180,7 +194,6 @@ Current publishing limits:
 
 ## Remaining generalization work
 
-- visual editing of legacy portals, shops, fountains, enemies, and battle triggers from the package workspace
 - adding package tile types that are not already present in a selected scene
 - automatic creation of new game package directory structures
 - conversion of legacy portals, shops, fountains, and enemy spawns into optional generic components
