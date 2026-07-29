@@ -35,16 +35,16 @@ The manifest provides:
 - game identity and versions
 - starting scene metadata
 - enabled or configured systems
-- paths to world, map, item, enemy, shop, encounter, tile, and texture data
+- content paths for scenes, actors, items, enemies, shops, encounters, tiles, and textures
 - the content root used to resolve those paths
 
 The current packages are:
 
 - `sample-rpg`: the existing RPG content retained through backward-compatible paths
 - `sandbox-demo`: an independent package using the legacy town schema
-- `scene-demo`: a package that starts in a generalized neutral scene
+- `scene-demo`: a package using a neutral scene, a direct actor, and component entities
 
-For transition safety, `sample-rpg` currently points to the existing `/data` content. This lets the generalized runtime be verified before moving or deleting working content.
+For transition safety, `sample-rpg` currently points to the existing `/data` content. This lets each generalized runtime layer be verified before moving or deleting working content.
 
 ## Generalized scenes
 
@@ -58,9 +58,24 @@ Legacy towns are normalized as `safe` scenes. Legacy levels are normalized as `a
 
 The runtime uses `loadScene()` internally. Existing `loadTown()` and `loadLevel()` calls remain supported as compatibility wrappers.
 
-Game manifests and individual scenes can configure movement, collision, inventory, equipment, shops, combat, random encounters, and progression. Movement, collision, shops, combat, random encounters, and progression are currently enforced by the runtime. Player/entity generalization is still required before inventory and equipment assumptions can be fully removed.
+## Actors and entities
 
-See `games/README.md` for the complete package, scene, and system contracts.
+The application selects package actors rather than directly constructing a player from class fields.
+
+- Existing classes automatically normalize into actors.
+- A package can provide direct actor definitions with component-controlled movement, health, wallet, inventory, equipment, progression, sprites, and fallback visuals.
+- Direct actors can replace converted legacy actors by using the same ID.
+- Legacy saves remain supported through `classId` lookup fallback.
+
+Scenes can also contain component entities alongside the existing object arrays. The current entity components support rendering, persistent message or scene interactions, and solid collision.
+
+The application uses `PackageGame` and `PackageRenderer` subclasses. The previously audited `Game` and `Renderer` classes remain unchanged as a compatibility and rollback layer.
+
+See `games/README.md` for the complete package, scene, actor, entity, and system contracts.
+
+## Runtime systems
+
+Game manifests and individual scenes can configure movement, collision, inventory, equipment, shops, combat, random encounters, and progression. Movement, collision, shops, combat, random encounters, and progression are enforced by the runtime.
 
 ## Content layout
 
@@ -71,7 +86,7 @@ The current sample package resolves these existing data sources:
 - `data/items/items.json` → weapons, armor, consumables, materials, accessories, key items
 - `data/enemies/enemies.json` → enemy stats, AI behavior, aggro/leash/patrol ranges, drop tables
 - `data/shops/shops.json` → explicit stock, buy/sell prices, stock limits, shop type
-- `data/classes/classes.json` → class stats, starting gear, growth, movement, bag slots
+- `data/classes/classes.json` → legacy actor input during the compatibility transition
 - `data/tiles/tiles.json` + `data/tiles/effects.json` → tile definitions and tile effect rules
 - `data/texturepacks/*.json` → texture mapping per tile texture key
 - `data/world/world.json` + `data/world/progression.json` → world map list, level unlock flow, and start configuration
@@ -82,10 +97,12 @@ Core engine logic is split in `/src` so each system can evolve independently:
 
 - game package selection: `gameManifest.js`
 - scene and system contracts: `sceneRuntime.js`, `systemConfig.js`
+- actor and entity contracts: `actorRuntime.js`, `sceneEntityRuntime.js`
+- compatibility application runtime: `packageGame.js`, `packageRenderer.js`
 - loop/bootstrap: `main.js`, `game.js`, `dataLoader.js`
 - render/input/state: `renderer.js`, `camera.js`, `miniMap.js`, `input.js`, `stateManager.js`
 - gameplay systems: `combat.js`, `enemyAI.js`, `collision.js`, `drops.js`, `shops.js`
-- player systems: `inventory.js`, `equipment.js`, `progression.js`, `statusEffects.js`
+- player compatibility systems: `inventory.js`, `equipment.js`, `progression.js`, `statusEffects.js`
 - world systems: `portalSystem.js`, `tileEffects.js`
 - support: `audio.js`, `saveSystem.js`, `debug.js`, `entityFactory.js`
 
@@ -99,6 +116,10 @@ pixel_engine_save_<game-id>_slot_1
 
 Scene-aware saves include the current scene and last safe scene while retaining the legacy `currentTownId` field. Legacy `pixel_engine_save_v1` and `pixel_engine_save_v2` saves remain readable by `sample-rpg`.
 
+## Gameplay messages
+
+Gameplay messages now persist across HUD redraws for a short display period. This applies to component interactions and existing notices such as shops, fountains, combat results, and validation errors.
+
 ## Automated audit
 
 Install the audit dependency and run the full data, contract, unit, and browser checks:
@@ -108,17 +129,16 @@ npm install
 npm run audit
 ```
 
-GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scene contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, the builder, and the standalone viewer.
+GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, the builder, and the standalone viewer.
 
 ## Builder
 
-The builder remains available under `/builder/`. A later milestone will make the builder select and edit a specific game package and scene instead of assuming the sample RPG paths.
+The builder remains available under `/builder/`. The next builder milestone will make it select a game package and scene and author actors and component entities instead of assuming only the sample RPG object model.
 
 ## Remaining generalization work
 
-- component-based entities and interactions
-- generic player definitions and package-controlled sprites
-- complete inventory and equipment removal for games that disable those systems
-- builder game-project and scene selection
+- builder game-project, actor, and component-entity authoring
+- conversion of legacy portals, shops, fountains, and enemy spawns into optional generic components
+- removal of compatibility RPG fields from actors that do not use combat, inventory, or equipment
 - moving the original RPG content fully under `games/sample-rpg/`
 - formal save migration functions for future schema changes
