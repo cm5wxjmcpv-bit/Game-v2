@@ -38,6 +38,13 @@ async function startFirstClass(page) {
   await expect(page.locator('#player-panel')).toContainText('Class:');
 }
 
+async function readDownloadJson(download) {
+  const stream = await download.createReadStream();
+  let text = '';
+  for await (const chunk of stream) text += chunk.toString();
+  return JSON.parse(text);
+}
+
 test('sample-rpg loads, starts, renders, and saves', async ({ page }) => {
   const monitor = monitorPage(page);
   await page.goto('/?game=sample-rpg');
@@ -97,6 +104,7 @@ test('unsafe game IDs fall back to the default package', async ({ page }) => {
 test('unknown but well-formed game IDs show a readable load failure', async ({ page }) => {
   await page.goto('/?game=package-that-does-not-exist');
   await expect(page.locator('body')).toContainText(/unable to load game|game package.*not found/i);
+  await expect(page.locator('#load-default-game')).toBeVisible();
 });
 
 test('builder loads without console or network errors and its main tabs open', async ({ page }) => {
@@ -113,6 +121,37 @@ test('builder loads without console or network errors and its main tabs open', a
   await expect(page.locator('#mapEditorTab')).toHaveClass(/active/);
 
   monitor.assertClean('builder');
+});
+
+test('builder creates an engine-compatible map JSON download', async ({ page }) => {
+  const monitor = monitorPage(page);
+  await page.goto('/builder/');
+  await expect(page.locator('#gridContainer .cell')).toHaveCount(900);
+
+  await page.locator('.tile-btn[data-tile-id="floor_grass_a"]').click();
+  await page.locator('.cell[data-row="2"][data-col="3"]').click();
+
+  await page.locator('#layerObjectBtn').click();
+  await page.locator('.tile-btn[data-tile-id="player_start"]').click();
+  await page.locator('.cell[data-row="2"][data-col="3"]').click();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#exportGameBtn').click();
+  const payload = await readDownloadJson(await downloadPromise);
+
+  expect(payload.id).toBe('level_001');
+  expect(payload.width).toBe(30);
+  expect(payload.height).toBe(30);
+  expect(payload.tiles[2][3]).toBe('floor_grass_a');
+  expect(payload.spawn).toEqual({ x: 3, y: 2 });
+  expect(payload.objects).toEqual(expect.objectContaining({
+    portals: expect.any(Array),
+    shops: expect.any(Array),
+    fountains: expect.any(Array),
+    enemySpawns: expect.any(Array),
+  }));
+
+  monitor.assertClean('builder engine export');
 });
 
 test('standalone builder viewer loads', async ({ page }) => {
