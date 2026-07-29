@@ -1,3 +1,21 @@
+import { loadActiveGamePackage, resolveGamePath } from './gameManifest.js';
+
+const DEFAULT_DATA_PATHS = Object.freeze({
+  tiles: 'data/tiles/tiles.json',
+  tileEffects: 'data/tiles/effects.json',
+  texturePack: 'data/texturepacks/default-pack.json',
+  world: 'data/world/world.json',
+  classes: 'data/classes/classes.json',
+  items: 'data/items/items.json',
+  enemies: 'data/enemies/enemies.json',
+  shops: 'data/shops/shops.json',
+  progression: 'data/world/progression.json',
+  encounters: 'data/encounters/encounters.json',
+  encounterTables: 'data/encounters/tables.json',
+  townsDirectory: 'data/towns',
+  levelsDirectory: 'data/levels',
+});
+
 async function loadJSON(path, fallback = null) {
   try {
     const res = await fetch(path);
@@ -18,16 +36,22 @@ function mapById(list, label) {
   return Object.fromEntries(entries.map((entry) => [entry.id, entry]));
 }
 
-function withWorldDefaults(world) {
+function withWorldDefaults(world, manifest) {
   const start = world.start || {};
+  const manifestStartTown = manifest.startScene?.type === 'town'
+    ? manifest.startScene.id
+    : null;
+  const firstTown = world.towns?.[0] || null;
+  const startTown = world.startTown || start.townId || manifestStartTown || firstTown;
+
   return {
     ...world,
     towns: world.towns || [],
     levels: world.levels || [],
-    startTown: world.startTown || start.townId || world.towns?.[0] || null,
+    startTown,
     start: {
-      townId: start.townId || world.startTown || world.towns?.[0] || null,
-      unlockedTowns: start.unlockedTowns || [world.startTown || world.towns?.[0]].filter(Boolean),
+      townId: startTown,
+      unlockedTowns: start.unlockedTowns || [startTown].filter(Boolean),
       unlockedLevels: start.unlockedLevels || [world.levels?.[0]].filter(Boolean),
       gold: start.gold ?? 100,
     },
@@ -123,38 +147,69 @@ function validateAndNormalizeMap(map, expectedId, kind = 'map') {
   return map;
 }
 
+function getDataPaths(manifest) {
+  return {
+    ...DEFAULT_DATA_PATHS,
+    ...(manifest.data || {}),
+  };
+}
+
+function fileInside(directory, id) {
+  return `${String(directory).replace(/\/$/, '')}/${id}.json`;
+}
+
 export async function loadDatabase() {
+  const gamePackage = await loadActiveGamePackage();
+  const paths = getDataPaths(gamePackage.manifest);
+  const gamePath = (path) => resolveGamePath(gamePackage, path);
+
   const [tiles, tileEffects, texturePack, rawWorld, classes, items, enemies, shops, progression, encounters, encounterTables] = await Promise.all([
-    loadJSON('./data/tiles/tiles.json', { tiles: [] }),
-    loadJSON('./data/tiles/effects.json', { effects: [] }),
-    loadJSON('./data/texturepacks/default-pack.json', { textures: [] }),
-    loadJSON('./data/world/world.json', {}),
-    loadJSON('./data/classes/classes.json', { classes: [] }),
-    loadJSON('./data/items/items.json', { items: [] }),
-    loadJSON('./data/enemies/enemies.json', { enemies: [] }),
-    loadJSON('./data/shops/shops.json', { shops: [] }),
-    loadJSON('./data/world/progression.json', { unlocks: {} }),
-    loadJSON('./data/encounters/encounters.json', { encounters: [] }),
-    loadJSON('./data/encounters/tables.json', { tables: [] }),
+    loadJSON(gamePath(paths.tiles), { tiles: [] }),
+    loadJSON(gamePath(paths.tileEffects), { effects: [] }),
+    loadJSON(gamePath(paths.texturePack), { textures: [] }),
+    loadJSON(gamePath(paths.world), {}),
+    loadJSON(gamePath(paths.classes), { classes: [] }),
+    loadJSON(gamePath(paths.items), { items: [] }),
+    loadJSON(gamePath(paths.enemies), { enemies: [] }),
+    loadJSON(gamePath(paths.shops), { shops: [] }),
+    loadJSON(gamePath(paths.progression), { unlocks: {} }),
+    loadJSON(gamePath(paths.encounters), { encounters: [] }),
+    loadJSON(gamePath(paths.encounterTables), { tables: [] }),
   ]);
 
-  const world = withWorldDefaults(rawWorld);
+  const world = withWorldDefaults(rawWorld, gamePackage.manifest);
   const townMaps = (
     await Promise.all(
       world.towns.map(async (id) =>
-        validateAndNormalizeMap(await loadJSON(`./data/towns/${id}.json`), id, 'town')
+        validateAndNormalizeMap(
+          await loadJSON(gamePath(fileInside(paths.townsDirectory, id))),
+          id,
+          'town'
+        )
       )
     )
   ).filter(Boolean);
   const levelMaps = (
     await Promise.all(
       world.levels.map(async (id) =>
-        validateAndNormalizeMap(await loadJSON(`./data/levels/${id}.json`), id, 'level')
+        validateAndNormalizeMap(
+          await loadJSON(gamePath(fileInside(paths.levelsDirectory, id))),
+          id,
+          'level'
+        )
       )
     )
   ).filter(Boolean);
 
   return {
+    game: {
+      id: gamePackage.manifest.id,
+      name: gamePackage.manifest.name,
+      version: gamePackage.manifest.version,
+      engineVersion: gamePackage.manifest.engineVersion,
+      systems: gamePackage.manifest.systems,
+      manifestUrl: gamePackage.manifestUrl,
+    },
     tileDefs: mapById(tiles.tiles, 'tile'),
     tileEffects: mapById(tileEffects.effects, 'tile effect'),
     texturePack: mapById(texturePack.textures, 'texture'),
