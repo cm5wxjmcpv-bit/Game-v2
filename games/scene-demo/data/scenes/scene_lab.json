@@ -22,6 +22,33 @@
     ["scene_wall", "scene_floor", "scene_floor", "scene_floor", "scene_floor", "scene_wall"],
     ["scene_wall", "scene_wall", "scene_wall", "scene_wall", "scene_wall", "scene_wall"]
   ],
+  "entities": [
+    {
+      "id": "welcome_beacon",
+      "type": "beacon",
+      "x": 1,
+      "y": 2,
+      "components": {
+        "render": { "shape": "circle", "color": "#facc15", "size": 16 },
+        "interaction": {
+          "action": "message",
+          "message": "Component entity interaction is working.",
+          "range": 1.1
+        },
+        "collision": { "solid": false }
+      }
+    },
+    {
+      "id": "solid_crate",
+      "type": "prop",
+      "x": 3,
+      "y": 2,
+      "components": {
+        "render": { "shape": "square", "color": "#a16207", "size": 18 },
+        "collision": { "solid": true, "radius": 0.45 }
+      }
+    }
+  ],
   "objects": {
     "portals": [
       { "x": 4, "y": 3, "targetScene": "fallback_room" }

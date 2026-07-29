@@ -1,0 +1,20 @@
+{
+  "actors": [
+    {
+      "id": "scene_actor",
+      "name": "Scene Explorer",
+      "components": {
+        "movement": { "speed": 3 },
+        "health": { "max": 12 },
+        "combat": { "attack": 0, "defense": 0, "agility": 1, "growth": {} },
+        "wallet": { "starting": 0 },
+        "inventory": { "slots": 0, "maxStack": 99 },
+        "equipment": { "starting": {} },
+        "progression": { "enabled": false },
+        "render": {
+          "fallback": { "shape": "circle", "color": "#38bdf8", "size": 20 }
+        }
+      }
+    }
+  ]
+}

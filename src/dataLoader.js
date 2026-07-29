@@ -1,5 +1,7 @@
 import { loadActiveGamePackage, resolveGamePath } from './gameManifest.js';
+import { buildActorRegistry } from './actorRuntime.js';
 import { buildSceneRegistry, normalizeSceneMap } from './sceneRuntime.js';
+import { normalizeSceneEntities } from './sceneEntityRuntime.js';
 import { normalizeSystemConfig } from './systemConfig.js';
 
 const DEFAULT_DATA_PATHS = Object.freeze({
@@ -8,6 +10,7 @@ const DEFAULT_DATA_PATHS = Object.freeze({
   texturePack: 'data/texturepacks/default-pack.json',
   world: 'data/world/world.json',
   classes: 'data/classes/classes.json',
+  actors: null,
   items: 'data/items/items.json',
   enemies: 'data/enemies/enemies.json',
   shops: 'data/shops/shops.json',
@@ -127,6 +130,8 @@ function validateAndNormalizeMap(map, expectedId, kind = 'map') {
       once: trigger.once !== false,
     }));
 
+  map.entities = normalizeSceneEntities(map.entities);
+
   if (!map.randomEncounters || typeof map.randomEncounters !== 'object') {
     map.randomEncounters = { enabled: false, minSeconds: 10, maxSeconds: 60, tableId: null };
   } else {
@@ -182,12 +187,13 @@ export async function loadDatabase() {
   const paths = getDataPaths(gamePackage.manifest);
   const gamePath = (path) => resolveGamePath(gamePackage, path);
 
-  const [tiles, tileEffects, texturePack, rawWorld, classes, items, enemies, shops, progression, encounters, encounterTables] = await Promise.all([
+  const [tiles, tileEffects, texturePack, rawWorld, classes, actorPayload, items, enemies, shops, progression, encounters, encounterTables] = await Promise.all([
     loadJSON(gamePath(paths.tiles), { tiles: [] }),
     loadJSON(gamePath(paths.tileEffects), { effects: [] }),
     loadJSON(gamePath(paths.texturePack), { textures: [] }),
     loadJSON(gamePath(paths.world), {}),
     loadJSON(gamePath(paths.classes), { classes: [] }),
+    paths.actors ? loadJSON(gamePath(paths.actors), { actors: [] }) : Promise.resolve({ actors: [] }),
     loadJSON(gamePath(paths.items), { items: [] }),
     loadJSON(gamePath(paths.enemies), { enemies: [] }),
     loadJSON(gamePath(paths.shops), { shops: [] }),
@@ -211,6 +217,7 @@ export async function loadDatabase() {
   const startScene = requestedStartScene?.id && scenesById[requestedStartScene.id]
     ? { ...requestedStartScene }
     : fallbackStartScene;
+  const actorsById = buildActorRegistry(classes.classes || [], actorPayload.actors || []);
 
   return {
     game: {
@@ -227,6 +234,8 @@ export async function loadDatabase() {
     texturePack: mapById(texturePack.textures, 'texture'),
     classesById: mapById(classes.classes, 'class'),
     classes: classes.classes || [],
+    actorsById,
+    actors: Object.values(actorsById),
     itemsById: mapById(items.items, 'item'),
     enemiesById: mapById(enemies.enemies, 'enemy'),
     shopsById: mapById(shops.shops, 'shop'),

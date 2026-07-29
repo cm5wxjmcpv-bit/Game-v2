@@ -29,13 +29,13 @@ function monitorPage(page) {
   };
 }
 
-async function startFirstClass(page) {
+async function startFirstActor(page) {
   await expect(page.locator('#new-game')).toBeVisible();
   await page.locator('#new-game').click();
-  const firstClass = page.locator('#class-opts button').first();
-  await expect(firstClass).toBeVisible();
-  await firstClass.click();
-  await expect(page.locator('#player-panel')).toContainText('Class:');
+  const firstActor = page.locator('#class-opts button').first();
+  await expect(firstActor).toBeVisible();
+  await firstActor.click();
+  await expect(page.locator('#player-panel')).toContainText(/Class:|Actor:/);
 }
 
 async function readDownloadJson(download) {
@@ -51,7 +51,7 @@ test('sample-rpg loads, starts, renders, and saves', async ({ page }) => {
   await expect(page.locator('#game-canvas')).toBeVisible();
   await expect(page.locator('#overlay')).toContainText('Pixel Engine');
 
-  await startFirstClass(page);
+  await startFirstActor(page);
   await expect(page.locator('#context-panel')).toContainText('State: town');
   await expect(page.locator('#context-panel')).toContainText('Town: town_hub');
 
@@ -69,7 +69,7 @@ test('sample-rpg loads, starts, renders, and saves', async ({ page }) => {
 test('sandbox-demo loads independently and uses an isolated save key', async ({ page }) => {
   const monitor = monitorPage(page);
   await page.goto('/?game=sandbox-demo');
-  await startFirstClass(page);
+  await startFirstActor(page);
 
   await expect(page.locator('#context-panel')).toContainText('State: town');
   await expect(page.locator('#context-panel')).toContainText('Town: sandbox_room');
@@ -81,12 +81,16 @@ test('sandbox-demo loads independently and uses an isolated save key', async ({ 
   monitor.assertClean('sandbox-demo');
 });
 
-test('generic scene package starts in the neutral scene runtime state', async ({ page }) => {
+test('generic scene package uses a direct actor and component interaction', async ({ page }) => {
   const monitor = monitorPage(page);
   await page.goto('/?game=scene-demo');
-  await startFirstClass(page);
+  await startFirstActor(page);
 
+  await expect(page.locator('#player-panel')).toContainText('Actor: Scene Explorer');
   await expect(page.locator('#context-panel')).toContainText('State: scene');
+  await page.keyboard.press('e');
+  await expect(page.locator('#context-panel')).toContainText('Component entity interaction is working.');
+
   const saveKeys = await page.evaluate(() => Object.keys(localStorage));
   expect(saveKeys).toContain('pixel_engine_save_scene-demo_slot_1');
 
@@ -95,11 +99,11 @@ test('generic scene package starts in the neutral scene runtime state', async ({
 
 test('game saves remain isolated in the same browser origin', async ({ page }) => {
   await page.goto('/?game=sample-rpg');
-  await startFirstClass(page);
+  await startFirstActor(page);
   await page.goto('/?game=sandbox-demo');
-  await startFirstClass(page);
+  await startFirstActor(page);
   await page.goto('/?game=scene-demo');
-  await startFirstClass(page);
+  await startFirstActor(page);
 
   const saveKeys = await page.evaluate(() => Object.keys(localStorage).sort());
   expect(saveKeys).toContain('pixel_engine_save_sample-rpg_slot_1');
@@ -111,7 +115,7 @@ test('unsafe game IDs fall back to the default package', async ({ page }) => {
   const monitor = monitorPage(page);
   await page.goto('/?game=../../outside');
   await expect(page.locator('#new-game')).toBeVisible();
-  await startFirstClass(page);
+  await startFirstActor(page);
   await expect(page.locator('#context-panel')).toContainText('Town: town_hub');
   monitor.assertClean('unsafe game id fallback');
 });
