@@ -32,6 +32,14 @@ function demoScene() {
   };
 }
 
+function packageTiles() {
+  return [
+    { id: 'scene_floor', color: '#64748b' },
+    { id: 'scene_wall', color: '#1e293b' },
+    { id: 'scene_accent', color: '#c084fc' },
+  ];
+}
+
 function rawResult(handoff, overrides = {}) {
   return {
     width: handoff.editorMap.width,
@@ -56,6 +64,41 @@ test('package-specific tile IDs use reversible custom-texture aliases', () => {
   assert.equal(entries.length, 2);
   assert.equal(entries[0].pixels.length, 16);
   assert.equal(entries[0].pixels[0].length, 16);
+});
+
+test('an enabled unused package tile receives a reversible editor tool', () => {
+  const scene = demoScene();
+  scene._workspaceEditorTileIds = ['scene_accent', 'not_registered'];
+  const handoff = createMapBridgeHandoff({
+    projectId: 'scene-demo',
+    scene,
+    sceneKind: 'scene',
+    returnUrl: '/builder/workspace.html',
+    packageTiles: packageTiles(),
+  });
+  assert.equal(handoff.tileAliases.custom_texture_bridge_3, 'scene_accent');
+  assert.equal(handoff.aliasColors.custom_texture_bridge_3, '#c084fc');
+  assert.equal(handoff.allowedTileIds.includes('custom_texture_bridge_3'), true);
+  assert.equal(JSON.stringify(handoff).includes('not_registered'), false);
+
+  const result = rawResult(handoff);
+  result.tileLayer[1][2] = 'custom_texture_bridge_3';
+  const merged = mergeMapBridgeResult(handoff, result);
+  assert.equal(merged.tiles[1][2], 'scene_accent');
+  assert.deepEqual(merged._workspaceEditorTileIds.sort(), ['scene_accent', 'scene_floor', 'scene_wall']);
+});
+
+test('map result rejects tiles that were not enabled for the scene', () => {
+  const handoff = createMapBridgeHandoff({
+    projectId: 'scene-demo',
+    scene: demoScene(),
+    sceneKind: 'scene',
+    returnUrl: '/builder/workspace.html',
+    packageTiles: packageTiles(),
+  });
+  const result = rawResult(handoff);
+  result.tileLayer[1][2] = 'custom_texture_bridge_99';
+  assert.throws(() => mergeMapBridgeResult(handoff, result), /not enabled/i);
 });
 
 test('map result updates layout fields while preserving scene systems, objects, entities, and unknown metadata', () => {

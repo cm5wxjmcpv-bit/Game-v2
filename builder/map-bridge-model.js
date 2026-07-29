@@ -1,3 +1,5 @@
+import { colorForTileId, editorTileSelection } from './package-tile-model.js';
+
 export const MAP_BRIDGE_SCHEMA_VERSION = 1;
 export const MAP_BRIDGE_HANDOFF_KEY = 'pixel_engine_builder_map_bridge_handoff_v1';
 export const MAP_BRIDGE_RESULT_KEY = 'pixel_engine_builder_map_bridge_result_v1';
@@ -47,41 +49,43 @@ function validateTileGrid(tiles, width, height) {
   });
 }
 
-function colorForId(value) {
-  let hash = 2166136261;
-  for (const char of String(value || 'tile')) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  const r = 72 + ((hash >>> 16) & 0x7f);
-  const g = 72 + ((hash >>> 8) & 0x7f);
-  const b = 72 + (hash & 0x7f);
-  return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
-}
-
 function isEditorNativeTile(tileId) {
-  return EDITOR_NATIVE_TILE_IDS.has(tileId) || String(tileId).startsWith('custom_texture_');
+  return EDITOR_NATIVE_TILE_IDS.has(tileId);
 }
 
 function aliasFor(index) {
   return `custom_texture_bridge_${index + 1}`;
 }
 
-function buildAliasData(tiles) {
+function buildAliasData(tiles, scene, packageTiles = []) {
   const originalToAlias = new Map();
   const aliasToOriginal = {};
   const aliasColors = {};
-  const editorTiles = tiles.map((row) => row.map((tileId) => {
-    if (isEditorNativeTile(tileId)) return tileId;
+  const tileById = new Map(packageTiles.map((tile) => [String(tile.id || ''), tile]));
+
+  const editorIdFor = (tileId) => {
+    if (isEditorNativeTile(tileId) || tileId === 'empty') return tileId;
     if (!originalToAlias.has(tileId)) {
       const alias = aliasFor(originalToAlias.size);
+      const tile = tileById.get(tileId) || {};
       originalToAlias.set(tileId, alias);
       aliasToOriginal[alias] = tileId;
-      aliasColors[alias] = colorForId(tileId);
+      aliasColors[alias] = tile.color || colorForTileId(tileId);
     }
     return originalToAlias.get(tileId);
-  }));
-  return { editorTiles, aliasToOriginal, aliasColors };
+  };
+
+  const editorTiles = tiles.map((row) => row.map(editorIdFor));
+  const allowedTileIds = ['empty'];
+  for (const tileId of editorTileSelection(scene, packageTiles)) {
+    const editorId = editorIdFor(tileId);
+    if (!allowedTileIds.includes(editorId)) allowedTileIds.push(editorId);
+  }
+  for (const tileId of editorTiles.flat()) {
+    if (!allowedTileIds.includes(tileId)) allowedTileIds.push(tileId);
+  }
+
+  return { editorTiles, aliasToOriginal, aliasColors, allowedTileIds };
 }
 
 function makeLayer(width, height, value) {
@@ -97,7 +101,7 @@ function normalizedSpawn(scene, width, height) {
   return { x, y };
 }
 
-export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', returnUrl }) {
+export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', returnUrl, packageTiles = [] }) {
   const normalizedProjectId = safeId(projectId);
   if (!normalizedProjectId) throw new Error('A game project is required.');
   if (!scene || typeof scene !== 'object') throw new Error('A selected scene is required.');
@@ -107,9 +111,11 @@ export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', 
   const height = positiveInteger(scene.height, 'Scene height');
   const tiles = validateTileGrid(scene.tiles, width, height);
   const spawn = normalizedSpawn(scene, width, height);
-  const aliases = buildAliasData(tiles);
+  const aliases = buildAliasData(tiles, scene, packageTiles);
   const objectLayer = makeLayer(width, height, 'none');
   objectLayer[spawn.y][spawn.x] = 'player_start';
+  const originalScene = clone(scene);
+  originalScene._workspaceEditorTileIds = editorTileSelection(scene, packageTiles);
 
   return {
     schemaVersion: MAP_BRIDGE_SCHEMA_VERSION,
@@ -119,9 +125,10 @@ export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', 
     scenePath: String(scene._workspacePath || ''),
     returnUrl: String(returnUrl || ''),
     createdAt: new Date().toISOString(),
-    originalScene: clone(scene),
+    originalScene,
     tileAliases: aliases.aliasToOriginal,
     aliasColors: aliases.aliasColors,
+    allowedTileIds: aliases.allowedTileIds,
     editorMap: {
       width,
       height,
@@ -143,6 +150,7 @@ export function validateMapBridgeHandoff(value) {
   const width = positiveInteger(value.editorMap.width, 'Editor map width');
   const height = positiveInteger(value.editorMap.height, 'Editor map height');
   validateTileGrid(value.editorMap.tileLayer || value.editorMap.tiles, width, height);
+  if (value.allowedTileIds !== undefined && !Array.isArray(value.allowedTileIds)) throw new Error('The map handoff tile permission list is invalid.');
   return value;
 }
 
@@ -210,6 +218,10 @@ export function mergeMapBridgeResult(handoffValue, rawMap) {
   const returnedId = safeId(rawMap.mapId || rawMap.id);
   if (returnedId !== safeId(handoff.sceneId)) throw new Error('The returned map ID does not match the selected workspace scene.');
   const encodedTiles = validateTileGrid(rawMap.tileLayer || rawMap.tiles, width, height);
+  const allowedTileIds = new Set(handoff.allowedTileIds || handoff.editorMap.tileLayer.flat());
+  allowedTileIds.add('empty');
+  const disallowed = encodedTiles.flat().find((tileId) => !allowedTileIds.has(tileId));
+  if (disallowed) throw new Error(`The returned map contains a tile that was not enabled for this scene: ${disallowed}.`);
   const spawn = findSpawn(rawMap.objectLayer, width, height);
   const original = clone(handoff.originalScene);
   validatePreservedCoordinates(original, width, height);

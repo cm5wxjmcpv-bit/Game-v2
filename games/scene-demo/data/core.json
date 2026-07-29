@@ -1,12 +1,14 @@
 {
   "tiles": [
     { "id": "scene_floor", "walkable": true, "texture": "scene_floor", "minimapColor": "#64748b" },
-    { "id": "scene_wall", "walkable": false, "texture": "scene_wall", "minimapColor": "#1e293b" }
+    { "id": "scene_wall", "walkable": false, "texture": "scene_wall", "minimapColor": "#1e293b" },
+    { "id": "scene_accent", "walkable": true, "texture": "scene_accent", "minimapColor": "#c084fc" }
   ],
   "effects": [],
   "textures": [
     { "id": "scene_floor", "color": "#64748b" },
-    { "id": "scene_wall", "color": "#1e293b" }
+    { "id": "scene_wall", "color": "#1e293b" },
+    { "id": "scene_accent", "color": "#c084fc" }
   ],
   "classes": [
     {
