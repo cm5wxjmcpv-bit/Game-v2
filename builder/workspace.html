@@ -11,7 +11,7 @@
   <header class="site-header workspace-header">
     <div>
       <h1>Pixel Engine Project Workspace</h1>
-      <p>Select a game package, edit actors, place component entities, and send scene layouts to the visual map editor.</p>
+      <p>Select a game package, edit actors, place component entities, send layouts to the map editor, and publish reviewed changes through a draft pull request.</p>
     </div>
     <a class="workspace-link" href="./">Open Map / Texture Builder</a>
   </header>
@@ -35,6 +35,7 @@
     <nav class="tab-bar workspace-tabs" aria-label="Project workspace tabs">
       <button id="workspaceSceneTabBtn" type="button" class="tab-btn active">Scene & Entities</button>
       <button id="workspaceActorTabBtn" type="button" class="tab-btn">Actors</button>
+      <button id="workspacePublishTabBtn" type="button" class="tab-btn">Publish</button>
     </nav>
 
     <section id="workspaceSceneTab" class="workspace-grid workspace-tab active">
@@ -155,6 +156,42 @@
           <button id="saveActorBtn" type="submit">Save Actor</button>
         </form>
       </section>
+    </section>
+
+    <section id="workspacePublishTab" class="panel workspace-tab workspace-publish-panel">
+      <div class="workspace-publish-heading">
+        <div>
+          <h2>Publish a Draft Pull Request</h2>
+          <p>Only changed manifest-resolved actor and scene JSON files are included. Publishing creates a new branch and a draft pull request; it never merges or writes directly to <code>main</code>.</p>
+        </div>
+        <button id="refreshPublishPlanBtn" type="button" class="secondary-btn">Refresh File Plan</button>
+      </div>
+
+      <div id="publishPlanSummary" class="workspace-summary">Open this tab after making changes to build a publish plan.</div>
+      <div id="publishFileList" class="workspace-publish-files" aria-label="Files ready to publish"></div>
+
+      <form id="publishForm" class="item-form workspace-publish-form" novalidate>
+        <div class="workspace-two-column">
+          <div>
+            <label class="field-label" for="publishTitleInput">Draft PR Title</label>
+            <input id="publishTitleInput" class="text-input" type="text" maxlength="120" />
+          </div>
+          <div>
+            <label class="field-label" for="publishCommitInput">Commit Message</label>
+            <input id="publishCommitInput" class="text-input" type="text" maxlength="120" />
+          </div>
+        </div>
+        <label class="field-label" for="publishTokenInput">Fine-grained GitHub Token</label>
+        <input id="publishTokenInput" class="text-input" type="password" autocomplete="off" spellcheck="false" />
+        <p class="small">Create a repository-scoped token for <code>cm5wxjmcpv-bit/Game-v2</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token stays in this page's memory and is cleared after a successful publish. <a href="https://github.com/settings/personal-access-tokens/new?name=Pixel%20Engine%20Workspace&description=Creates%20reviewable%20workspace%20branches%20and%20draft%20pull%20requests&contents=write&pull_requests=write" target="_blank" rel="noopener noreferrer">Create token</a></p>
+        <label class="checkbox-row workspace-publish-confirm"><input id="publishConfirmInput" type="checkbox" /> I reviewed the file list and understand this opens a draft pull request for review.</label>
+        <div class="workspace-inline-actions">
+          <button id="publishDraftPrBtn" type="submit" disabled>Publish Draft PR</button>
+          <button id="clearPublishTokenBtn" type="button" class="secondary-btn">Forget Token</button>
+        </div>
+      </form>
+      <div id="publishStatus" class="message" role="status" aria-live="polite"></div>
+      <a id="publishPrLink" class="workspace-link workspace-publish-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Draft Pull Request</a>
     </section>
   </main>
 
