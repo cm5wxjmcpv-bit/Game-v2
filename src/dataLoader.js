@@ -1,4 +1,6 @@
 import { loadActiveGamePackage, resolveGamePath } from './gameManifest.js';
+import { buildSceneRegistry, normalizeSceneMap } from './sceneRuntime.js';
+import { normalizeSystemConfig } from './systemConfig.js';
 
 const DEFAULT_DATA_PATHS = Object.freeze({
   tiles: 'data/tiles/tiles.json',
@@ -14,6 +16,7 @@ const DEFAULT_DATA_PATHS = Object.freeze({
   encounterTables: 'data/encounters/tables.json',
   townsDirectory: 'data/towns',
   levelsDirectory: 'data/levels',
+  scenesDirectory: 'data/scenes',
 });
 
 async function loadJSON(path, fallback = null) {
@@ -48,6 +51,7 @@ function withWorldDefaults(world, manifest) {
     ...world,
     towns: world.towns || [],
     levels: world.levels || [],
+    scenes: world.scenes || [],
     startTown,
     start: {
       townId: startTown,
@@ -144,7 +148,8 @@ function validateAndNormalizeMap(map, expectedId, kind = 'map') {
     map.spawn = { x: 1, y: 1 };
   }
 
-  return map;
+  const legacyType = kind === 'town' || kind === 'level' ? kind : 'map';
+  return normalizeSceneMap(map, legacyType);
 }
 
 function getDataPaths(manifest) {
@@ -156,6 +161,20 @@ function getDataPaths(manifest) {
 
 function fileInside(directory, id) {
   return `${String(directory).replace(/\/$/, '')}/${id}.json`;
+}
+
+async function loadMapGroup(ids, directory, gamePath, kind) {
+  return (
+    await Promise.all(
+      (ids || []).map(async (id) =>
+        validateAndNormalizeMap(
+          await loadJSON(gamePath(fileInside(directory, id))),
+          id,
+          kind
+        )
+      )
+    )
+  ).filter(Boolean);
 }
 
 export async function loadDatabase() {
@@ -178,28 +197,20 @@ export async function loadDatabase() {
   ]);
 
   const world = withWorldDefaults(rawWorld, gamePackage.manifest);
-  const townMaps = (
-    await Promise.all(
-      world.towns.map(async (id) =>
-        validateAndNormalizeMap(
-          await loadJSON(gamePath(fileInside(paths.townsDirectory, id))),
-          id,
-          'town'
-        )
-      )
-    )
-  ).filter(Boolean);
-  const levelMaps = (
-    await Promise.all(
-      world.levels.map(async (id) =>
-        validateAndNormalizeMap(
-          await loadJSON(gamePath(fileInside(paths.levelsDirectory, id))),
-          id,
-          'level'
-        )
-      )
-    )
-  ).filter(Boolean);
+  const [townMaps, levelMaps, genericSceneMaps] = await Promise.all([
+    loadMapGroup(world.towns, paths.townsDirectory, gamePath, 'town'),
+    loadMapGroup(world.levels, paths.levelsDirectory, gamePath, 'level'),
+    loadMapGroup(world.scenes, paths.scenesDirectory, gamePath, 'scene'),
+  ]);
+
+  const scenesById = buildSceneRegistry(townMaps, levelMaps, genericSceneMaps);
+  const requestedStartScene = gamePackage.manifest.startScene || null;
+  const fallbackStartScene = world.start.townId
+    ? { type: 'town', id: world.start.townId }
+    : { type: scenesById[Object.keys(scenesById)[0]]?.scene?.type || 'map', id: Object.keys(scenesById)[0] || null };
+  const startScene = requestedStartScene?.id && scenesById[requestedStartScene.id]
+    ? { ...requestedStartScene }
+    : fallbackStartScene;
 
   return {
     game: {
@@ -207,7 +218,8 @@ export async function loadDatabase() {
       name: gamePackage.manifest.name,
       version: gamePackage.manifest.version,
       engineVersion: gamePackage.manifest.engineVersion,
-      systems: gamePackage.manifest.systems,
+      systems: normalizeSystemConfig(gamePackage.manifest.systems),
+      startScene,
       manifestUrl: gamePackage.manifestUrl,
     },
     tileDefs: mapById(tiles.tiles, 'tile'),
@@ -222,6 +234,8 @@ export async function loadDatabase() {
     encounterTablesById: mapById(encounterTables.tables, 'encounter table'),
     townsById: Object.fromEntries(townMaps.filter((m) => m?.id).map((m) => [m.id, m])),
     levelsById: Object.fromEntries(levelMaps.filter((m) => m?.id).map((m) => [m.id, m])),
+    scenesById,
+    scenes: Object.values(scenesById),
     progression,
     world,
   };
