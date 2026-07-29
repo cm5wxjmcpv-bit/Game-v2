@@ -6,6 +6,12 @@ import {
   applyMapBridgeResultToDraft,
   createMapBridgeHandoff,
 } from './map-bridge-model.js';
+import './workspace-publish-ui.js';
+
+const publishStyles = document.createElement('link');
+publishStyles.rel = 'stylesheet';
+publishStyles.href = 'workspace-publish.css';
+document.head.appendChild(publishStyles);
 
 consumeReturnedMap();
 
