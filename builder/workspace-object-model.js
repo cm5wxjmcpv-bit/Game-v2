@@ -37,6 +37,12 @@ function cleanStringArray(value) {
   return value.map(cleanString).filter(Boolean);
 }
 
+function assignOptionalString(object, key, value) {
+  const cleaned = cleanString(value);
+  if (cleaned) object[key] = cleaned;
+  else delete object[key];
+}
+
 export function legacyObjectConfig(type) {
   return TYPE_CONFIG[type] || null;
 }
@@ -56,10 +62,12 @@ export function normalizeLegacyObject(type, value = {}) {
   };
 
   if (type === 'portals') {
-    object.targetTown = cleanString(value.targetTown);
-    object.targetScene = cleanString(value.targetScene);
-    object.targetLevel = cleanString(value.targetLevel);
-    object.levels = cleanStringArray(value.levels);
+    assignOptionalString(object, 'targetTown', value.targetTown);
+    assignOptionalString(object, 'targetScene', value.targetScene);
+    assignOptionalString(object, 'targetLevel', value.targetLevel);
+    const levels = cleanStringArray(value.levels);
+    if (levels.length) object.levels = levels;
+    else delete object.levels;
   } else if (type === 'shops') {
     object.shopId = cleanString(value.shopId);
   } else if (type === 'enemySpawns') {
@@ -69,8 +77,8 @@ export function normalizeLegacyObject(type, value = {}) {
     else delete object.width;
     if (value.height !== undefined && value.height !== '') object.height = integer(value.height, 1, 1);
     else delete object.height;
-    object.encounterId = cleanString(value.encounterId);
-    object.enemyId = cleanString(value.enemyId);
+    assignOptionalString(object, 'encounterId', value.encounterId);
+    assignOptionalString(object, 'enemyId', value.enemyId);
   }
 
   return object;
@@ -92,7 +100,7 @@ export function validateLegacyObject(type, value, scene) {
   }
 
   if (type === 'portals') {
-    const hasDestination = object.targetTown || object.targetScene || object.targetLevel || object.levels.length;
+    const hasDestination = object.targetTown || object.targetScene || object.targetLevel || object.levels?.length;
     if (!hasDestination) errors.push('A portal requires a target town, scene, level, or level list.');
   }
   if (type === 'shops' && !object.shopId) errors.push('A shop requires a shop ID.');
@@ -129,7 +137,7 @@ export function removeLegacyObject(scene, type, index) {
 export function legacyObjectLabel(type, value = {}, index = 0) {
   const object = normalizeLegacyObject(type, value);
   const prefix = `${TYPE_CONFIG[type]?.singular || 'Object'} ${index + 1}`;
-  if (type === 'portals') return `${prefix}: ${object.targetTown || object.targetScene || object.targetLevel || object.levels.join(', ') || 'unassigned'}`;
+  if (type === 'portals') return `${prefix}: ${object.targetTown || object.targetScene || object.targetLevel || object.levels?.join(', ') || 'unassigned'}`;
   if (type === 'shops') return `${prefix}: ${object.shopId || 'unassigned'}`;
   if (type === 'enemySpawns') return `${prefix}: ${object.enemyId || 'unassigned'}`;
   if (type === 'battleTriggers') return `${prefix}: ${object.encounterId || object.enemyId || 'unassigned'}`;
