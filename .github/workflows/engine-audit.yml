@@ -20,7 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install audit dependencies
         run: npm install --no-audit --no-fund
@@ -29,9 +29,14 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Validate source and game data
+        id: data_audit
+        continue-on-error: true
         run: npm run audit:data
 
       - name: Run browser audit
+        id: browser_audit
+        if: always()
+        continue-on-error: true
         run: npm run audit:browser
 
       - name: Upload browser audit report
@@ -44,3 +49,7 @@ jobs:
             test-results
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Fail when an audit phase failed
+        if: steps.data_audit.outcome == 'failure' || steps.browser_audit.outcome == 'failure'
+        run: exit 1
