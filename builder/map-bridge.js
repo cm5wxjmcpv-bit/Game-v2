@@ -29,6 +29,7 @@ function initialize() {
   try {
     handoff = validateMapBridgeHandoff(JSON.parse(localStorage.getItem(MAP_BRIDGE_HANDOFF_KEY) || 'null'));
     dom.title.textContent = `Map Editor • ${handoff.sceneId}`;
+    dom.frame.style.pointerEvents = 'none';
     installTemporaryTextureLibrary();
     bindEvents();
     dom.frame.src = `./?workspaceMapBridge=${encodeURIComponent(handoff.sceneId)}`;
@@ -74,9 +75,9 @@ function onBuilderLoaded() {
   if (!frameWindow || !frameDocument || frameWindow.location.href === 'about:blank') return;
   restoreTextureLibrary();
   try {
-    configureFocusedEditor(frameWindow, frameDocument);
+    const restrictPalette = configureFocusedEditor(frameWindow, frameDocument);
     installDownloadCapture(frameWindow, frameDocument);
-    importEditorMap(frameWindow, frameDocument);
+    importEditorMap(frameWindow, frameDocument, restrictPalette);
   } catch (error) {
     showError(`Map editor setup failed: ${error.message}`);
   }
@@ -117,9 +118,10 @@ function configureFocusedEditor(frameWindow, frameDocument) {
   frameDocument.getElementById('layerTileBtn')?.addEventListener('click', () => frameWindow.setTimeout(restrictPalette, 0));
   frameDocument.getElementById('layerObjectBtn')?.addEventListener('click', () => frameWindow.setTimeout(restrictPalette, 0));
   restrictPalette();
+  return restrictPalette;
 }
 
-function importEditorMap(frameWindow, frameDocument) {
+function importEditorMap(frameWindow, frameDocument, restrictPalette) {
   const input = frameDocument.getElementById('importInput');
   if (!input) throw new Error('The established builder import control was not found.');
   const file = new frameWindow.File([JSON.stringify(handoff.editorMap)], `${handoff.sceneId}-workspace-map.json`, { type: 'application/json' });
@@ -134,6 +136,10 @@ function importEditorMap(frameWindow, frameDocument) {
     const loadedId = frameDocument.getElementById('mapIdInput')?.value;
     if (loadedId === handoff.sceneId) {
       frameWindow.clearInterval(timer);
+      restrictPalette();
+      const firstAllowedTile = frameDocument.querySelector('#palette .tile-btn[data-tile-id]:not(:disabled)');
+      firstAllowedTile?.click();
+      dom.frame.style.pointerEvents = 'auto';
       dom.status.textContent = `${handoff.sceneId} loaded. Use Tile Layer for layout and Object Layer only for Player Start.`;
       dom.returnButton.disabled = false;
       return;
