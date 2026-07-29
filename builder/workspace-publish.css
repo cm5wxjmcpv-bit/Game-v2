@@ -1,0 +1,88 @@
+.workspace-publish-panel {
+  display: none;
+  gap: 1rem;
+}
+
+.workspace-publish-panel.active {
+  display: grid;
+}
+
+.workspace-publish-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.workspace-publish-heading p {
+  max-width: 820px;
+  margin-bottom: 0;
+}
+
+.workspace-publish-files {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.workspace-publish-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.workspace-publish-file code {
+  overflow-wrap: anywhere;
+}
+
+.workspace-publish-kind {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workspace-publish-form {
+  max-width: 900px;
+}
+
+.workspace-publish-confirm {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.workspace-publish-link {
+  width: fit-content;
+  background: #166534;
+}
+
+.workspace-publish-error {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.workspace-publish-warning {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+@media (max-width: 720px) {
+  .workspace-publish-heading,
+  .workspace-publish-file {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
