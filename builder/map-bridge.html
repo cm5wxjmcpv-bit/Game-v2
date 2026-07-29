@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workspace Map Editor Bridge</title>
+  <link rel="stylesheet" href="map-bridge.css" />
+</head>
+<body>
+  <header class="bridge-header">
+    <div>
+      <h1 id="bridgeTitle">Workspace Map Editor</h1>
+      <p id="bridgeStatus" role="status" aria-live="polite">Preparing selected scene…</p>
+    </div>
+    <div class="bridge-actions">
+      <button id="cancelBridgeBtn" type="button" class="secondary">Cancel</button>
+      <button id="returnBridgeBtn" type="button" disabled>Return Layout to Workspace</button>
+    </div>
+  </header>
+  <aside class="bridge-notice">
+    This focused bridge edits the scene name, dimensions, tiles, and player spawn. Existing portals, shops, enemies, battle triggers, component entities, scene systems, and unknown metadata remain preserved in the workspace.
+  </aside>
+  <main class="bridge-frame-shell">
+    <iframe id="builderFrame" title="Map editor"></iframe>
+  </main>
+  <script type="module" src="map-bridge.js"></script>
+</body>
+</html>

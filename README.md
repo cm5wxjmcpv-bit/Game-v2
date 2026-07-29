@@ -129,7 +129,7 @@ npm install
 npm run audit
 ```
 
-GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, the builder package catalog, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, and the standalone viewer.
+GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, the builder package catalog, workspace/map-editor bridge contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, the focused map bridge, and the standalone viewer.
 
 ## Builder
 
@@ -148,10 +148,23 @@ The package-aware actor and entity workspace is available under:
 
 The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Repository files remain read-only until the user exports actor JSON, scene JSON, or a full workspace bundle.
 
+### Visual scene-layout bridge
+
+From the workspace, select a scene and choose **Edit Tiles & Spawn**. A focused wrapper opens the established map-grid editor and supports:
+
+- changing the scene name and dimensions
+- painting tile types already registered in the selected scene
+- moving the single Player Start marker
+- returning the edited layout to the package-specific local workspace draft
+
+Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, and unknown metadata are preserved. A resize is rejected when preserved content would fall outside the new bounds. The bridge still does not write repository files; export the scene or workspace bundle after reviewing the returned draft.
+
 ## Remaining generalization work
 
-- connecting selected workspace scenes to the established map-grid editor
 - direct controlled publishing of exported workspace files
+- visual editing of legacy portals, shops, fountains, enemies, and battle triggers from the package workspace
+- adding package tile types that are not already present in a selected scene
+- automatic creation of new game package directory structures
 - conversion of legacy portals, shops, fountains, and enemy spawns into optional generic components
 - removal of compatibility RPG fields from actors that do not use combat, inventory, or equipment
 - moving the original RPG content fully under `games/sample-rpg/`
