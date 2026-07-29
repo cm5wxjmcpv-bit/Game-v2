@@ -1,0 +1,119 @@
+.new-game-wizard-panel {
+  gap: 1rem;
+}
+
+.new-game-wizard-heading,
+.new-game-preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.new-game-wizard-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.35fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.new-game-form-panel,
+.new-game-preview-panel {
+  min-width: 0;
+}
+
+.new-game-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.new-game-file-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(300px, 1.2fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.new-game-tree {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 58vh;
+  overflow: auto;
+}
+
+.new-game-tree-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  text-align: left;
+}
+
+.new-game-tree-file code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.new-game-tree-file span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.15rem 0.4rem;
+  background: #e2e8f0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.new-game-tree-file.active {
+  outline: 2px solid #2563eb;
+  background: #eff6ff;
+}
+
+.new-game-code-preview {
+  margin: 0;
+  max-height: 58vh;
+  min-height: 280px;
+  overflow: auto;
+  padding: 0.8rem;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  white-space: pre;
+  font-size: 0.78rem;
+}
+
+.new-game-publish-panel {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #cbd5e1;
+}
+
+@media (max-width: 1050px) {
+  .new-game-wizard-grid,
+  .new-game-file-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .new-game-wizard-heading,
+  .new-game-preview-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .new-game-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .new-game-code-preview {
+    min-height: 220px;
+  }
+}

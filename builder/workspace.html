@@ -6,12 +6,13 @@
   <title>Pixel Engine Project Workspace</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="workspace.css" />
+  <link rel="stylesheet" href="new-game-wizard.css" />
 </head>
 <body>
   <header class="site-header workspace-header">
     <div>
       <h1>Pixel Engine Project Workspace</h1>
-      <p>Select a game package, edit actors, place component entities, send layouts to the map editor, and publish reviewed changes through a draft pull request.</p>
+      <p>Select a game package, edit actors, place component entities, create new packages, and publish reviewed changes through a draft pull request.</p>
     </div>
     <a class="workspace-link" href="./">Open Map / Texture Builder</a>
   </header>
@@ -35,6 +36,7 @@
     <nav class="tab-bar workspace-tabs" aria-label="Project workspace tabs">
       <button id="workspaceSceneTabBtn" type="button" class="tab-btn active">Scene & Entities</button>
       <button id="workspaceActorTabBtn" type="button" class="tab-btn">Actors</button>
+      <button id="workspaceNewGameTabBtn" type="button" class="tab-btn">New Game</button>
       <button id="workspacePublishTabBtn" type="button" class="tab-btn">Publish</button>
     </nav>
 
@@ -158,6 +160,82 @@
       </section>
     </section>
 
+    <section id="workspaceNewGameTab" class="panel workspace-tab new-game-wizard-panel">
+      <div class="new-game-wizard-heading">
+        <div>
+          <h2>New Game Wizard</h2>
+          <p>Generate a complete isolated game package, review every JSON file, and publish it only through a new branch and draft pull request.</p>
+        </div>
+        <button id="newGameRefreshBtn" type="button" class="secondary-btn">Refresh Preview</button>
+      </div>
+
+      <div id="newGamePlanSummary" class="workspace-summary">Loading the package catalog…</div>
+
+      <div class="new-game-wizard-grid">
+        <section class="panel new-game-form-panel">
+          <h3>Package Settings</h3>
+          <form id="newGameForm" class="item-form" novalidate>
+            <div class="workspace-two-column">
+              <div><label class="field-label" for="newGameNameInput">Game Name</label><input id="newGameNameInput" class="text-input" type="text" value="My New Game" required /></div>
+              <div><label class="field-label" for="newGameIdInput">Internal ID</label><input id="newGameIdInput" class="text-input" type="text" value="my-new-game" required /></div>
+            </div>
+            <label class="field-label" for="newGameGenreInput">Genre</label>
+            <input id="newGameGenreInput" class="text-input" type="text" value="Adventure" />
+            <div class="workspace-three-column">
+              <div><label class="field-label" for="newGameTileSizeInput">Tile Size</label><select id="newGameTileSizeInput" class="text-input"><option>16</option><option>24</option><option selected>32</option><option>48</option><option>64</option></select></div>
+              <div><label class="field-label" for="newGameResolutionWidthInput">Resolution Width</label><input id="newGameResolutionWidthInput" class="text-input" type="number" min="320" max="7680" value="1280" /></div>
+              <div><label class="field-label" for="newGameResolutionHeightInput">Resolution Height</label><input id="newGameResolutionHeightInput" class="text-input" type="number" min="240" max="4320" value="720" /></div>
+            </div>
+            <div class="workspace-two-column">
+              <div><label class="field-label" for="newGameMapWidthInput">Starting Map Width</label><input id="newGameMapWidthInput" class="text-input" type="number" min="5" max="100" value="20" /></div>
+              <div><label class="field-label" for="newGameMapHeightInput">Starting Map Height</label><input id="newGameMapHeightInput" class="text-input" type="number" min="5" max="100" value="15" /></div>
+            </div>
+            <div class="workspace-two-column">
+              <div><label class="field-label" for="newGamePlayerInput">Starting Player</label><input id="newGamePlayerInput" class="text-input" type="text" value="Player" required /></div>
+              <div><label class="field-label" for="newGamePhysicsInput">Physics Preset</label><select id="newGamePhysicsInput" class="text-input"><option value="top_down">Top-down collision</option><option value="bounds_only">Bounds only</option></select></div>
+            </div>
+            <h3>Features</h3>
+            <div class="new-game-feature-grid">
+              <label class="checkbox-row"><input id="newGameSaveInput" type="checkbox" checked /> Enable Save System</label>
+              <label class="checkbox-row"><input id="newGameInventoryInput" type="checkbox" checked /> Enable Inventory</label>
+              <label class="checkbox-row"><input id="newGameDialogueInput" type="checkbox" checked /> Enable Dialogue</label>
+              <label class="checkbox-row"><input id="newGameCombatInput" type="checkbox" /> Enable Combat</label>
+              <label class="checkbox-row"><input id="newGameAudioInput" type="checkbox" checked /> Enable Audio</label>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel new-game-preview-panel">
+          <div class="new-game-preview-heading">
+            <div><h3>Generated File Tree</h3><p class="small">Select any file to inspect its complete generated contents.</p></div>
+            <code id="newGameFilePreviewPath">Select a generated file</code>
+          </div>
+          <div class="new-game-file-layout">
+            <div id="newGameFileTree" class="new-game-tree" aria-label="Generated package file tree"></div>
+            <pre id="newGameFilePreview" class="new-game-code-preview" tabindex="0"></pre>
+          </div>
+        </section>
+      </div>
+
+      <section class="new-game-publish-panel">
+        <h3>Publish New Package as Draft PR</h3>
+        <div class="workspace-two-column">
+          <div><label class="field-label" for="newGamePublishTitleInput">Draft PR Title</label><input id="newGamePublishTitleInput" class="text-input" type="text" maxlength="120" /></div>
+          <div><label class="field-label" for="newGameCommitInput">Commit Message</label><input id="newGameCommitInput" class="text-input" type="text" maxlength="120" /></div>
+        </div>
+        <label class="field-label" for="newGameTokenInput">Fine-grained GitHub Token</label>
+        <input id="newGameTokenInput" class="text-input" type="password" autocomplete="off" spellcheck="false" />
+        <p class="small">Use a repository-scoped token for <code>cm5wxjmcpv-bit/Game-v2</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token remains only in page memory and is cleared after success.</p>
+        <label class="checkbox-row"><input id="newGameConfirmInput" type="checkbox" /> I reviewed the generated file tree and understand this creates a new branch and draft pull request without merging.</label>
+        <div class="workspace-inline-actions">
+          <button id="newGamePublishBtn" type="button" disabled>Publish New Game Draft PR</button>
+          <button id="newGameForgetTokenBtn" type="button" class="secondary-btn">Forget Token</button>
+        </div>
+        <div id="newGameStatus" class="message" role="status" aria-live="polite"></div>
+        <a id="newGamePrLink" class="workspace-link workspace-publish-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Draft Pull Request</a>
+      </section>
+    </section>
+
     <section id="workspacePublishTab" class="panel workspace-tab workspace-publish-panel">
       <div class="workspace-publish-heading">
         <div>
@@ -183,7 +261,7 @@
         </div>
         <label class="field-label" for="publishTokenInput">Fine-grained GitHub Token</label>
         <input id="publishTokenInput" class="text-input" type="password" autocomplete="off" spellcheck="false" />
-        <p class="small">Create a repository-scoped token for <code>cm5wxjmcpv-bit/Game-v2</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token stays in this page's memory and is cleared after a successful publish. <a href="https://github.com/settings/personal-access-tokens/new?name=Pixel%20Engine%20Workspace&description=Creates%20reviewable%20workspace%20branches%20and%20draft%20pull%20requests&contents=write&pull_requests=write" target="_blank" rel="noopener noreferrer">Create token</a></p>
+        <p class="small">Create a repository-scoped token for <code>cm5wxjmcpv-bit/Game-v2</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token stays in this page's memory and is cleared after a successful publish. <a href="https://github.com/settings/personal-access-tokens/new?name=Pixel%20Engine%20Workspace&amp;description=Creates%20reviewable%20workspace%20branches%20and%20draft%20pull%20requests&amp;contents=write&amp;pull_requests=write" target="_blank" rel="noopener noreferrer">Create token</a></p>
         <label class="checkbox-row workspace-publish-confirm"><input id="publishConfirmInput" type="checkbox" /> I reviewed the file list and understand this opens a draft pull request for review.</label>
         <div class="workspace-inline-actions">
           <button id="publishDraftPrBtn" type="submit" disabled>Publish Draft PR</button>
@@ -197,5 +275,6 @@
 
   <script type="module" src="workspace-map-launcher.js"></script>
   <script type="module" src="workspace.js"></script>
+  <script type="module" src="new-game-wizard-ui.js"></script>
 </body>
 </html>
