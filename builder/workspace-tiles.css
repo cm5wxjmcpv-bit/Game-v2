@@ -1,0 +1,85 @@
+.workspace-tile-library {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.workspace-tile-library-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workspace-tile-library-heading h3 {
+  margin: 0;
+}
+
+.workspace-tile-library-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.65rem 0;
+}
+
+.workspace-tile-search {
+  width: 100%;
+  margin-bottom: 0.55rem;
+}
+
+.workspace-tile-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 19rem;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.workspace-tile-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.workspace-tile-row.is-used {
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.workspace-tile-swatch {
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 0.25rem;
+}
+
+.workspace-tile-copy {
+  min-width: 0;
+}
+
+.workspace-tile-copy strong,
+.workspace-tile-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-tile-badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.35);
+}
+
+.workspace-tile-row.is-used .workspace-tile-badge {
+  background: rgba(14, 116, 144, 0.45);
+}
+
+.workspace-tile-summary {
+  margin: 0.5rem 0 0;
+}
