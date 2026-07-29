@@ -96,10 +96,16 @@ async function refreshProject(token) {
   const projectSelect = document.getElementById('projectSelect');
   const sceneSelect = document.getElementById('sceneSelect');
   const summary = document.getElementById('projectSummary');
+  const expectedName = projectSelect?.selectedOptions?.[0]?.textContent?.trim() || '';
   let attempts = 0;
   while (token === state.loadToken && attempts < 160) {
     attempts += 1;
-    const ready = projectSelect?.value && sceneSelect?.options?.length && !/loading/i.test(summary?.textContent || '');
+    const summaryText = summary?.textContent || '';
+    const ready = projectSelect?.value
+      && sceneSelect?.options?.length
+      && expectedName
+      && summaryText.includes(expectedName)
+      && !/loading/i.test(summaryText);
     if (ready) break;
     await new Promise((resolve) => window.setTimeout(resolve, 50));
   }
