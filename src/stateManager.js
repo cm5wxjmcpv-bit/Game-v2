@@ -1,6 +1,7 @@
 export const GAME_STATES = Object.freeze({
   MAIN_MENU: 'main_menu',
   CLASS_SELECT: 'class_select',
+  SCENE: 'scene',
   TOWN: 'town',
   LEVEL: 'level',
   BATTLE: 'battle',
