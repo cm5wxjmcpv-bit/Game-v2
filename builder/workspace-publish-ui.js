@@ -1,5 +1,5 @@
 import { mergeActors, normalizeId, normalizeScene } from './workspace-model.js';
-import { buildWorkspacePublishPlan } from './workspace-publish-model.js';
+import { buildWorkspacePublishPlan, repoPathFromUrl } from './workspace-publish-model.js';
 import { publishWorkspacePlan } from './workspace-publisher.js';
 
 const DRAFT_PREFIX = 'pixel_engine_builder_workspace_';
@@ -13,11 +13,7 @@ const dom = Object.fromEntries([
   'publishDraftPrBtn', 'clearPublishTokenBtn', 'publishStatus', 'publishPrLink',
 ].map((id) => [id, document.getElementById(id)]));
 
-const state = {
-  plan: null,
-  loading: false,
-  publishing: false,
-};
+const state = { plan: null, loading: false, publishing: false };
 
 bindEvents();
 
@@ -68,12 +64,19 @@ function fileIn(directory, id) {
   return `${String(directory || '').replace(/\/$/, '')}/${id}.json`;
 }
 
-async function loadSceneGroup(ids, directory, kind, contentRootUrl) {
+function rawJsonText(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+async function loadSceneGroup(ids, directory, kind, contentRootUrl, fileContents) {
   if (!directory) return [];
   return Promise.all((ids || []).map(async (id) => {
     const path = fileIn(directory, id);
-    const scene = normalizeScene(await fetchJson(new URL(path, contentRootUrl)));
-    return { ...scene, _workspaceKind: kind, _workspacePath: path };
+    const url = new URL(path, contentRootUrl);
+    const rawScene = await fetchJson(url);
+    const repositoryPath = repoPathFromUrl(url, REPOSITORY_ROOT_URL);
+    fileContents[repositoryPath] = rawJsonText(rawScene);
+    return { ...normalizeScene(rawScene), _workspaceKind: kind, _workspacePath: path };
   }));
 }
 
@@ -82,6 +85,7 @@ async function loadRepositoryBaseline(projectId) {
   const manifest = await fetchJson(manifestUrl);
   const contentRootUrl = new URL(manifest.contentRoot || './', manifestUrl);
   const data = manifest.data || {};
+  const fileContents = {};
   const world = await fetchJson(new URL(data.world, contentRootUrl));
   const classesPayload = data.classes
     ? await fetchJson(new URL(data.classes, contentRootUrl), { classes: [] })
@@ -89,13 +93,17 @@ async function loadRepositoryBaseline(projectId) {
   const actorsPayload = data.actors
     ? await fetchJson(new URL(data.actors, contentRootUrl), { actors: [] })
     : { actors: [] };
+  if (data.actors) {
+    const actorsUrl = new URL(data.actors, contentRootUrl);
+    fileContents[repoPathFromUrl(actorsUrl, REPOSITORY_ROOT_URL)] = rawJsonText(actorsPayload);
+  }
   const actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []);
   const [towns, levels, scenes] = await Promise.all([
-    loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl),
-    loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl),
-    loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl),
+    loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl, fileContents),
+    loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl, fileContents),
+    loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl, fileContents),
   ]);
-  return { manifest, contentRootUrl, actors, scenes: [...towns, ...levels, ...scenes] };
+  return { manifest, contentRootUrl, actors, scenes: [...towns, ...levels, ...scenes], fileContents };
 }
 
 function readCurrentDraft(projectId, baseline) {
@@ -135,6 +143,9 @@ async function refreshPublishPlan() {
       scenes: current.scenes,
       baselineScenes: baseline.scenes,
     });
+    for (const file of state.plan.files) {
+      if (baseline.fileContents[file.path]) file.baselineContent = baseline.fileContents[file.path];
+    }
     dom.publishTitleInput.value ||= `Update ${projectId} workspace content`;
     dom.publishCommitInput.value ||= `Update ${projectId} workspace content`;
     renderPublishPlan();
@@ -186,11 +197,8 @@ function renderPublishPlan() {
 function updatePublishButton() {
   const usablePlan = state.plan && !state.plan.errors.length && state.plan.files.length > 0;
   dom.publishDraftPrBtn.disabled = Boolean(
-    state.loading ||
-    state.publishing ||
-    !usablePlan ||
-    !dom.publishConfirmInput.checked ||
-    !dom.publishTokenInput.value.trim()
+    state.loading || state.publishing || !usablePlan ||
+    !dom.publishConfirmInput.checked || !dom.publishTokenInput.value.trim()
   );
 }
 
