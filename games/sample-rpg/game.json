@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-rpg",
+  "name": "Sample RPG",
+  "version": "0.1.0",
+  "engineVersion": "0.1.0",
+  "description": "The original RPG prototype retained as the first test game for Pixel Engine.",
+  "contentRoot": "../../",
+  "startScene": {
+    "type": "town",
+    "id": "town_hub"
+  },
+  "systems": {
+    "movement": true,
+    "collision": true,
+    "inventory": true,
+    "equipment": true,
+    "shops": true,
+    "combat": "turn_based",
+    "randomEncounters": true,
+    "progression": true
+  },
+  "data": {
+    "tiles": "data/tiles/tiles.json",
+    "tileEffects": "data/tiles/effects.json",
+    "texturePack": "data/texturepacks/default-pack.json",
+    "world": "data/world/world.json",
+    "classes": "data/classes/classes.json",
+    "items": "data/items/items.json",
+    "enemies": "data/enemies/enemies.json",
+    "shops": "data/shops/shops.json",
+    "progression": "data/world/progression.json",
+    "encounters": "data/encounters/encounters.json",
+    "encounterTables": "data/encounters/tables.json",
+    "townsDirectory": "data/towns",
+    "levelsDirectory": "data/levels"
+  }
+}
