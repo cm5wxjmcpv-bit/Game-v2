@@ -83,6 +83,17 @@ pixel_engine_save_<game-id>_slot_1
 
 Legacy `pixel_engine_save_v1` and `pixel_engine_save_v2` saves remain readable by `sample-rpg`.
 
+## Automated audit
+
+Install the audit dependency and run the full data, source, and browser checks:
+
+```bash
+npm install
+npm run audit
+```
+
+GitHub Actions runs the same audit for pull requests into `main`. The audit validates package manifests, JSON and map references, assets, JavaScript syntax, HTML references, both game packages, browser saves, the builder, and the standalone viewer.
+
 ## Builder
 
 The builder remains available under `/builder/`. A later engine milestone will make the builder select and edit a specific game package instead of assuming the sample RPG paths.
