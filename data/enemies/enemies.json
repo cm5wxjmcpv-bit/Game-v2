@@ -4,10 +4,6 @@
       "id": "slime_green",
       "name": "Green Slime",
       "stats": { "maxHp": 12, "defense": 1 },
-      "sprites": {
-        "battle": "data/sprites/monsters/swampMonster_battle.png",
-        "inLevel": "data/sprites/monsters/swampMonster_inLevel.png"
-      },
       "ai": { "behavior": "wanderer", "speed": 1.4, "patrolRange": 2, "aggroRange": 3.2, "leashRange": 7 },
       "combat": { "attack": 2, "attackRange": 1.1, "cooldown": 1.4 },
       "dropTable": {

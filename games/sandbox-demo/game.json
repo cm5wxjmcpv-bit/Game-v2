@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "sandbox-demo",
+  "name": "Sandbox Demo",
+  "version": "0.1.0",
+  "engineVersion": "0.1.0",
+  "description": "A minimal independent game package used to verify that Pixel Engine can load more than one game.",
+  "contentRoot": "./",
+  "startScene": {
+    "type": "town",
+    "id": "sandbox_room"
+  },
+  "systems": {
+    "movement": true,
+    "collision": true,
+    "inventory": false,
+    "equipment": false,
+    "shops": false,
+    "combat": false,
+    "randomEncounters": false,
+    "progression": false
+  },
+  "data": {
+    "tiles": "data/core.json",
+    "tileEffects": "data/core.json",
+    "texturePack": "data/core.json",
+    "world": "data/world.json",
+    "classes": "data/core.json",
+    "items": "data/core.json",
+    "enemies": "data/core.json",
+    "shops": "data/core.json",
+    "progression": "data/core.json",
+    "encounters": "data/core.json",
+    "encounterTables": "data/core.json",
+    "townsDirectory": "data/towns",
+    "levelsDirectory": "data/levels"
+  }
+}

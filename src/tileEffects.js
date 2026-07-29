@@ -8,6 +8,10 @@ const handlers = {
     if (game._dotTimer >= (effect.interval ?? 1)) {
       game.player.stats.hp -= effect.amount;
       game._dotTimer = 0;
+      if (game.player.stats.hp <= 0) {
+        game.player.stats.hp = 0;
+        game.onPlayerDefeated();
+      }
     }
   },
   slow: (game, effect) => {
@@ -17,8 +21,15 @@ const handlers = {
 
 export function applyTileEffect(game, tileDef) {
   game.player.speedModifier = 1;
-  if (!tileDef?.effect) return;
+  if (!tileDef?.effect) {
+    game._dotTimer = 0;
+    return;
+  }
   const effect = game.db.tileEffects[tileDef.effect];
-  if (!effect) return;
+  if (!effect) {
+    game._dotTimer = 0;
+    return;
+  }
+  if (effect.type !== 'damageOverTime') game._dotTimer = 0;
   handlers[effect.type]?.(game, effect);
 }

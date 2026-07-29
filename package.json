@@ -1,0 +1,14 @@
+{
+  "name": "pixel-engine-audit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "audit:data": "sh tests/run-data-audit.sh",
+    "audit:unit": "node --test tests/unit/*.test.mjs",
+    "audit:browser": "playwright test",
+    "audit": "npm run audit:data && npm run audit:unit && npm run audit:browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.0"
+  }
+}

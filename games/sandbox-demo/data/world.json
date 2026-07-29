@@ -1,0 +1,11 @@
+{
+  "towns": ["sandbox_room"],
+  "levels": [],
+  "startTown": "sandbox_room",
+  "start": {
+    "townId": "sandbox_room",
+    "unlockedTowns": ["sandbox_room"],
+    "unlockedLevels": [],
+    "gold": 0
+  }
+}

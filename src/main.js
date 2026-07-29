@@ -115,6 +115,24 @@ const ui = {
       ui.hideOverlay();
     };
   },
+  showFatalError(error) {
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = '';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    const heading = document.createElement('h2');
+    heading.textContent = 'Unable to Load Game';
+    const message = document.createElement('p');
+    message.textContent = error?.message || 'The selected game package could not be loaded.';
+    const recovery = document.createElement('button');
+    recovery.id = 'load-default-game';
+    recovery.textContent = 'Load Default Game';
+    recovery.onclick = () => window.location.assign(`${window.location.pathname}?game=sample-rpg`);
+
+    modal.append(heading, message, recovery);
+    overlay.appendChild(modal);
+  },
   renderHud(game) {
     const p = game.player;
     if (!p) return;
@@ -136,15 +154,20 @@ const renderer = new Renderer(canvas);
 const input = new InputManager();
 const debug = new DebugSystem();
 const audio = new AudioSystem();
-
 const game = new Game({ renderer, input, debug, audio, ui });
-await game.init();
 
-let last = performance.now();
-function loop(now) {
-  const dt = Math.min(0.033, (now - last) / 1000);
-  last = now;
-  game.update(dt, now);
+try {
+  await game.init();
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    game.update(dt, now);
+    requestAnimationFrame(loop);
+  }
   requestAnimationFrame(loop);
+} catch (error) {
+  console.error('[PixelEngine] Initialization failed.', error);
+  ui.showFatalError(error);
 }
-requestAnimationFrame(loop);
