@@ -91,9 +91,9 @@ function configureFocusedEditor(frameWindow, frameDocument) {
     });
 
   const header = frameDocument.querySelector('.site-header p');
-  if (header) header.textContent = 'Workspace bridge mode: edit tiles, dimensions, name, and the Player Start marker.';
+  if (header) header.textContent = 'Workspace bridge mode: edit tiles enabled from the package library, dimensions, name, and the Player Start marker.';
 
-  const allowedTileIds = new Set((handoff.editorMap.tileLayer || []).flat());
+  const allowedTileIds = new Set(handoff.allowedTileIds || (handoff.editorMap.tileLayer || []).flat());
   const restrictPalette = () => {
     const objectMode = /object layer/i.test(frameDocument.getElementById('activeLayerLabel')?.textContent || '');
     frameDocument.querySelectorAll('#palette .tile-btn').forEach((button) => {
@@ -103,7 +103,7 @@ function configureFocusedEditor(frameWindow, frameDocument) {
       if (!allowed) {
         button.title = objectMode
           ? 'Workspace bridge mode preserves legacy objects and component entities outside this editor.'
-          : 'This focused bridge only allows tile types already registered in the selected scene.';
+          : 'Enable this registered package tile from the workspace before opening the map editor.';
       } else {
         button.removeAttribute('title');
       }
@@ -143,7 +143,7 @@ function importEditorMap(frameWindow, frameDocument, restrictPalette) {
       const firstAllowedTile = frameDocument.querySelector('#palette .tile-btn[data-tile-id]:not(:disabled)');
       firstAllowedTile?.click();
       dom.frame.style.pointerEvents = 'auto';
-      dom.status.textContent = `${handoff.sceneId} loaded. Use Tile Layer for layout and Object Layer only for Player Start.`;
+      dom.status.textContent = `${handoff.sceneId} loaded with ${handoff.allowedTileIds?.length || 0} enabled tile tool(s). Use Object Layer only for Player Start.`;
       dom.returnButton.disabled = false;
       return;
     }
