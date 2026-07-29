@@ -1,0 +1,19 @@
+{
+  "games": [
+    {
+      "id": "sample-rpg",
+      "name": "Sample RPG",
+      "description": "Existing RPG compatibility package"
+    },
+    {
+      "id": "sandbox-demo",
+      "name": "Sandbox Demo",
+      "description": "Independent legacy-town package"
+    },
+    {
+      "id": "scene-demo",
+      "name": "Generic Scene Demo",
+      "description": "Direct actor and component-entity package"
+    }
+  ]
+}

@@ -142,6 +142,57 @@ test('builder loads without console or network errors and its main tabs open', a
   monitor.assertClean('builder');
 });
 
+test('builder project workspace loads package actors and scenes', async ({ page }) => {
+  const monitor = monitorPage(page);
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.getByRole('heading', { name: 'Pixel Engine Project Workspace' })).toBeVisible();
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await expect(page.locator('#projectSummary')).toContainText('1 actor(s)');
+  await expect(page.locator('#sceneSelect')).toHaveValue('scene_lab');
+  await expect(page.locator('#scenePreview .workspace-scene-cell')).toHaveCount(30);
+  await expect(page.locator('#actorList')).toContainText('Scene Explorer');
+  await expect(page.locator('#entityList')).toContainText('welcome_beacon');
+  monitor.assertClean('builder workspace load');
+});
+
+test('builder project workspace edits and exports actors and component entities', async ({ page }) => {
+  const monitor = monitorPage(page);
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+
+  await page.locator('#workspaceActorTabBtn').click();
+  await page.locator('#actorList [data-actor-id="scene_actor"]').click();
+  await page.locator('#actorNameInput').fill('Workspace Explorer');
+  await page.locator('#saveActorBtn').click();
+  await expect(page.locator('#actorList')).toContainText('Workspace Explorer');
+
+  const actorDownloadPromise = page.waitForEvent('download');
+  await page.locator('#exportActorsBtn').click();
+  const actorPayload = await readDownloadJson(await actorDownloadPromise);
+  expect(actorPayload.actors.some((actor) => actor.id === 'scene_actor' && actor.name === 'Workspace Explorer')).toBe(true);
+
+  await page.locator('#workspaceSceneTabBtn').click();
+  await page.locator('#newEntityBtn').click();
+  await page.locator('#entityIdInput').fill('workspace_beacon');
+  await page.locator('#entityTypeInput').fill('beacon');
+  await page.locator('.workspace-scene-cell[data-scene-x="3"][data-scene-y="2"]').click();
+  await page.locator('#entityActionSelect').selectOption('message');
+  await page.locator('#entityMessageInput').fill('Workspace entity saved.');
+  await page.locator('#saveEntityBtn').click();
+  await expect(page.locator('#entityList')).toContainText('workspace_beacon');
+
+  const sceneDownloadPromise = page.waitForEvent('download');
+  await page.locator('#exportSceneBtn').click();
+  const scenePayload = await readDownloadJson(await sceneDownloadPromise);
+  const entity = scenePayload.entities.find((entry) => entry.id === 'workspace_beacon');
+  expect(entity).toBeTruthy();
+  expect(entity.x).toBe(3);
+  expect(entity.y).toBe(2);
+  expect(entity.components.interaction.message).toBe('Workspace entity saved.');
+
+  monitor.assertClean('builder workspace edit and export');
+});
+
 test('builder creates an engine-compatible map JSON download', async ({ page }) => {
   const monitor = monitorPage(page);
   await page.goto('/builder/');

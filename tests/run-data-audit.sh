@@ -11,6 +11,7 @@ fi
 node tests/data-audit.mjs || STATUS=$?
 node tests/scene-contract-audit.mjs || STATUS=$?
 node tests/actor-entity-contract-audit.mjs || STATUS=$?
+node tests/builder-catalog-audit.mjs || STATUS=$?
 
 if [ -d "$TEMP_DIR/node_modules" ]; then
   mv "$TEMP_DIR/node_modules" node_modules
