@@ -47,10 +47,6 @@ function bindEvents() {
   });
   dom.newGameForm.addEventListener('change', rebuildPlan);
   dom.newGameRefreshBtn.addEventListener('click', rebuildPlan);
-  dom.newGameFileTree.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-wizard-path]');
-    if (button) selectFile(button.dataset.wizardPath);
-  });
   dom.newGamePublishBtn.addEventListener('click', publishNewGame);
   dom.newGameTokenInput.addEventListener('input', updatePublishButton);
   dom.newGameConfirmInput.addEventListener('change', updatePublishButton);
@@ -142,6 +138,7 @@ function renderPlan() {
     button.classList.toggle('active', file.path === state.selectedPath);
     button.dataset.wizardPath = file.path;
     button.innerHTML = `<code>${escapeHtml(file.path)}</code><span>${escapeHtml(file.operation || 'update')}</span>`;
+    button.addEventListener('click', () => selectFile(file.path));
     dom.newGameFileTree.appendChild(button);
   }
   renderSelectedFile();
