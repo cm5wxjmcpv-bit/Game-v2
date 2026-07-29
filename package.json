@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "audit:data": "node tests/data-audit.mjs",
+    "audit:data": "sh tests/run-data-audit.sh",
     "audit:browser": "playwright test",
     "audit": "npm run audit:data && npm run audit:browser"
   },
