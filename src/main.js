@@ -1,9 +1,9 @@
-import { Renderer } from './renderer.js';
 import { InputManager } from './input.js';
 import { DebugSystem } from './debug.js';
 import { AudioSystem } from './audio.js';
-import { Game } from './game.js';
 import { expandBag } from './inventory.js';
+import { PackageGame } from './packageGame.js';
+import { PackageRenderer } from './packageRenderer.js';
 
 const canvas = document.getElementById('game-canvas');
 const overlay = document.getElementById('overlay');
@@ -30,23 +30,29 @@ const ui = {
   isOverlayOpen() {
     return !overlay.classList.contains('hidden');
   },
-  showMainMenu(onStart, onLoad, classes = []) {
+  showMainMenu(onStart, onLoad, actors = []) {
     overlay.classList.remove('hidden');
     overlay.innerHTML = `<div class="modal"><h2>Pixel Engine</h2><p>Reusable 2D engine shell.</p>
       <div class="row"><button id="new-game">New Game</button><button id="load-game">Load Save</button></div></div>`;
-    document.getElementById('new-game').onclick = () => ui.showClassSelect(onStart, classes);
+    document.getElementById('new-game').onclick = () => ui.showActorSelect(onStart, actors);
     document.getElementById('load-game').onclick = () => onLoad();
   },
-  showClassSelect(onStart, classes = []) {
+  showActorSelect(onStart, actors = []) {
     overlay.classList.remove('hidden');
-    overlay.innerHTML = `<div class="modal"><h2>Choose Class</h2><div id="class-opts" class="row"></div></div>`;
+    overlay.innerHTML = `<div class="modal"><h2>Choose Actor</h2><div id="class-opts" class="row"></div></div>`;
     const host = document.getElementById('class-opts');
-    classes.forEach((c) => {
+    actors.forEach((actor) => {
+      const health = actor.components?.health?.max ?? actor.stats?.maxHp ?? 10;
+      const attack = actor.components?.combat?.attack ?? actor.stats?.attack ?? 0;
       const btn = document.createElement('button');
-      btn.textContent = `${c.name} (HP ${c.stats.maxHp}, ATK ${c.stats.attack})`;
-      btn.onclick = () => onStart(c.id);
+      btn.textContent = `${actor.name} (HP ${health}, ATK ${attack})`;
+      btn.dataset.actorId = actor.id;
+      btn.onclick = () => onStart(actor.id);
       host.appendChild(btn);
     });
+  },
+  showClassSelect(onStart, actors = []) {
+    ui.showActorSelect(onStart, actors);
   },
   showLevelSelect(levelIds, completed, onPick) {
     overlay.classList.remove('hidden');
@@ -109,7 +115,7 @@ const ui = {
   },
   showGameOver(onRevive) {
     overlay.classList.remove('hidden');
-    overlay.innerHTML = `<div class="modal"><h2>Game Over</h2><button id="revive">Return to Town</button></div>`;
+    overlay.innerHTML = `<div class="modal"><h2>Game Over</h2><button id="revive">Return to Safe Scene</button></div>`;
     document.getElementById('revive').onclick = () => {
       onRevive();
       ui.hideOverlay();
@@ -136,12 +142,16 @@ const ui = {
   renderHud(game) {
     const p = game.player;
     if (!p) return;
-    playerPanel.innerHTML = `<h3>Player</h3>
+    const identity = p.classId
+      ? `<p>Class: ${p.classId}</p>`
+      : `<p>Actor: ${p.actorName || p.actorId}</p>`;
+    playerPanel.innerHTML = `<h3>${p.actorName || 'Player'}</h3>
       <p>HP: ${Math.max(0, Math.floor(p.stats.hp))}/${p.stats.maxHp}</p>
-      <p>Gold: ${p.gold}</p><p>Class: ${p.classId}</p>
+      <p>Gold: ${p.gold}</p>${identity}
       <p>Bag: ${p.bag.items.length}/${p.bag.slots}</p>`;
     contextPanel.innerHTML = `<h3>Context</h3>
       <p>State: ${game.state.current}</p>
+      <p>Scene: ${game.currentSceneId}</p>
       <p>Town: ${game.currentTownId}</p>
       <p class="small">Move: WASD / Arrow | Interact: E | Pause: Esc | Debug: \`</p>`;
   },
@@ -150,11 +160,11 @@ const ui = {
   },
 };
 
-const renderer = new Renderer(canvas);
+const renderer = new PackageRenderer(canvas);
 const input = new InputManager();
 const debug = new DebugSystem();
 const audio = new AudioSystem();
-const game = new Game({ renderer, input, debug, audio, ui });
+const game = new PackageGame({ renderer, input, debug, audio, ui });
 
 try {
   await game.init();
