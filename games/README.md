@@ -12,6 +12,8 @@ A package manifest identifies the game's data files, enabled systems, version, a
 
 The current `sample-rpg` package points to the existing `/data` directory for backward compatibility. A later migration can move that content inside `games/sample-rpg/` without changing the engine loader; only the manifest paths need to change.
 
+`sandbox-demo` is a self-contained test package. Launch it with `?game=sandbox-demo` to verify that the same engine can load unrelated package data.
+
 ## Minimum manifest
 
 ```json
