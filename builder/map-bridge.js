@@ -92,11 +92,20 @@ function configureFocusedEditor(frameWindow, frameDocument) {
   const header = frameDocument.querySelector('.site-header p');
   if (header) header.textContent = 'Workspace bridge mode: edit tiles, dimensions, name, and the Player Start marker.';
 
+  const allowedTileIds = new Set((handoff.editorMap.tileLayer || []).flat());
   const restrictPalette = () => {
     const objectMode = /object layer/i.test(frameDocument.getElementById('activeLayerLabel')?.textContent || '');
     frameDocument.querySelectorAll('#palette .tile-btn').forEach((button) => {
-      button.disabled = objectMode && button.dataset.tileId !== 'player_start';
-      if (button.disabled) button.title = 'Workspace bridge mode preserves legacy objects and component entities outside this editor.';
+      const tileId = button.dataset.tileId || '';
+      const allowed = objectMode ? tileId === 'player_start' : allowedTileIds.has(tileId);
+      button.disabled = !allowed;
+      if (!allowed) {
+        button.title = objectMode
+          ? 'Workspace bridge mode preserves legacy objects and component entities outside this editor.'
+          : 'This focused bridge only allows tile types already registered in the selected scene.';
+      } else {
+        button.removeAttribute('title');
+      }
     });
   };
 
