@@ -12,10 +12,11 @@ Because the engine loads JSON via `fetch`, run from a local static server:
 python -m http.server 8080
 ```
 
-Then open:
+Then open either package:
 
 ```text
 http://localhost:8080/?game=sample-rpg
+http://localhost:8080/?game=sandbox-demo
 ```
 
 The `game` query parameter selects `games/<game-id>/game.json`. When it is omitted or invalid, the engine loads `sample-rpg`.
@@ -43,6 +44,8 @@ games/sample-rpg/game.json
 ```
 
 For transition safety, `sample-rpg` currently points to the existing `/data` content. This lets the manifest loader and game-specific save system be verified before moving or deleting working content.
+
+A second independent package is included at `games/sandbox-demo/`. It contains its own world, map, tiles, textures, class, and item data and proves that another game can load without modifying engine code.
 
 ## Content layout
 
