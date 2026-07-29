@@ -50,7 +50,7 @@ function validateTileGrid(tiles, width, height) {
 }
 
 function isEditorNativeTile(tileId) {
-  return EDITOR_NATIVE_TILE_IDS.has(tileId) || String(tileId).startsWith('custom_texture_');
+  return EDITOR_NATIVE_TILE_IDS.has(tileId);
 }
 
 function aliasFor(index) {
@@ -64,7 +64,7 @@ function buildAliasData(tiles, scene, packageTiles = []) {
   const tileById = new Map(packageTiles.map((tile) => [String(tile.id || ''), tile]));
 
   const editorIdFor = (tileId) => {
-    if (isEditorNativeTile(tileId)) return tileId;
+    if (isEditorNativeTile(tileId) || tileId === 'empty') return tileId;
     if (!originalToAlias.has(tileId)) {
       const alias = aliasFor(originalToAlias.size);
       const tile = tileById.get(tileId) || {};
@@ -76,7 +76,7 @@ function buildAliasData(tiles, scene, packageTiles = []) {
   };
 
   const editorTiles = tiles.map((row) => row.map(editorIdFor));
-  const allowedTileIds = [];
+  const allowedTileIds = ['empty'];
   for (const tileId of editorTileSelection(scene, packageTiles)) {
     const editorId = editorIdFor(tileId);
     if (!allowedTileIds.includes(editorId)) allowedTileIds.push(editorId);
@@ -114,6 +114,8 @@ export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', 
   const aliases = buildAliasData(tiles, scene, packageTiles);
   const objectLayer = makeLayer(width, height, 'none');
   objectLayer[spawn.y][spawn.x] = 'player_start';
+  const originalScene = clone(scene);
+  originalScene._workspaceEditorTileIds = editorTileSelection(scene, packageTiles);
 
   return {
     schemaVersion: MAP_BRIDGE_SCHEMA_VERSION,
@@ -123,7 +125,7 @@ export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', 
     scenePath: String(scene._workspacePath || ''),
     returnUrl: String(returnUrl || ''),
     createdAt: new Date().toISOString(),
-    originalScene: clone(scene),
+    originalScene,
     tileAliases: aliases.aliasToOriginal,
     aliasColors: aliases.aliasColors,
     allowedTileIds: aliases.allowedTileIds,
@@ -217,6 +219,7 @@ export function mergeMapBridgeResult(handoffValue, rawMap) {
   if (returnedId !== safeId(handoff.sceneId)) throw new Error('The returned map ID does not match the selected workspace scene.');
   const encodedTiles = validateTileGrid(rawMap.tileLayer || rawMap.tiles, width, height);
   const allowedTileIds = new Set(handoff.allowedTileIds || handoff.editorMap.tileLayer.flat());
+  allowedTileIds.add('empty');
   const disallowed = encodedTiles.flat().find((tileId) => !allowedTileIds.has(tileId));
   if (disallowed) throw new Error(`The returned map contains a tile that was not enabled for this scene: ${disallowed}.`);
   const spawn = findSpawn(rawMap.objectLayer, width, height);
