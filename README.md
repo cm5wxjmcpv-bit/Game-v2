@@ -129,7 +129,7 @@ npm install
 npm run audit
 ```
 
-GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, legacy scene-object editing, the builder package catalog, workspace/map-editor bridge and controlled-publishing contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, the focused map bridge, the mocked draft-PR workflow, and the standalone viewer.
+GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, package tile-library editing, legacy scene-object editing, the builder package catalog, workspace/map-editor bridge and controlled-publishing contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, the focused map bridge, the mocked draft-PR workflow, and the standalone viewer.
 
 ## Builder
 
@@ -146,18 +146,30 @@ The package-aware actor and entity workspace is available under:
 /builder/workspace.html?game=scene-demo
 ```
 
-The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Actor JSON, scene JSON, and full workspace bundles can still be exported without GitHub authentication.
+The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes and package tiles, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Actor JSON, scene JSON, and full workspace bundles can still be exported without GitHub authentication.
+
+### Package tile library
+
+The **Map Editor Tiles** panel lists every tile registered by the selected package, including its color, walkability, and whether it is already used in the selected scene.
+
+- Tiles already present in the scene grid are always enabled.
+- An unused registered tile can be enabled individually or through **Enable All**.
+- **Used Only** removes unused editor permissions.
+- Tile permissions remain local workspace metadata and do not alter scene JSON by themselves.
+- A tile becomes part of the scene only after it is painted in the visual map editor.
+
+Unknown selections are discarded. Workspace-only tile permissions are preserved in the browser draft but removed from scene exports, workspace bundles, and controlled Publish payloads.
 
 ### Visual scene-layout bridge
 
 From the workspace, select a scene and choose **Edit Tiles & Spawn**. A focused wrapper opens the established map-grid editor and supports:
 
 - changing the scene name and dimensions
-- painting tile types already registered in the selected scene
+- painting used tiles and unused package tiles enabled from **Map Editor Tiles**
 - moving the single Player Start marker
 - returning the edited layout to the package-specific local workspace draft
 
-Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, and unknown metadata are preserved. A resize is rejected when preserved content would fall outside the new bounds.
+Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. The returned map is rejected if it contains a tile tool that was not enabled for the scene. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, unknown metadata, and local tile permissions are preserved. A resize is rejected when preserved content would fall outside the new bounds.
 
 ### Visual legacy scene objects
 
@@ -194,7 +206,6 @@ Current publishing limits:
 
 ## Remaining generalization work
 
-- adding package tile types that are not already present in a selected scene
 - automatic creation of new game package directory structures
 - conversion of legacy portals, shops, fountains, and enemy spawns into optional generic components
 - removal of compatibility RPG fields from actors that do not use combat, inventory, or equipment
