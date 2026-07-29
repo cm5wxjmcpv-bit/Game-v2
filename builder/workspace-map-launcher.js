@@ -19,8 +19,9 @@ consumeReturnedMap();
 document.addEventListener('DOMContentLoaded', () => {
   installMapEditorButton();
   showPendingNotice();
-  import('./workspace-object-ui.js').catch((error) => showModuleError('Scene object editor', error));
-  import('./workspace-tile-ui.js').catch((error) => showModuleError('Package tile library', error));
+  import('./workspace-object-ui.js')
+    .then(() => import('./workspace-tile-ui.js'))
+    .catch((error) => showModuleError('Workspace extension', error));
 });
 
 function showModuleError(label, error) {
