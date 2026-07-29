@@ -1,0 +1,234 @@
+import { mergeActors, normalizeId, normalizeScene } from './workspace-model.js';
+import { buildWorkspacePublishPlan } from './workspace-publish-model.js';
+import { publishWorkspacePlan } from './workspace-publisher.js';
+
+const DRAFT_PREFIX = 'pixel_engine_builder_workspace_';
+const REPOSITORY_ROOT_URL = new URL('../', window.location.href);
+
+const dom = Object.fromEntries([
+  'projectSelect', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn',
+  'workspacePublishTabBtn', 'workspaceSceneTab', 'workspaceActorTab', 'workspacePublishTab',
+  'refreshPublishPlanBtn', 'publishPlanSummary', 'publishFileList', 'publishForm',
+  'publishTitleInput', 'publishCommitInput', 'publishTokenInput', 'publishConfirmInput',
+  'publishDraftPrBtn', 'clearPublishTokenBtn', 'publishStatus', 'publishPrLink',
+].map((id) => [id, document.getElementById(id)]));
+
+const state = {
+  plan: null,
+  loading: false,
+  publishing: false,
+};
+
+bindEvents();
+
+function bindEvents() {
+  dom.workspacePublishTabBtn.addEventListener('click', openPublishTab);
+  dom.workspaceSceneTabBtn.addEventListener('click', closePublishTab);
+  dom.workspaceActorTabBtn.addEventListener('click', closePublishTab);
+  dom.refreshPublishPlanBtn.addEventListener('click', refreshPublishPlan);
+  dom.publishForm.addEventListener('submit', publishDraftPullRequest);
+  dom.clearPublishTokenBtn.addEventListener('click', () => {
+    dom.publishTokenInput.value = '';
+    updatePublishButton();
+    setPublishStatus('GitHub token cleared from this page.');
+  });
+  dom.publishTokenInput.addEventListener('input', updatePublishButton);
+  dom.publishConfirmInput.addEventListener('change', updatePublishButton);
+  dom.projectSelect.addEventListener('change', () => {
+    state.plan = null;
+    renderPublishPlan();
+  });
+}
+
+function openPublishTab() {
+  dom.workspaceSceneTab.classList.remove('active');
+  dom.workspaceActorTab.classList.remove('active');
+  dom.workspacePublishTab.classList.add('active');
+  dom.workspaceSceneTabBtn.classList.remove('active');
+  dom.workspaceActorTabBtn.classList.remove('active');
+  dom.workspacePublishTabBtn.classList.add('active');
+  refreshPublishPlan();
+}
+
+function closePublishTab() {
+  dom.workspacePublishTab.classList.remove('active');
+  dom.workspacePublishTabBtn.classList.remove('active');
+}
+
+async function fetchJson(url, fallback) {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) {
+    if (arguments.length > 1) return fallback;
+    throw new Error(`Unable to load ${url.pathname} (${response.status}).`);
+  }
+  return response.json();
+}
+
+function fileIn(directory, id) {
+  return `${String(directory || '').replace(/\/$/, '')}/${id}.json`;
+}
+
+async function loadSceneGroup(ids, directory, kind, contentRootUrl) {
+  if (!directory) return [];
+  return Promise.all((ids || []).map(async (id) => {
+    const path = fileIn(directory, id);
+    const scene = normalizeScene(await fetchJson(new URL(path, contentRootUrl)));
+    return { ...scene, _workspaceKind: kind, _workspacePath: path };
+  }));
+}
+
+async function loadRepositoryBaseline(projectId) {
+  const manifestUrl = new URL(`../games/${projectId}/game.json`, window.location.href);
+  const manifest = await fetchJson(manifestUrl);
+  const contentRootUrl = new URL(manifest.contentRoot || './', manifestUrl);
+  const data = manifest.data || {};
+  const world = await fetchJson(new URL(data.world, contentRootUrl));
+  const classesPayload = data.classes
+    ? await fetchJson(new URL(data.classes, contentRootUrl), { classes: [] })
+    : { classes: [] };
+  const actorsPayload = data.actors
+    ? await fetchJson(new URL(data.actors, contentRootUrl), { actors: [] })
+    : { actors: [] };
+  const actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []);
+  const [towns, levels, scenes] = await Promise.all([
+    loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl),
+    loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl),
+    loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl),
+  ]);
+  return { manifest, contentRootUrl, actors, scenes: [...towns, ...levels, ...scenes] };
+}
+
+function readCurrentDraft(projectId, baseline) {
+  dom.saveDraftBtn.click();
+  const raw = localStorage.getItem(`${DRAFT_PREFIX}${projectId}`);
+  if (!raw) throw new Error('The workspace draft could not be saved.');
+  const draft = JSON.parse(raw);
+  if (draft.projectId !== projectId || !Array.isArray(draft.actors) || !Array.isArray(draft.scenes)) {
+    throw new Error('The saved workspace draft is invalid.');
+  }
+  const sourceById = new Map(baseline.scenes.map((scene) => [scene.id, scene]));
+  const scenes = draft.scenes.map((scene) => ({
+    ...normalizeScene(scene),
+    _workspaceKind: sourceById.get(scene.id)?._workspaceKind || 'scene',
+    _workspacePath: sourceById.get(scene.id)?._workspacePath || '',
+  }));
+  return { actors: draft.actors, scenes };
+}
+
+async function refreshPublishPlan() {
+  if (state.loading || state.publishing) return;
+  state.loading = true;
+  dom.refreshPublishPlanBtn.disabled = true;
+  setPublishStatus('Building the file plan from the current workspace…');
+  try {
+    const projectId = normalizeId(dom.projectSelect.value);
+    if (!projectId) throw new Error('Select a game project first.');
+    const baseline = await loadRepositoryBaseline(projectId);
+    const current = readCurrentDraft(projectId, baseline);
+    state.plan = buildWorkspacePublishPlan({
+      projectId,
+      manifest: baseline.manifest,
+      contentRootUrl: baseline.contentRootUrl,
+      repositoryRootUrl: REPOSITORY_ROOT_URL,
+      actors: current.actors,
+      baselineActors: baseline.actors,
+      scenes: current.scenes,
+      baselineScenes: baseline.scenes,
+    });
+    dom.publishTitleInput.value ||= `Update ${projectId} workspace content`;
+    dom.publishCommitInput.value ||= `Update ${projectId} workspace content`;
+    renderPublishPlan();
+    if (state.plan.errors.length) setPublishStatus(state.plan.errors.join(' '), true);
+    else if (!state.plan.files.length) setPublishStatus('No changed actor or scene files are ready to publish.');
+    else setPublishStatus(`${state.plan.files.length} changed file(s) are ready for review.`);
+  } catch (error) {
+    state.plan = null;
+    renderPublishPlan();
+    setPublishStatus(`Unable to build publish plan: ${error.message}`, true);
+  } finally {
+    state.loading = false;
+    dom.refreshPublishPlanBtn.disabled = false;
+    updatePublishButton();
+  }
+}
+
+function renderPublishPlan() {
+  dom.publishFileList.innerHTML = '';
+  dom.publishPlanSummary.classList.remove('workspace-publish-error', 'workspace-publish-warning');
+  if (!state.plan) {
+    dom.publishPlanSummary.textContent = 'No publish plan has been built for the selected project.';
+    updatePublishButton();
+    return;
+  }
+  if (state.plan.errors.length) {
+    dom.publishPlanSummary.textContent = `${state.plan.projectId} cannot be published: ${state.plan.errors.join(' ')}`;
+    dom.publishPlanSummary.classList.add('workspace-publish-error');
+  } else if (!state.plan.files.length) {
+    dom.publishPlanSummary.textContent = `${state.plan.projectId} has no changed actor or scene files.`;
+    dom.publishPlanSummary.classList.add('workspace-publish-warning');
+  } else {
+    dom.publishPlanSummary.textContent = `${state.plan.projectId} → ${state.plan.repository} • new workspace branch from ${state.plan.baseBranch} • draft pull request`;
+  }
+  for (const file of state.plan.files) {
+    const row = document.createElement('div');
+    row.className = 'workspace-publish-file';
+    const path = document.createElement('code');
+    path.textContent = file.path;
+    const kind = document.createElement('span');
+    kind.className = 'workspace-publish-kind';
+    kind.textContent = file.kind;
+    row.append(path, kind);
+    dom.publishFileList.appendChild(row);
+  }
+  updatePublishButton();
+}
+
+function updatePublishButton() {
+  const usablePlan = state.plan && !state.plan.errors.length && state.plan.files.length > 0;
+  dom.publishDraftPrBtn.disabled = Boolean(
+    state.loading ||
+    state.publishing ||
+    !usablePlan ||
+    !dom.publishConfirmInput.checked ||
+    !dom.publishTokenInput.value.trim()
+  );
+}
+
+async function publishDraftPullRequest(event) {
+  event.preventDefault();
+  if (state.publishing) return;
+  await refreshPublishPlan();
+  if (!state.plan || state.plan.errors.length || !state.plan.files.length) return;
+  if (!dom.publishConfirmInput.checked) return setPublishStatus('Review and confirm the file list before publishing.', true);
+  const token = dom.publishTokenInput.value.trim();
+  if (!token) return setPublishStatus('A fine-grained GitHub token is required.', true);
+
+  state.publishing = true;
+  dom.publishPrLink.hidden = true;
+  updatePublishButton();
+  setPublishStatus('Comparing files with current main and creating a review branch…');
+  try {
+    const result = await publishWorkspacePlan({
+      token,
+      plan: state.plan,
+      title: dom.publishTitleInput.value,
+      commitMessage: dom.publishCommitInput.value,
+    });
+    dom.publishTokenInput.value = '';
+    dom.publishConfirmInput.checked = false;
+    dom.publishPrLink.href = result.pullRequestUrl;
+    dom.publishPrLink.textContent = `Open Draft Pull Request #${result.pullRequestNumber}`;
+    dom.publishPrLink.hidden = false;
+    setPublishStatus(`Draft pull request #${result.pullRequestNumber} created on branch ${result.branch}. The token was cleared.`);
+  } catch (error) {
+    setPublishStatus(`Publish failed: ${error.message}`, true);
+  } finally {
+    state.publishing = false;
+    updatePublishButton();
+  }
+}
+
+function setPublishStatus(message, isError = false) {
+  dom.publishStatus.textContent = message;
+  dom.publishStatus.classList.toggle('error', isError);
+}
