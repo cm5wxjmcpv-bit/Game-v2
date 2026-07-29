@@ -129,7 +129,7 @@ npm install
 npm run audit
 ```
 
-GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, the builder package catalog, workspace/map-editor bridge contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, the focused map bridge, and the standalone viewer.
+GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, the builder package catalog, workspace/map-editor bridge and controlled-publishing contracts, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, the focused map bridge, the mocked draft-PR workflow, and the standalone viewer.
 
 ## Builder
 
@@ -146,7 +146,7 @@ The package-aware actor and entity workspace is available under:
 /builder/workspace.html?game=scene-demo
 ```
 
-The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Repository files remain read-only until the user exports actor JSON, scene JSON, or a full workspace bundle.
+The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Actor JSON, scene JSON, and full workspace bundles can still be exported without GitHub authentication.
 
 ### Visual scene-layout bridge
 
@@ -157,11 +157,29 @@ From the workspace, select a scene and choose **Edit Tiles & Spawn**. A focused 
 - moving the single Player Start marker
 - returning the edited layout to the package-specific local workspace draft
 
-Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, and unknown metadata are preserved. A resize is rejected when preserved content would fall outside the new bounds. The bridge still does not write repository files; export the scene or workspace bundle after reviewing the returned draft.
+Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, and unknown metadata are preserved. A resize is rejected when preserved content would fall outside the new bounds.
+
+### Controlled draft-PR publishing
+
+The workspace **Publish** tab can send reviewed actor and scene changes to GitHub without writing directly to `main`.
+
+1. Make and save workspace changes.
+2. Open **Publish** and review the exact manifest-resolved JSON file list.
+3. Use a fine-grained token scoped only to `cm5wxjmcpv-bit/Game-v2` with **Contents: write** and **Pull requests: write**.
+4. Confirm the file plan and choose **Publish Draft PR**.
+
+The token is kept only in the page's memory and cleared after success. Before creating anything, the workspace compares each target file with the current `main` version. Any stale file stops the whole operation. A successful publish creates one `workspace/...` branch, one commit, and one draft pull request. The workspace never merges the pull request.
+
+Current publishing limits:
+
+- only existing manifest-resolved actor and scene JSON files
+- no actor publishing for packages without a direct `data.actors` file
+- no new scene files until package scaffolding is implemented
+- maximum 50 files per publish
+- fixed repository `cm5wxjmcpv-bit/Game-v2` and base branch `main`
 
 ## Remaining generalization work
 
-- direct controlled publishing of exported workspace files
 - visual editing of legacy portals, shops, fountains, enemies, and battle triggers from the package workspace
 - adding package tile types that are not already present in a selected scene
 - automatic creation of new game package directory structures
