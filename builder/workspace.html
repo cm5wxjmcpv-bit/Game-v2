@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Engine Project Workspace</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="workspace.css" />
+</head>
+<body>
+  <header class="site-header workspace-header">
+    <div>
+      <h1>Pixel Engine Project Workspace</h1>
+      <p>Select a game package, edit actors, and place component entities in its scenes.</p>
+    </div>
+    <a class="workspace-link" href="./">Open Map / Texture Builder</a>
+  </header>
+
+  <main class="workspace-shell">
+    <section class="panel workspace-project-panel">
+      <div class="workspace-toolbar">
+        <div>
+          <label class="field-label" for="projectSelect">Game Project</label>
+          <select id="projectSelect" class="text-input"></select>
+        </div>
+        <button id="loadProjectBtn" type="button">Load Project</button>
+        <button id="saveDraftBtn" type="button" class="secondary-btn">Save Local Draft</button>
+        <button id="clearDraftBtn" type="button" class="danger-btn">Clear Local Draft</button>
+        <button id="exportBundleBtn" type="button" class="secondary-btn">Export Workspace Bundle</button>
+      </div>
+      <div id="projectSummary" class="workspace-summary">Loading project catalog…</div>
+      <div id="workspaceMessage" class="message" role="status" aria-live="polite"></div>
+    </section>
+
+    <nav class="tab-bar workspace-tabs" aria-label="Project workspace tabs">
+      <button id="workspaceSceneTabBtn" type="button" class="tab-btn active">Scene & Entities</button>
+      <button id="workspaceActorTabBtn" type="button" class="tab-btn">Actors</button>
+    </nav>
+
+    <section id="workspaceSceneTab" class="workspace-grid workspace-tab active">
+      <aside class="panel workspace-list-panel">
+        <h2>Scenes</h2>
+        <label class="field-label" for="sceneSelect">Selected Scene</label>
+        <select id="sceneSelect" class="text-input"></select>
+        <div class="workspace-inline-actions">
+          <button id="exportSceneBtn" type="button" class="secondary-btn">Export Scene JSON</button>
+        </div>
+        <h3>Component Entities</h3>
+        <div class="workspace-inline-actions">
+          <button id="newEntityBtn" type="button">New Entity</button>
+          <button id="deleteEntityBtn" type="button" class="danger-btn">Delete</button>
+        </div>
+        <div id="entityList" class="item-list workspace-scroll-list"></div>
+      </aside>
+
+      <section class="panel workspace-preview-panel">
+        <div class="workspace-preview-heading">
+          <div>
+            <h2 id="sceneHeading">Scene Preview</h2>
+            <p class="small">Click a cell to place the selected entity.</p>
+          </div>
+          <span id="sceneDimensions" class="workspace-chip"></span>
+        </div>
+        <div id="scenePreview" class="workspace-scene-preview" aria-label="Selected scene preview"></div>
+        <div class="workspace-legend">
+          <span><i class="workspace-marker entity-marker"></i> Component entity</span>
+          <span><i class="workspace-marker spawn-marker"></i> Player spawn</span>
+        </div>
+      </section>
+
+      <section class="panel workspace-form-panel">
+        <h2>Entity Editor</h2>
+        <form id="entityForm" class="item-form" novalidate>
+          <label class="field-label" for="entityIdInput">ID</label>
+          <input id="entityIdInput" class="text-input" type="text" required />
+          <label class="field-label" for="entityTypeInput">Type</label>
+          <input id="entityTypeInput" class="text-input" type="text" value="object" />
+          <div class="workspace-two-column">
+            <div><label class="field-label" for="entityXInput">X</label><input id="entityXInput" class="text-input" type="number" step="1" min="0" /></div>
+            <div><label class="field-label" for="entityYInput">Y</label><input id="entityYInput" class="text-input" type="number" step="1" min="0" /></div>
+          </div>
+          <h3>Render</h3>
+          <label class="field-label" for="entityShapeSelect">Shape</label>
+          <select id="entityShapeSelect" class="text-input"><option value="square">square</option><option value="circle">circle</option><option value="diamond">diamond</option></select>
+          <label class="field-label" for="entityColorInput">Color</label>
+          <input id="entityColorInput" class="text-input" type="color" value="#facc15" />
+          <label class="field-label" for="entitySizeInput">Size</label>
+          <input id="entitySizeInput" class="text-input" type="number" min="4" value="16" />
+          <label class="field-label" for="entityImageInput">Image Path</label>
+          <input id="entityImageInput" class="text-input" type="text" placeholder="optional/path.png" />
+          <h3>Interaction</h3>
+          <label class="field-label" for="entityActionSelect">Action</label>
+          <select id="entityActionSelect" class="text-input"><option value="none">none</option><option value="message">message</option><option value="scene">scene transition</option></select>
+          <label class="field-label" for="entityMessageInput">Message</label>
+          <textarea id="entityMessageInput" class="text-input" rows="3"></textarea>
+          <label class="field-label" for="entityTargetSceneInput">Target Scene</label>
+          <input id="entityTargetSceneInput" class="text-input" type="text" />
+          <label class="field-label" for="entityRangeInput">Interaction Range</label>
+          <input id="entityRangeInput" class="text-input" type="number" step="0.1" min="0.1" value="1.1" />
+          <h3>Collision</h3>
+          <label class="checkbox-row"><input id="entitySolidInput" type="checkbox" /> Solid</label>
+          <label class="field-label" for="entityRadiusInput">Radius</label>
+          <input id="entityRadiusInput" class="text-input" type="number" step="0.01" min="0.05" value="0.42" />
+          <button id="saveEntityBtn" type="submit">Save Entity</button>
+        </form>
+      </section>
+    </section>
+
+    <section id="workspaceActorTab" class="workspace-grid workspace-tab">
+      <aside class="panel workspace-list-panel">
+        <h2>Actors</h2>
+        <div class="workspace-inline-actions">
+          <button id="newActorBtn" type="button">New Actor</button>
+          <button id="deleteActorBtn" type="button" class="danger-btn">Delete</button>
+          <button id="exportActorsBtn" type="button" class="secondary-btn">Export Actors JSON</button>
+        </div>
+        <div id="actorList" class="item-list workspace-scroll-list"></div>
+      </aside>
+
+      <section class="panel workspace-form-panel workspace-actor-form-panel">
+        <h2>Actor Editor</h2>
+        <form id="actorForm" class="item-form workspace-wide-form" novalidate>
+          <div class="workspace-two-column">
+            <div><label class="field-label" for="actorIdInput">ID</label><input id="actorIdInput" class="text-input" type="text" required /></div>
+            <div><label class="field-label" for="actorNameInput">Name</label><input id="actorNameInput" class="text-input" type="text" required /></div>
+          </div>
+          <div class="workspace-three-column">
+            <div><label class="field-label" for="actorSpeedInput">Speed</label><input id="actorSpeedInput" class="text-input" type="number" step="0.1" min="0" /></div>
+            <div><label class="field-label" for="actorHealthInput">Max Health</label><input id="actorHealthInput" class="text-input" type="number" step="1" min="1" /></div>
+            <div><label class="field-label" for="actorGoldInput">Starting Gold</label><input id="actorGoldInput" class="text-input" type="number" step="1" /></div>
+          </div>
+          <div class="workspace-three-column">
+            <div><label class="field-label" for="actorAttackInput">Attack</label><input id="actorAttackInput" class="text-input" type="number" /></div>
+            <div><label class="field-label" for="actorDefenseInput">Defense</label><input id="actorDefenseInput" class="text-input" type="number" /></div>
+            <div><label class="field-label" for="actorAgilityInput">Agility</label><input id="actorAgilityInput" class="text-input" type="number" /></div>
+          </div>
+          <div class="workspace-two-column">
+            <div><label class="field-label" for="actorSlotsInput">Inventory Slots</label><input id="actorSlotsInput" class="text-input" type="number" min="0" /></div>
+            <div><label class="field-label" for="actorMaxStackInput">Max Stack</label><input id="actorMaxStackInput" class="text-input" type="number" min="1" /></div>
+          </div>
+          <label class="checkbox-row"><input id="actorProgressionInput" type="checkbox" /> Progression enabled</label>
+          <h3>Fallback Visual</h3>
+          <div class="workspace-three-column">
+            <div><label class="field-label" for="actorShapeSelect">Shape</label><select id="actorShapeSelect" class="text-input"><option value="square">square</option><option value="circle">circle</option><option value="diamond">diamond</option></select></div>
+            <div><label class="field-label" for="actorColorInput">Color</label><input id="actorColorInput" class="text-input" type="color" value="#38bdf8" /></div>
+            <div><label class="field-label" for="actorSizeInput">Size</label><input id="actorSizeInput" class="text-input" type="number" min="4" /></div>
+          </div>
+          <h3>Sprite</h3>
+          <label class="field-label" for="actorSpritePathInput">Image Path</label>
+          <input id="actorSpritePathInput" class="text-input" type="text" placeholder="optional sprite sheet path" />
+          <div class="workspace-two-column">
+            <div><label class="field-label" for="actorFrameWidthInput">Frame Width</label><input id="actorFrameWidthInput" class="text-input" type="number" min="1" /></div>
+            <div><label class="field-label" for="actorFrameHeightInput">Frame Height</label><input id="actorFrameHeightInput" class="text-input" type="number" min="1" /></div>
+          </div>
+          <button id="saveActorBtn" type="submit">Save Actor</button>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="workspace.js"></script>
+</body>
+</html>
