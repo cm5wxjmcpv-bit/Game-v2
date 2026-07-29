@@ -108,6 +108,9 @@ function configureFocusedEditor(frameWindow, frameDocument) {
         button.removeAttribute('title');
       }
     });
+    frameDocument.querySelectorAll('#palette details').forEach((section) => {
+      section.open = Boolean(section.querySelector('.tile-btn:not(:disabled)'));
+    });
   };
 
   const observer = new frameWindow.MutationObserver(restrictPalette);
