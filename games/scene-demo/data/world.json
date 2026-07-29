@@ -1,0 +1,12 @@
+{
+  "towns": ["fallback_room"],
+  "levels": [],
+  "scenes": ["scene_lab"],
+  "startTown": "fallback_room",
+  "start": {
+    "townId": "fallback_room",
+    "unlockedTowns": ["fallback_room"],
+    "unlockedLevels": [],
+    "gold": 0
+  }
+}
