@@ -14,6 +14,7 @@ publishStyles.rel = 'stylesheet';
 publishStyles.href = 'workspace-publish.css';
 document.head.appendChild(publishStyles);
 
+installProjectLoadGuard();
 consumeReturnedMap();
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -23,6 +24,41 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(() => import('./workspace-tile-ui.js'))
     .catch((error) => showModuleError('Workspace extension', error));
 });
+
+function installProjectLoadGuard() {
+  let timer = null;
+  let pendingProjectId = '';
+
+  const queueLoad = (projectId) => {
+    pendingProjectId = projectId;
+    if (timer) window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      timer = null;
+      const select = document.getElementById('projectSelect');
+      if (!select || !pendingProjectId) return;
+      select.value = pendingProjectId;
+      const event = new Event('change', { bubbles: true });
+      Object.defineProperty(event, 'workspaceProjectGuardApproved', { value: true });
+      select.dispatchEvent(event);
+    }, 120);
+  };
+
+  document.addEventListener('change', (event) => {
+    const select = event.target?.closest?.('#projectSelect');
+    if (!select || event.workspaceProjectGuardApproved) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    queueLoad(select.value);
+  }, true);
+
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('#loadProjectBtn');
+    if (!button || event.workspaceProjectGuardApproved) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    queueLoad(document.getElementById('projectSelect')?.value || '');
+  }, true);
+}
 
 function showModuleError(label, error) {
   const message = document.getElementById('workspaceMessage');
