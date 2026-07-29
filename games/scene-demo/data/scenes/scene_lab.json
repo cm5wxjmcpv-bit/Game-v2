@@ -1,0 +1,35 @@
+{
+  "id": "scene_lab",
+  "name": "Generic Scene Lab",
+  "scene": {
+    "id": "scene_lab",
+    "type": "map",
+    "mode": "neutral",
+    "systems": {
+      "collision": false,
+      "combat": false,
+      "shops": false,
+      "randomEncounters": false,
+      "progression": false
+    }
+  },
+  "width": 6,
+  "height": 5,
+  "tiles": [
+    ["scene_wall", "scene_wall", "scene_wall", "scene_wall", "scene_wall", "scene_wall"],
+    ["scene_wall", "scene_floor", "scene_wall", "scene_floor", "scene_floor", "scene_wall"],
+    ["scene_wall", "scene_floor", "scene_wall", "scene_floor", "scene_floor", "scene_wall"],
+    ["scene_wall", "scene_floor", "scene_floor", "scene_floor", "scene_floor", "scene_wall"],
+    ["scene_wall", "scene_wall", "scene_wall", "scene_wall", "scene_wall", "scene_wall"]
+  ],
+  "objects": {
+    "portals": [
+      { "x": 4, "y": 3, "targetScene": "fallback_room" }
+    ],
+    "shops": [],
+    "fountains": [],
+    "enemySpawns": [],
+    "battleTriggers": []
+  },
+  "spawn": { "x": 1, "y": 1 }
+}
