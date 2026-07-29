@@ -31,6 +31,7 @@ function apiClient(token, fetchImpl) {
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${token}`,
         'X-GitHub-Api-Version': API_VERSION,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...(options.headers || {}),
       },
     });
