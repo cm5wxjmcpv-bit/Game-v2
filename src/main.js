@@ -9,6 +9,8 @@ const canvas = document.getElementById('game-canvas');
 const overlay = document.getElementById('overlay');
 const playerPanel = document.getElementById('player-panel');
 const contextPanel = document.getElementById('context-panel');
+let flashMessage = '';
+let flashUntil = 0;
 
 function resizeCanvasToViewport() {
   const width = Math.floor(window.innerWidth);
@@ -145,6 +147,9 @@ const ui = {
     const identity = p.classId
       ? `<p>Class: ${p.classId}</p>`
       : `<p>Actor: ${p.actorName || p.actorId}</p>`;
+    const activeFlash = flashMessage && performance.now() < flashUntil
+      ? `<p class="small">${flashMessage}</p>`
+      : '';
     playerPanel.innerHTML = `<h3>${p.actorName || 'Player'}</h3>
       <p>HP: ${Math.max(0, Math.floor(p.stats.hp))}/${p.stats.maxHp}</p>
       <p>Gold: ${p.gold}</p>${identity}
@@ -153,10 +158,13 @@ const ui = {
       <p>State: ${game.state.current}</p>
       <p>Scene: ${game.currentSceneId}</p>
       <p>Town: ${game.currentTownId}</p>
-      <p class="small">Move: WASD / Arrow | Interact: E | Pause: Esc | Debug: \`</p>`;
+      <p class="small">Move: WASD / Arrow | Interact: E | Pause: Esc | Debug: \`</p>
+      ${activeFlash}`;
   },
   flash(text) {
-    contextPanel.innerHTML += `<p class="small">${text}</p>`;
+    flashMessage = String(text || '');
+    flashUntil = performance.now() + 3000;
+    contextPanel.innerHTML += `<p class="small">${flashMessage}</p>`;
   },
 };
 
