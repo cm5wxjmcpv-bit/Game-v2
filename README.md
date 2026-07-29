@@ -129,15 +129,29 @@ npm install
 npm run audit
 ```
 
-GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, the builder, and the standalone viewer.
+GitHub Actions runs the same audit for pull requests into `main`. It validates package manifests, scenes, actors, component entities, the builder package catalog, JSON and map references, assets, JavaScript syntax, HTML references, browser saves, all test packages, both builder surfaces, and the standalone viewer.
 
 ## Builder
 
-The builder remains available under `/builder/`. The next builder milestone will make it select a game package and scene and author actors and component entities instead of assuming only the sample RPG object model.
+The established map, item, texture, sync, and viewer tools remain available under:
+
+```text
+/builder/
+```
+
+The package-aware actor and entity workspace is available under:
+
+```text
+/builder/workspace.html
+/builder/workspace.html?game=scene-demo
+```
+
+The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Repository files remain read-only until the user exports actor JSON, scene JSON, or a full workspace bundle.
 
 ## Remaining generalization work
 
-- builder game-project, actor, and component-entity authoring
+- connecting selected workspace scenes to the established map-grid editor
+- direct controlled publishing of exported workspace files
 - conversion of legacy portals, shops, fountains, and enemy spawns into optional generic components
 - removal of compatibility RPG fields from actors that do not use combat, inventory, or equipment
 - moving the original RPG content fully under `games/sample-rpg/`
