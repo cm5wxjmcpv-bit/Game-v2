@@ -33,6 +33,12 @@ jobs:
         continue-on-error: true
         run: npm run audit:data
 
+      - name: Run core engine unit tests
+        id: unit_audit
+        if: always()
+        continue-on-error: true
+        run: npm run audit:unit
+
       - name: Run browser audit
         id: browser_audit
         if: always()
@@ -51,5 +57,5 @@ jobs:
           retention-days: 14
 
       - name: Fail when an audit phase failed
-        if: steps.data_audit.outcome == 'failure' || steps.browser_audit.outcome == 'failure'
+        if: steps.data_audit.outcome == 'failure' || steps.unit_audit.outcome == 'failure' || steps.browser_audit.outcome == 'failure'
         run: exit 1
