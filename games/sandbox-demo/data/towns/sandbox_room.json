@@ -1,0 +1,121 @@
+{
+  "id": "sandbox_room",
+  "name": "Independent Sandbox",
+  "width": 10,
+  "height": 8,
+  "tiles": [
+    [
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall"
+    ],
+    [
+      "sandbox_wall",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_wall"
+    ],
+    [
+      "sandbox_wall",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_wall"
+    ],
+    [
+      "sandbox_wall",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_wall"
+    ],
+    [
+      "sandbox_wall",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_wall"
+    ],
+    [
+      "sandbox_wall",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_wall"
+    ],
+    [
+      "sandbox_wall",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_floor",
+      "sandbox_wall"
+    ],
+    [
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall",
+      "sandbox_wall"
+    ]
+  ],
+  "objects": {
+    "portals": [],
+    "shops": [],
+    "fountains": [],
+    "enemySpawns": [],
+    "battleTriggers": []
+  },
+  "randomEncounters": {
+    "enabled": false,
+    "minSeconds": 10,
+    "maxSeconds": 60,
+    "tableId": null
+  },
+  "spawn": {
+    "x": 2,
+    "y": 2
+  }
+}
