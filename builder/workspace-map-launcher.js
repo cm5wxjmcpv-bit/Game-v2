@@ -6,6 +6,7 @@ import {
   applyMapBridgeResultToDraft,
   createMapBridgeHandoff,
 } from './map-bridge-model.js';
+import { fetchPackageTileLibrary } from './package-tile-model.js';
 import './workspace-publish-ui.js';
 
 const publishStyles = document.createElement('link');
@@ -18,14 +19,17 @@ consumeReturnedMap();
 document.addEventListener('DOMContentLoaded', () => {
   installMapEditorButton();
   showPendingNotice();
-  import('./workspace-object-ui.js').catch((error) => {
-    const message = document.getElementById('workspaceMessage');
-    if (message) {
-      message.textContent = `Scene object editor could not load: ${error.message}`;
-      message.classList.add('error');
-    }
-  });
+  import('./workspace-object-ui.js').catch((error) => showModuleError('Scene object editor', error));
+  import('./workspace-tile-ui.js').catch((error) => showModuleError('Package tile library', error));
 });
+
+function showModuleError(label, error) {
+  const message = document.getElementById('workspaceMessage');
+  if (message) {
+    message.textContent = `${label} could not load: ${error.message}`;
+    message.classList.add('error');
+  }
+}
 
 function readJson(key) {
   const raw = localStorage.getItem(key);
@@ -46,7 +50,7 @@ function consumeReturnedMap() {
     const draft = readJson(draftKey);
     const nextDraft = applyMapBridgeResultToDraft(draft, result);
     localStorage.setItem(draftKey, JSON.stringify(nextDraft));
-    writeNotice(`Map layout returned for “${result.sceneId}”. Tiles, size, name, and spawn were updated; existing objects and entities were preserved.`);
+    writeNotice(`Map layout returned for “${result.sceneId}”. Tiles, size, name, and spawn were updated; existing objects, entities, and tile permissions were preserved.`);
   } catch (error) {
     writeNotice(`Map return could not be applied: ${error.message}`, true);
   } finally {
@@ -74,26 +78,40 @@ function sceneKindFromSelection() {
   return match ? match[1].toLowerCase() : 'scene';
 }
 
-function openSelectedSceneInMapEditor() {
+async function openSelectedSceneInMapEditor() {
   const projectSelect = document.getElementById('projectSelect');
   const sceneSelect = document.getElementById('sceneSelect');
   const saveDraftButton = document.getElementById('saveDraftBtn');
+  const openButton = document.getElementById('openMapEditorBtn');
   const message = document.getElementById('workspaceMessage');
   const projectId = projectSelect?.value || '';
   const sceneId = sceneSelect?.value || '';
 
   try {
     if (!projectId || !sceneId) throw new Error('Select a game project and scene first.');
+    if (openButton) openButton.disabled = true;
+    if (message) {
+      message.textContent = 'Preparing the selected scene and package tile library…';
+      message.classList.remove('error');
+    }
     saveDraftButton?.click();
     const draft = readJson(`${WORKSPACE_DRAFT_PREFIX}${projectId}`);
     const scene = draft?.scenes?.find((entry) => entry.id === sceneId);
     if (!scene) throw new Error('The selected scene was not found in the saved local draft.');
+    const packageTiles = await fetchPackageTileLibrary(projectId, window.location.href);
     const returnUrl = new URL(`workspace.html?game=${encodeURIComponent(projectId)}`, window.location.href).href;
-    const handoff = createMapBridgeHandoff({ projectId, scene, sceneKind: sceneKindFromSelection(), returnUrl });
+    const handoff = createMapBridgeHandoff({
+      projectId,
+      scene,
+      sceneKind: sceneKindFromSelection(),
+      returnUrl,
+      packageTiles,
+    });
     localStorage.setItem(MAP_BRIDGE_HANDOFF_KEY, JSON.stringify(handoff));
     localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
     window.location.href = 'map-bridge.html';
   } catch (error) {
+    if (openButton) openButton.disabled = false;
     if (message) {
       message.textContent = `Unable to open map editor: ${error.message}`;
       message.classList.add('error');
