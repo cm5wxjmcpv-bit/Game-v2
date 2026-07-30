@@ -78,6 +78,6 @@ test('workspace publish plan reports no changes without requesting a token', asy
   await page.goto('/builder/workspace.html?game=scene-demo');
   await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
   await page.locator('#workspacePublishTabBtn').click();
-  await expect(page.locator('#publishPlanSummary')).toContainText('no changed actor or scene files');
+  await expect(page.locator('#publishPlanSummary')).toContainText('no changed game files');
   await expect(page.locator('#publishDraftPrBtn')).toBeDisabled();
 });
