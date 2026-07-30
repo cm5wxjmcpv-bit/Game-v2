@@ -42,10 +42,14 @@ function bindEvents() {
     rebuildPlan();
   });
   dom.newGameForm.addEventListener('input', (event) => {
-    if (event.target === dom.newGameNameInput || event.target === dom.newGameIdInput) return;
+    const target = event.target;
+    if (target === dom.newGameNameInput || target === dom.newGameIdInput) return;
+    if (target.matches('select, input[type="checkbox"]')) return;
     rebuildPlan();
   });
-  dom.newGameForm.addEventListener('change', rebuildPlan);
+  dom.newGameForm.addEventListener('change', (event) => {
+    if (event.target.matches('select, input[type="checkbox"]')) rebuildPlan();
+  });
   dom.newGameRefreshBtn.addEventListener('click', rebuildPlan);
   dom.newGamePublishBtn.addEventListener('click', publishNewGame);
   dom.newGameTokenInput.addEventListener('input', updatePublishButton);
