@@ -21,12 +21,12 @@ function monitorPage(page) {
   };
 }
 
-test('workspace scene enables an unused package tile and completes a lossless map-editor round trip', async ({ page }) => {
+test('workspace builds a custom texture into a level and stages both for publishing', async ({ page }) => {
   const monitor = monitorPage(page);
   await page.goto('/builder/workspace.html?game=scene-demo');
   await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
   await expect(page.locator('#sceneSelect')).toHaveValue('scene_lab');
-  await expect(page.locator('#openMapEditorBtn')).toBeVisible();
+  await expect(page.locator('#openMapEditorBtn')).toHaveText('Build Level & Textures');
   await expect(page.locator('#packageTileSummary')).toContainText('2 of 3');
 
   const accentToggle = page.locator('[data-package-tile-id="scene_accent"]');
@@ -39,6 +39,7 @@ test('workspace scene enables an unused package tile and completes a lossless ma
   await page.locator('#openMapEditorBtn').click();
   await expect(page).toHaveURL(/\/builder\/map-bridge\.html$/);
   await expect(page.locator('#bridgeTitle')).toContainText('scene_lab');
+  await expect(page.locator('#returnBridgeBtn')).toHaveText('Send Level & Textures to Workspace');
   await expect(page.locator('#returnBridgeBtn')).toBeEnabled();
 
   const builder = page.frameLocator('#builderFrame');
@@ -46,11 +47,23 @@ test('workspace scene enables an unused package tile and completes a lossless ma
   await expect(builder.locator('#mapIdInput')).toBeDisabled();
   await expect(builder.locator('#gridContainer .cell')).toHaveCount(30);
   await expect(builder.locator('#tabItemEditorBtn')).toBeDisabled();
+  await expect(builder.locator('#tabTextureBuilderBtn')).toBeEnabled();
 
+  await builder.locator('#tabTextureBuilderBtn').click();
+  await expect(builder.locator('#textureBuilderTab')).toHaveClass(/active/);
+  await builder.locator('#textureFilenameInput').fill('Crimson Floor');
+  await builder.locator('#textureColorPicker').fill('#aa1122');
+  await builder.locator('.texture-cell[data-row="0"][data-col="0"]').click();
+  await builder.locator('.texture-cell[data-row="0"][data-col="1"]').click();
+  await builder.locator('#textureSaveToLibraryBtn').click();
+  await expect(builder.locator('#textureMessage')).toContainText('custom_texture_crimson_floor');
+
+  await builder.locator('#tabMapEditorBtn').click();
   await builder.locator('#mapNameInput').fill('Edited Generic Scene Lab');
   await builder.locator('#layerTileBtn').click();
-  await expect(builder.locator('.tile-btn[data-tile-id="custom_texture_bridge_3"]')).toBeEnabled();
-  await builder.locator('.tile-btn[data-tile-id="custom_texture_bridge_3"]').click();
+  const customTile = builder.locator('.tile-btn[data-tile-id="custom_texture_crimson_floor"]');
+  await expect(customTile).toBeEnabled();
+  await customTile.click();
   await builder.locator('.cell[data-row="1"][data-col="1"]').click();
 
   await builder.locator('#layerObjectBtn').click();
@@ -63,21 +76,34 @@ test('workspace scene enables an unused package tile and completes a lossless ma
 
   await page.locator('#returnBridgeBtn').click();
   await expect(page).toHaveURL(/\/builder\/workspace\.html\?game=scene-demo$/);
-  await expect(page.locator('#workspaceMessage')).toContainText('Map layout returned');
+  await expect(page.locator('#workspaceMessage')).toContainText('1 used custom texture');
+  await expect(page.locator('#workspaceMessage')).toContainText('Scene Objects');
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_builder_workspace_scene-demo')));
   const scene = saved.scenes.find((entry) => entry.id === 'scene_lab');
   expect(scene.name).toBe('Edited Generic Scene Lab');
-  expect(scene.tiles[1][1]).toBe('scene_accent');
+  expect(scene.tiles[1][1]).toBe('custom_texture_crimson_floor');
   expect(scene.spawn).toEqual({ x: 2, y: 3 });
-  expect(scene._workspaceEditorTileIds.sort()).toEqual(['scene_accent', 'scene_floor', 'scene_wall']);
+  expect(scene._workspaceEditorTileIds).toContain('custom_texture_crimson_floor');
   expect(scene.entities.map((entry) => entry.id).sort()).toEqual(['solid_crate', 'welcome_beacon']);
   expect(scene.objects.portals).toEqual([{ x: 4, y: 3, targetScene: 'fallback_room' }]);
   expect(JSON.stringify(scene)).not.toContain('custom_texture_bridge_');
 
+  const assets = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_builder_assets_scene-demo')));
+  expect(assets.textures).toHaveLength(1);
+  expect(assets.textures[0].id).toBe('custom_texture_crimson_floor');
+  expect(assets.textures[0].image).toMatch(/^data:image\/png;base64,/);
+
   const libraryRaw = await page.evaluate(() => localStorage.getItem('levelBuilderCustomTextureLibrary'));
   expect(libraryRaw || '').not.toContain('custom_texture_bridge_');
-  monitor.assertClean('workspace package tile map bridge');
+  expect(libraryRaw || '').not.toContain('custom_texture_crimson_floor');
+
+  await page.locator('#workspacePublishTabBtn').click();
+  await expect(page.locator('#publishStatus')).toContainText('ready for review');
+  await expect(page.locator('#publishFileList')).toContainText('games/scene-demo/data/scenes/scene_lab.json');
+  await expect(page.locator('#publishFileList')).toContainText('games/scene-demo/data/core.json');
+  await expect(page.locator('#publishFileList')).toContainText('tiles/textures');
+  monitor.assertClean('workspace custom texture level workflow');
 });
 
 test('map bridge without a workspace handoff fails safely', async ({ page }) => {
