@@ -25,16 +25,18 @@ async function readError(response) {
 
 function apiClient(token, fetchImpl) {
   return async function request(path, options = {}) {
+    const { allowNotFound = false, ...fetchOptions } = options;
     const response = await fetchImpl(`${API_ROOT}${path}`, {
-      ...options,
+      ...fetchOptions,
       headers: {
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${token}`,
         'X-GitHub-Api-Version': API_VERSION,
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(options.headers || {}),
+        ...(fetchOptions.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(fetchOptions.headers || {}),
       },
     });
+    if (allowNotFound && response.status === 404) return null;
     if (!response.ok) throw new Error(await readError(response));
     if (response.status === 204) return null;
     return response.json();
@@ -44,7 +46,17 @@ function apiClient(token, fetchImpl) {
 async function verifyRemoteFiles(request, owner, repo, baseSha, plan) {
   for (const file of plan.files) {
     const encodedPath = file.path.split('/').map(encodeURIComponent).join('/');
-    const remote = await request(`/repos/${owner}/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(baseSha)}`);
+    const operation = file.operation || 'update';
+    const remote = await request(
+      `/repos/${owner}/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(baseSha)}`,
+      { allowNotFound: operation === 'create' },
+    );
+    if (operation === 'create') {
+      if (remote) {
+        throw new Error(`Publishing stopped because ${file.path} already exists on main. Choose a different Internal ID or reload the wizard.`);
+      }
+      continue;
+    }
     if (!remote || remote.type !== 'file' || remote.encoding !== 'base64') {
       throw new Error(`Unable to verify current repository file: ${file.path}`);
     }
