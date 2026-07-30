@@ -3,17 +3,18 @@ import {
   MAP_BRIDGE_NOTICE_KEY,
   MAP_BRIDGE_RESULT_KEY,
   WORKSPACE_DRAFT_PREFIX,
-  applyMapBridgeResultToDraft,
   createMapBridgeHandoff,
 } from './map-bridge-model.js';
 import { fetchPackageTileLibrary } from './package-tile-model.js';
 import {
   assetDraftKey,
-  mergeWorkspaceAssetDraft,
   packageTileLibraryEntryFromAsset,
   readWorkspaceAssetDraft,
-  writeWorkspaceAssetDraft,
 } from './workspace-asset-model.js';
+import {
+  buildReturnedMapStorageUpdates,
+  commitStorageUpdates,
+} from './workspace-return-model.js';
 import './workspace-publish-ui.js';
 
 const publishStyles = document.createElement('link');
@@ -83,7 +84,23 @@ function readJson(key) {
 }
 
 function writeNotice(message, isError = false) {
-  localStorage.setItem(MAP_BRIDGE_NOTICE_KEY, JSON.stringify({ message, isError, createdAt: new Date().toISOString() }));
+  const payload = JSON.stringify({ message, isError, createdAt: new Date().toISOString() });
+  try {
+    sessionStorage.removeItem(MAP_BRIDGE_NOTICE_KEY);
+  } catch {
+    // Session storage is optional.
+  }
+  try {
+    localStorage.setItem(MAP_BRIDGE_NOTICE_KEY, payload);
+    return;
+  } catch {
+    // A full localStorage area is the exact failure this notice may need to report.
+  }
+  try {
+    sessionStorage.setItem(MAP_BRIDGE_NOTICE_KEY, payload);
+  } catch {
+    // The return payload remains in localStorage for a later retry even if no notice can be stored.
+  }
 }
 
 function consumeReturnedMap() {
@@ -93,25 +110,18 @@ function consumeReturnedMap() {
     const result = JSON.parse(rawResult);
     const draftKey = `${WORKSPACE_DRAFT_PREFIX}${result.projectId}`;
     const draft = readJson(draftKey);
-    const nextDraft = applyMapBridgeResultToDraft(draft, result);
-    localStorage.setItem(draftKey, JSON.stringify(nextDraft));
+    const assetDraft = readWorkspaceAssetDraft(result.projectId);
+    const transaction = buildReturnedMapStorageUpdates({ result, draft, assetDraft });
+    commitStorageUpdates(localStorage, transaction.updates);
 
-    const incomingTextures = Array.isArray(result.customTextures) ? result.customTextures : [];
-    if (incomingTextures.length) {
-      const currentAssets = readWorkspaceAssetDraft(result.projectId);
-      const nextAssets = mergeWorkspaceAssetDraft(result.projectId, currentAssets, incomingTextures);
-      writeWorkspaceAssetDraft(result.projectId, nextAssets);
-    }
-
-    const textureText = incomingTextures.length
-      ? ` ${incomingTextures.length} used custom texture(s) were registered for publishing.`
+    const textureText = transaction.incomingTextures.length
+      ? ` ${transaction.incomingTextures.length} used custom texture(s) were registered for publishing.`
       : '';
     writeNotice(`Level returned for “${result.sceneId}”. Tiles, size, name, and spawn were updated; existing objects, entities, and tile permissions were preserved.${textureText} Add enemies in Scene Objects and NPCs or text boxes in Scene & Entities, then publish for testing.`);
-  } catch (error) {
-    writeNotice(`Level return could not be applied: ${error.message}`, true);
-  } finally {
     localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
     localStorage.removeItem(MAP_BRIDGE_HANDOFF_KEY);
+  } catch (error) {
+    writeNotice(`Level return was not saved: ${error.message} The previous level and texture drafts were restored, and the returned data was kept. Free browser storage if needed, then reload this workspace to retry.`, true);
   }
 }
 
@@ -198,13 +208,26 @@ async function openSelectedSceneInMapEditor() {
 }
 
 function showPendingNotice() {
-  const raw = localStorage.getItem(MAP_BRIDGE_NOTICE_KEY);
+  let sessionRaw = null;
+  let localRaw = null;
+  try {
+    sessionRaw = sessionStorage.getItem(MAP_BRIDGE_NOTICE_KEY);
+  } catch {
+    // Session storage is optional.
+  }
+  try {
+    localRaw = localStorage.getItem(MAP_BRIDGE_NOTICE_KEY);
+  } catch {
+    // Local storage may be unavailable or full.
+  }
+  const raw = sessionRaw || localRaw;
   if (!raw) return;
   let notice;
   try {
     notice = JSON.parse(raw);
   } catch {
-    localStorage.removeItem(MAP_BRIDGE_NOTICE_KEY);
+    try { sessionStorage.removeItem(MAP_BRIDGE_NOTICE_KEY); } catch { /* no-op */ }
+    try { localStorage.removeItem(MAP_BRIDGE_NOTICE_KEY); } catch { /* no-op */ }
     return;
   }
   let attempts = 0;
@@ -219,6 +242,7 @@ function showPendingNotice() {
       message.textContent = notice.message || 'Level and texture bridge completed.';
       message.classList.toggle('error', Boolean(notice.isError));
     }
-    localStorage.removeItem(MAP_BRIDGE_NOTICE_KEY);
+    try { sessionStorage.removeItem(MAP_BRIDGE_NOTICE_KEY); } catch { /* no-op */ }
+    try { localStorage.removeItem(MAP_BRIDGE_NOTICE_KEY); } catch { /* no-op */ }
   }, 50);
 }
