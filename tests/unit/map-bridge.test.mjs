@@ -40,6 +40,19 @@ function packageTiles() {
   ];
 }
 
+function customTexture() {
+  return {
+    id: 'custom_texture_crimson_floor',
+    name: 'Crimson Floor',
+    size: 16,
+    pixels: Array.from({ length: 16 }, () => Array.from({ length: 16 }, () => ({ color: '#aa1122', alpha: 1 }))),
+    previewColor: '#aa1122',
+    image: 'data:image/png;base64,AAAA',
+    walkable: true,
+    updatedAt: '2026-07-30T12:00:00.000Z',
+  };
+}
+
 function rawResult(handoff, overrides = {}) {
   return {
     width: handoff.editorMap.width,
@@ -86,6 +99,41 @@ test('an enabled unused package tile receives a reversible editor tool', () => {
   const merged = mergeMapBridgeResult(handoff, result);
   assert.equal(merged.tiles[1][2], 'scene_accent');
   assert.deepEqual(merged._workspaceEditorTileIds.sort(), ['scene_accent', 'scene_floor', 'scene_wall']);
+});
+
+test('staged custom textures keep their real IDs and return with the edited level', () => {
+  const texture = customTexture();
+  const handoff = createMapBridgeHandoff({
+    projectId: 'scene-demo',
+    scene: demoScene(),
+    sceneKind: 'scene',
+    returnUrl: '/builder/workspace.html',
+    packageTiles: packageTiles(),
+    stagedTextures: [texture],
+  });
+  assert.equal(handoff.allowedTileIds.includes(texture.id), true);
+  assert.equal(handoff.customTextures[0].id, texture.id);
+  assert.equal(buildBridgeTextureEntries(handoff).some((entry) => entry.id === texture.id), true);
+
+  const result = rawResult(handoff);
+  result.tileLayer[1][2] = texture.id;
+  const merged = mergeMapBridgeResult(handoff, result, [texture]);
+  assert.equal(merged.tiles[1][2], texture.id);
+  assert.equal(merged._workspaceEditorTileIds.includes(texture.id), true);
+});
+
+test('a newly painted custom texture must be returned as a valid saved asset', () => {
+  const handoff = createMapBridgeHandoff({
+    projectId: 'scene-demo',
+    scene: demoScene(),
+    sceneKind: 'scene',
+    returnUrl: '/builder/workspace.html',
+    packageTiles: packageTiles(),
+  });
+  const result = rawResult(handoff);
+  result.tileLayer[1][2] = 'custom_texture_new_floor';
+  assert.throws(() => mergeMapBridgeResult(handoff, result), /not enabled/i);
+  assert.equal(mergeMapBridgeResult(handoff, result, [{ ...customTexture(), id: 'custom_texture_new_floor' }]).tiles[1][2], 'custom_texture_new_floor');
 });
 
 test('map result rejects tiles that were not enabled for the scene', () => {
