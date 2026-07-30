@@ -11,6 +11,23 @@ function validHexColor(value) {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : '';
 }
 
+function validBuilderPixels(value, size) {
+  if (![16, 32, 64].includes(size) || !Array.isArray(value) || value.length !== size) return null;
+  const rows = [];
+  for (const row of value) {
+    if (!Array.isArray(row) || row.length !== size) return null;
+    rows.push(row.map((pixel) => {
+      if (!pixel || typeof pixel !== 'object' || !validHexColor(pixel.color)) return null;
+      const alpha = Number(pixel.alpha);
+      return {
+        color: validHexColor(pixel.color),
+        alpha: Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1,
+      };
+    }));
+  }
+  return rows;
+}
+
 export function colorForTileId(value) {
   let hash = 2166136261;
   for (const char of String(value || 'tile')) {
@@ -35,12 +52,16 @@ export function normalizePackageTiles(tilesPayload = {}, texturesPayload = {}) {
     seen.add(id);
     const textureId = cleanId(raw.texture);
     const texture = textures[textureId] || {};
+    const builderSize = Number(texture.builderSize);
     tiles.push({
       id,
       name: String(raw.name || texture.name || id),
       walkable: raw.walkable !== false,
       textureId,
       color: validHexColor(texture.color) || validHexColor(raw.minimapColor) || colorForTileId(id),
+      textureImage: String(texture.image || ''),
+      builderSize: [16, 32, 64].includes(builderSize) ? builderSize : null,
+      builderPixels: validBuilderPixels(texture.builderPixels, builderSize),
     });
   }
   return tiles;
