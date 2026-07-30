@@ -1,6 +1,7 @@
 import { colorForTileId, editorTileSelection } from './package-tile-model.js';
+import { isCustomTextureId, normalizeWorkspaceTextureAsset } from './workspace-asset-model.js';
 
-export const MAP_BRIDGE_SCHEMA_VERSION = 1;
+export const MAP_BRIDGE_SCHEMA_VERSION = 2;
 export const MAP_BRIDGE_HANDOFF_KEY = 'pixel_engine_builder_map_bridge_handoff_v1';
 export const MAP_BRIDGE_RESULT_KEY = 'pixel_engine_builder_map_bridge_result_v1';
 export const MAP_BRIDGE_NOTICE_KEY = 'pixel_engine_builder_map_bridge_notice_v1';
@@ -53,20 +54,51 @@ function isEditorNativeTile(tileId) {
   return EDITOR_NATIVE_TILE_IDS.has(tileId);
 }
 
-function aliasFor(index) {
-  return `custom_texture_bridge_${index + 1}`;
+function aliasFor(index, reserved) {
+  let next = index + 1;
+  let alias = `custom_texture_bridge_${next}`;
+  while (reserved.has(alias)) {
+    next += 1;
+    alias = `custom_texture_bridge_${next}`;
+  }
+  reserved.add(alias);
+  return alias;
 }
 
-function buildAliasData(tiles, scene, packageTiles = []) {
+function normalizeAvailableCustomTextures(packageTiles = [], stagedTextures = []) {
+  const byId = new Map();
+  for (const tile of packageTiles) {
+    if (!isCustomTextureId(tile?.id)) continue;
+    const asset = normalizeWorkspaceTextureAsset({
+      id: tile.id,
+      name: tile.name,
+      size: tile.builderSize,
+      pixels: tile.builderPixels,
+      previewColor: tile.color,
+      image: tile.textureImage,
+      walkable: tile.walkable,
+    });
+    if (asset) byId.set(asset.id, asset);
+  }
+  for (const raw of stagedTextures) {
+    const asset = normalizeWorkspaceTextureAsset(raw);
+    if (asset) byId.set(asset.id, asset);
+  }
+  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function buildAliasData(tiles, scene, packageTiles = [], customTextures = []) {
   const originalToAlias = new Map();
   const aliasToOriginal = {};
   const aliasColors = {};
   const tileById = new Map(packageTiles.map((tile) => [String(tile.id || ''), tile]));
+  const customIds = new Set(customTextures.map((texture) => texture.id));
+  const reserved = new Set(customIds);
 
   const editorIdFor = (tileId) => {
-    if (isEditorNativeTile(tileId) || tileId === 'empty') return tileId;
+    if (isEditorNativeTile(tileId) || tileId === 'empty' || customIds.has(tileId)) return tileId;
     if (!originalToAlias.has(tileId)) {
-      const alias = aliasFor(originalToAlias.size);
+      const alias = aliasFor(originalToAlias.size, reserved);
       const tile = tileById.get(tileId) || {};
       originalToAlias.set(tileId, alias);
       aliasToOriginal[alias] = tileId;
@@ -80,6 +112,9 @@ function buildAliasData(tiles, scene, packageTiles = []) {
   for (const tileId of editorTileSelection(scene, packageTiles)) {
     const editorId = editorIdFor(tileId);
     if (!allowedTileIds.includes(editorId)) allowedTileIds.push(editorId);
+  }
+  for (const texture of customTextures) {
+    if (!allowedTileIds.includes(texture.id)) allowedTileIds.push(texture.id);
   }
   for (const tileId of editorTiles.flat()) {
     if (!allowedTileIds.includes(tileId)) allowedTileIds.push(tileId);
@@ -101,7 +136,14 @@ function normalizedSpawn(scene, width, height) {
   return { x, y };
 }
 
-export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', returnUrl, packageTiles = [] }) {
+export function createMapBridgeHandoff({
+  projectId,
+  scene,
+  sceneKind = 'scene',
+  returnUrl,
+  packageTiles = [],
+  stagedTextures = [],
+}) {
   const normalizedProjectId = safeId(projectId);
   if (!normalizedProjectId) throw new Error('A game project is required.');
   if (!scene || typeof scene !== 'object') throw new Error('A selected scene is required.');
@@ -111,7 +153,8 @@ export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', 
   const height = positiveInteger(scene.height, 'Scene height');
   const tiles = validateTileGrid(scene.tiles, width, height);
   const spawn = normalizedSpawn(scene, width, height);
-  const aliases = buildAliasData(tiles, scene, packageTiles);
+  const customTextures = normalizeAvailableCustomTextures(packageTiles, stagedTextures);
+  const aliases = buildAliasData(tiles, scene, packageTiles, customTextures);
   const objectLayer = makeLayer(width, height, 'none');
   objectLayer[spawn.y][spawn.x] = 'player_start';
   const originalScene = clone(scene);
@@ -129,6 +172,7 @@ export function createMapBridgeHandoff({ projectId, scene, sceneKind = 'scene', 
     tileAliases: aliases.aliasToOriginal,
     aliasColors: aliases.aliasColors,
     allowedTileIds: aliases.allowedTileIds,
+    customTextures,
     editorMap: {
       width,
       height,
@@ -151,12 +195,13 @@ export function validateMapBridgeHandoff(value) {
   const height = positiveInteger(value.editorMap.height, 'Editor map height');
   validateTileGrid(value.editorMap.tileLayer || value.editorMap.tiles, width, height);
   if (value.allowedTileIds !== undefined && !Array.isArray(value.allowedTileIds)) throw new Error('The map handoff tile permission list is invalid.');
+  if (value.customTextures !== undefined && !Array.isArray(value.customTextures)) throw new Error('The map handoff custom texture list is invalid.');
   return value;
 }
 
 export function buildBridgeTextureEntries(handoff) {
   validateMapBridgeHandoff(handoff);
-  return Object.entries(handoff.aliasColors || {}).map(([id, color]) => ({
+  const aliases = Object.entries(handoff.aliasColors || {}).map(([id, color]) => ({
     id,
     name: `Workspace bridge: ${handoff.tileAliases?.[id] || id}`,
     size: 16,
@@ -165,6 +210,16 @@ export function buildBridgeTextureEntries(handoff) {
     createdAt: handoff.createdAt,
     updatedAt: handoff.createdAt,
   }));
+  const custom = (handoff.customTextures || []).map((texture) => ({
+    id: texture.id,
+    name: texture.name,
+    size: texture.size,
+    pixels: clone(texture.pixels),
+    previewColor: texture.previewColor,
+    createdAt: handoff.createdAt,
+    updatedAt: texture.updatedAt || handoff.createdAt,
+  }));
+  return [...custom, ...aliases];
 }
 
 function decodeTiles(tiles, aliases) {
@@ -210,7 +265,7 @@ function validatePreservedCoordinates(scene, width, height) {
   }
 }
 
-export function mergeMapBridgeResult(handoffValue, rawMap) {
+export function mergeMapBridgeResult(handoffValue, rawMap, returnedCustomTextures = []) {
   const handoff = validateMapBridgeHandoff(handoffValue);
   if (!rawMap || typeof rawMap !== 'object') throw new Error('The map editor did not return a JSON object.');
   const width = positiveInteger(rawMap.width, 'Returned map width');
@@ -218,19 +273,30 @@ export function mergeMapBridgeResult(handoffValue, rawMap) {
   const returnedId = safeId(rawMap.mapId || rawMap.id);
   if (returnedId !== safeId(handoff.sceneId)) throw new Error('The returned map ID does not match the selected workspace scene.');
   const encodedTiles = validateTileGrid(rawMap.tileLayer || rawMap.tiles, width, height);
+  const customIds = new Set();
+  for (const raw of [...(handoff.customTextures || []), ...(returnedCustomTextures || [])]) {
+    const texture = normalizeWorkspaceTextureAsset(raw);
+    if (texture) customIds.add(texture.id);
+  }
   const allowedTileIds = new Set(handoff.allowedTileIds || handoff.editorMap.tileLayer.flat());
   allowedTileIds.add('empty');
+  for (const id of customIds) allowedTileIds.add(id);
   const disallowed = encodedTiles.flat().find((tileId) => !allowedTileIds.has(tileId));
   if (disallowed) throw new Error(`The returned map contains a tile that was not enabled for this scene: ${disallowed}.`);
   const spawn = findSpawn(rawMap.objectLayer, width, height);
   const original = clone(handoff.originalScene);
   validatePreservedCoordinates(original, width, height);
+  const decodedTiles = decodeTiles(encodedTiles, handoff.tileAliases || {});
   original.id = handoff.sceneId;
   original.name = String(rawMap.mapName || rawMap.name || original.name || handoff.sceneId);
   original.width = width;
   original.height = height;
-  original.tiles = decodeTiles(encodedTiles, handoff.tileAliases || {});
+  original.tiles = decodedTiles;
   original.spawn = spawn;
+  original._workspaceEditorTileIds = [...new Set([
+    ...(original._workspaceEditorTileIds || []),
+    ...decodedTiles.flat(),
+  ])];
   return original;
 }
 

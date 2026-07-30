@@ -7,6 +7,13 @@ import {
   createMapBridgeHandoff,
 } from './map-bridge-model.js';
 import { fetchPackageTileLibrary } from './package-tile-model.js';
+import {
+  assetDraftKey,
+  mergeWorkspaceAssetDraft,
+  packageTileLibraryEntryFromAsset,
+  readWorkspaceAssetDraft,
+  writeWorkspaceAssetDraft,
+} from './workspace-asset-model.js';
 import './workspace-publish-ui.js';
 
 const publishStyles = document.createElement('link');
@@ -19,6 +26,7 @@ consumeReturnedMap();
 
 document.addEventListener('DOMContentLoaded', () => {
   installMapEditorButton();
+  installAssetDraftCleanup();
   showPendingNotice();
   import('./workspace-object-ui.js')
     .then(() => import('./workspace-tile-ui.js'))
@@ -87,9 +95,20 @@ function consumeReturnedMap() {
     const draft = readJson(draftKey);
     const nextDraft = applyMapBridgeResultToDraft(draft, result);
     localStorage.setItem(draftKey, JSON.stringify(nextDraft));
-    writeNotice(`Map layout returned for “${result.sceneId}”. Tiles, size, name, and spawn were updated; existing objects, entities, and tile permissions were preserved.`);
+
+    const incomingTextures = Array.isArray(result.customTextures) ? result.customTextures : [];
+    if (incomingTextures.length) {
+      const currentAssets = readWorkspaceAssetDraft(result.projectId);
+      const nextAssets = mergeWorkspaceAssetDraft(result.projectId, currentAssets, incomingTextures);
+      writeWorkspaceAssetDraft(result.projectId, nextAssets);
+    }
+
+    const textureText = incomingTextures.length
+      ? ` ${incomingTextures.length} used custom texture(s) were registered for publishing.`
+      : '';
+    writeNotice(`Level returned for “${result.sceneId}”. Tiles, size, name, and spawn were updated; existing objects, entities, and tile permissions were preserved.${textureText} Add enemies in Scene Objects and NPCs or text boxes in Scene & Entities, then publish for testing.`);
   } catch (error) {
-    writeNotice(`Map return could not be applied: ${error.message}`, true);
+    writeNotice(`Level return could not be applied: ${error.message}`, true);
   } finally {
     localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
     localStorage.removeItem(MAP_BRIDGE_HANDOFF_KEY);
@@ -103,9 +122,19 @@ function installMapEditorButton() {
   button.id = 'openMapEditorBtn';
   button.type = 'button';
   button.className = 'secondary-btn';
-  button.textContent = 'Edit Tiles & Spawn';
+  button.textContent = 'Build Level & Textures';
   button.addEventListener('click', openSelectedSceneInMapEditor);
   exportButton.parentElement?.prepend(button);
+}
+
+function installAssetDraftCleanup() {
+  const clearButton = document.getElementById('clearDraftBtn');
+  const projectSelect = document.getElementById('projectSelect');
+  if (!clearButton || !projectSelect) return;
+  clearButton.addEventListener('click', () => {
+    const projectId = projectSelect.value;
+    if (projectId) localStorage.removeItem(assetDraftKey(projectId));
+  });
 }
 
 function sceneKindFromSelection() {
@@ -113,6 +142,15 @@ function sceneKindFromSelection() {
   const text = select?.selectedOptions?.[0]?.textContent || '';
   const match = text.match(/\[(town|level|scene)\]\s*$/i);
   return match ? match[1].toLowerCase() : 'scene';
+}
+
+function mergePackageTiles(packageTiles, assetDraft) {
+  const byId = new Map(packageTiles.map((tile) => [tile.id, tile]));
+  for (const asset of assetDraft.textures || []) {
+    const tile = packageTileLibraryEntryFromAsset(asset);
+    byId.set(tile.id, tile);
+  }
+  return [...byId.values()];
 }
 
 async function openSelectedSceneInMapEditor() {
@@ -128,14 +166,16 @@ async function openSelectedSceneInMapEditor() {
     if (!projectId || !sceneId) throw new Error('Select a game project and scene first.');
     if (openButton) openButton.disabled = true;
     if (message) {
-      message.textContent = 'Preparing the selected scene and package tile library…';
+      message.textContent = 'Preparing the selected scene, package tiles, and staged custom textures…';
       message.classList.remove('error');
     }
     saveDraftButton?.click();
     const draft = readJson(`${WORKSPACE_DRAFT_PREFIX}${projectId}`);
     const scene = draft?.scenes?.find((entry) => entry.id === sceneId);
     if (!scene) throw new Error('The selected scene was not found in the saved local draft.');
-    const packageTiles = await fetchPackageTileLibrary(projectId, window.location.href);
+    const assetDraft = readWorkspaceAssetDraft(projectId);
+    const repositoryTiles = await fetchPackageTileLibrary(projectId, window.location.href);
+    const packageTiles = mergePackageTiles(repositoryTiles, assetDraft);
     const returnUrl = new URL(`workspace.html?game=${encodeURIComponent(projectId)}`, window.location.href).href;
     const handoff = createMapBridgeHandoff({
       projectId,
@@ -143,6 +183,7 @@ async function openSelectedSceneInMapEditor() {
       sceneKind: sceneKindFromSelection(),
       returnUrl,
       packageTiles,
+      stagedTextures: assetDraft.textures,
     });
     localStorage.setItem(MAP_BRIDGE_HANDOFF_KEY, JSON.stringify(handoff));
     localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
@@ -150,7 +191,7 @@ async function openSelectedSceneInMapEditor() {
   } catch (error) {
     if (openButton) openButton.disabled = false;
     if (message) {
-      message.textContent = `Unable to open map editor: ${error.message}`;
+      message.textContent = `Unable to open level and texture builder: ${error.message}`;
       message.classList.add('error');
     }
   }
@@ -175,7 +216,7 @@ function showPendingNotice() {
     if (!ready && attempts < 120) return;
     window.clearInterval(timer);
     if (message) {
-      message.textContent = notice.message || 'Map bridge completed.';
+      message.textContent = notice.message || 'Level and texture bridge completed.';
       message.classList.toggle('error', Boolean(notice.isError));
     }
     localStorage.removeItem(MAP_BRIDGE_NOTICE_KEY);

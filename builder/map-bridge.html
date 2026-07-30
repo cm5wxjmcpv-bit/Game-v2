@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Workspace Map Editor Bridge</title>
+  <title>Workspace Level & Texture Builder</title>
   <link rel="stylesheet" href="map-bridge.css" />
 </head>
 <body>
   <header class="bridge-header">
     <div>
-      <h1 id="bridgeTitle">Workspace Map Editor</h1>
+      <h1 id="bridgeTitle">Workspace Level & Texture Builder</h1>
       <p id="bridgeStatus" role="status" aria-live="polite">Preparing selected scene…</p>
     </div>
     <div class="bridge-actions">
       <button id="cancelBridgeBtn" type="button" class="secondary">Cancel</button>
-      <button id="returnBridgeBtn" type="button" disabled>Return Layout to Workspace</button>
+      <button id="returnBridgeBtn" type="button" disabled>Send Level & Textures to Workspace</button>
     </div>
   </header>
   <aside class="bridge-notice">
-    This focused bridge edits the scene name, dimensions, tiles, and player spawn. Existing portals, shops, enemies, battle triggers, component entities, scene systems, and unknown metadata remain preserved in the workspace.
+    Create a texture in the Texture Builder, save it to the Custom Texture Library, return to Map Editor, and paint with it. When the level is ready, send the level and every used custom texture to the Game Workspace. Existing portals, shops, enemies, battle triggers, component entities, scene systems, and unknown metadata remain preserved.
   </aside>
   <main class="bridge-frame-shell">
-    <iframe id="builderFrame" title="Map editor"></iframe>
+    <iframe id="builderFrame" title="Level and texture editor"></iframe>
   </main>
   <script type="module" src="map-bridge.js"></script>
 </body>

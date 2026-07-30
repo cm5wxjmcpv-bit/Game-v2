@@ -1,6 +1,10 @@
 import { mergeActors, normalizeId, normalizeScene } from './workspace-model.js';
 import { buildWorkspacePublishPlan, repoPathFromUrl } from './workspace-publish-model.js';
 import { publishWorkspacePlan } from './workspace-publisher.js';
+import {
+  buildWorkspaceAssetFileChanges,
+  readWorkspaceAssetDraft,
+} from './workspace-asset-model.js';
 
 const DRAFT_PREFIX = 'pixel_engine_builder_workspace_';
 const REPOSITORY_ROOT_URL = new URL('../', window.location.href);
@@ -80,12 +84,23 @@ async function loadSceneGroup(ids, directory, kind, contentRootUrl, fileContents
   }));
 }
 
+async function loadManifestDataSource(relativePath, contentRootUrl, fileContents, cache) {
+  if (!relativePath) return null;
+  const url = new URL(relativePath, contentRootUrl);
+  const repositoryPath = repoPathFromUrl(url, REPOSITORY_ROOT_URL);
+  if (!cache.has(repositoryPath)) cache.set(repositoryPath, fetchJson(url));
+  const payload = await cache.get(repositoryPath);
+  fileContents[repositoryPath] = rawJsonText(payload);
+  return { path: repositoryPath, payload };
+}
+
 async function loadRepositoryBaseline(projectId) {
   const manifestUrl = new URL(`../games/${projectId}/game.json`, window.location.href);
   const manifest = await fetchJson(manifestUrl);
   const contentRootUrl = new URL(manifest.contentRoot || './', manifestUrl);
   const data = manifest.data || {};
   const fileContents = {};
+  const dataCache = new Map();
   const world = await fetchJson(new URL(data.world, contentRootUrl));
   const classesPayload = data.classes
     ? await fetchJson(new URL(data.classes, contentRootUrl), { classes: [] })
@@ -98,12 +113,22 @@ async function loadRepositoryBaseline(projectId) {
     fileContents[repoPathFromUrl(actorsUrl, REPOSITORY_ROOT_URL)] = rawJsonText(actorsPayload);
   }
   const actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []);
-  const [towns, levels, scenes] = await Promise.all([
+  const [towns, levels, scenes, tilesSource, texturesSource] = await Promise.all([
     loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl, fileContents),
     loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl, fileContents),
     loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl, fileContents),
+    loadManifestDataSource(data.tiles, contentRootUrl, fileContents, dataCache),
+    loadManifestDataSource(data.texturePack, contentRootUrl, fileContents, dataCache),
   ]);
-  return { manifest, contentRootUrl, actors, scenes: [...towns, ...levels, ...scenes], fileContents };
+  return {
+    manifest,
+    contentRootUrl,
+    actors,
+    scenes: [...towns, ...levels, ...scenes],
+    fileContents,
+    tilesSource,
+    texturesSource,
+  };
 }
 
 function readCurrentDraft(projectId, baseline) {
@@ -127,12 +152,20 @@ async function refreshPublishPlan() {
   if (state.loading || state.publishing) return;
   state.loading = true;
   dom.refreshPublishPlanBtn.disabled = true;
-  setPublishStatus('Building the file plan from the current workspace…');
+  setPublishStatus('Building the complete file plan from the current workspace…');
   try {
     const projectId = normalizeId(dom.projectSelect.value);
     if (!projectId) throw new Error('Select a game project first.');
     const baseline = await loadRepositoryBaseline(projectId);
     const current = readCurrentDraft(projectId, baseline);
+    const assetDraft = readWorkspaceAssetDraft(projectId);
+    const assetFiles = assetDraft.textures.length
+      ? buildWorkspaceAssetFileChanges({
+        assetDraft,
+        tilesSource: baseline.tilesSource,
+        texturesSource: baseline.texturesSource,
+      })
+      : [];
     state.plan = buildWorkspacePublishPlan({
       projectId,
       manifest: baseline.manifest,
@@ -142,16 +175,17 @@ async function refreshPublishPlan() {
       baselineActors: baseline.actors,
       scenes: current.scenes,
       baselineScenes: baseline.scenes,
+      assetFiles,
     });
     for (const file of state.plan.files) {
       if (baseline.fileContents[file.path]) file.baselineContent = baseline.fileContents[file.path];
     }
-    dom.publishTitleInput.value ||= `Update ${projectId} workspace content`;
-    dom.publishCommitInput.value ||= `Update ${projectId} workspace content`;
+    dom.publishTitleInput.value ||= `Update ${projectId} game content`;
+    dom.publishCommitInput.value ||= `Update ${projectId} game content`;
     renderPublishPlan();
     if (state.plan.errors.length) setPublishStatus(state.plan.errors.join(' '), true);
-    else if (!state.plan.files.length) setPublishStatus('No changed actor or scene files are ready to publish.');
-    else setPublishStatus(`${state.plan.files.length} changed file(s) are ready for review.`);
+    else if (!state.plan.files.length) setPublishStatus('No changed level, actor, object, tile, or texture files are ready to publish.');
+    else setPublishStatus(`${state.plan.files.length} changed file(s) are ready for review and test publishing.`);
   } catch (error) {
     state.plan = null;
     renderPublishPlan();
@@ -175,10 +209,10 @@ function renderPublishPlan() {
     dom.publishPlanSummary.textContent = `${state.plan.projectId} cannot be published: ${state.plan.errors.join(' ')}`;
     dom.publishPlanSummary.classList.add('workspace-publish-error');
   } else if (!state.plan.files.length) {
-    dom.publishPlanSummary.textContent = `${state.plan.projectId} has no changed actor or scene files.`;
+    dom.publishPlanSummary.textContent = `${state.plan.projectId} has no changed game files.`;
     dom.publishPlanSummary.classList.add('workspace-publish-warning');
   } else {
-    dom.publishPlanSummary.textContent = `${state.plan.projectId} → ${state.plan.repository} • new workspace branch from ${state.plan.baseBranch} • draft pull request`;
+    dom.publishPlanSummary.textContent = `${state.plan.projectId} → ${state.plan.repository} • new workspace branch from ${state.plan.baseBranch} • draft pull request for testing`;
   }
   for (const file of state.plan.files) {
     const row = document.createElement('div');
@@ -214,7 +248,7 @@ async function publishDraftPullRequest(event) {
   state.publishing = true;
   dom.publishPrLink.hidden = true;
   updatePublishButton();
-  setPublishStatus('Comparing files with current main and creating a review branch…');
+  setPublishStatus('Comparing all planned files with current main and creating a testing branch…');
   try {
     const result = await publishWorkspacePlan({
       token,
@@ -227,7 +261,7 @@ async function publishDraftPullRequest(event) {
     dom.publishPrLink.href = result.pullRequestUrl;
     dom.publishPrLink.textContent = `Open Draft Pull Request #${result.pullRequestNumber}`;
     dom.publishPrLink.hidden = false;
-    setPublishStatus(`Draft pull request #${result.pullRequestNumber} created on branch ${result.branch}. The token was cleared.`);
+    setPublishStatus(`Draft pull request #${result.pullRequestNumber} created on branch ${result.branch}. Use its preview for testing after Engine Audit passes. The token was cleared.`);
   } catch (error) {
     setPublishStatus(`Publish failed: ${error.message}`, true);
   } finally {
