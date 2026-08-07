@@ -7,7 +7,7 @@ export const SCENE_MODES = Object.freeze({
 });
 
 function inferMode(type) {
-  if (type === 'town') return SCENE_MODES.SAFE;
+  if (type === 'town' || type === 'building') return SCENE_MODES.SAFE;
   if (type === 'level') return SCENE_MODES.ADVENTURE;
   return SCENE_MODES.NEUTRAL;
 }
