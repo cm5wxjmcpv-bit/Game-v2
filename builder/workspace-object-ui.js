@@ -70,12 +70,16 @@ function install() {
     'enemySpawnFields', 'objectEnemyIdInput', 'battleTriggerFields',
     'objectEncounterIdInput', 'objectBattleEnemyIdInput', 'objectTriggerWidthInput',
     'objectTriggerHeightInput', 'objectExtraJsonInput', 'saveLegacyObjectBtn',
+    'rewardPickupFields', 'objectPickupIdInput', 'objectPickupNameInput',
+    'objectRewardPackageIdInput', 'objectLootTableIdInput', 'objectRespawnSecondsInput',
     'objectStatus', 'saveDraftBtn', 'clearDraftBtn', 'exportSceneBtn', 'exportBundleBtn',
     'projectSelect', 'sceneSelect', 'workspaceSceneTabBtn', 'workspaceActorTabBtn',
+    'workspaceWeaponTabBtn',
     'workspacePublishTabBtn', 'workspaceSceneTab', 'workspaceActorTab', 'workspacePublishTab',
   ].map((id) => [id, document.getElementById(id)])));
 
   bindEvents();
+  window.addEventListener('pixel-engine-workspace-content-changed', syncFromWorkspaceState);
 }
 
 function objectEditorMarkup() {
@@ -156,6 +160,20 @@ function objectEditorMarkup() {
           </div>
         </div>
 
+        <div id="rewardPickupFields" class="workspace-object-fields" hidden>
+          <h3>Chest / Map Pickup Reward</h3>
+          <label class="field-label" for="objectPickupIdInput">Pickup ID</label>
+          <input id="objectPickupIdInput" class="text-input" type="text" placeholder="treasure_1" />
+          <label class="field-label" for="objectPickupNameInput">Display Name</label>
+          <input id="objectPickupNameInput" class="text-input" type="text" />
+          <label class="field-label" for="objectRewardPackageIdInput">Fixed Reward Package ID</label>
+          <input id="objectRewardPackageIdInput" class="text-input" type="text" />
+          <label class="field-label" for="objectLootTableIdInput">Or Reusable Loot Table ID</label>
+          <input id="objectLootTableIdInput" class="text-input" type="text" />
+          <label class="field-label" for="objectRespawnSecondsInput">Respawn Time (seconds; 0 = never)</label>
+          <input id="objectRespawnSecondsInput" class="text-input" type="number" min="0" step="1" value="0" />
+        </div>
+
         <h3>Additional JSON</h3>
         <p class="small">Fields not represented above remain editable here and are preserved in the scene file.</p>
         <textarea id="objectExtraJsonInput" class="text-input workspace-object-extra" rows="8">{}</textarea>
@@ -168,7 +186,7 @@ function objectEditorMarkup() {
 
 function bindEvents() {
   dom.workspaceObjectsTabBtn.addEventListener('click', openObjectTab);
-  for (const id of ['workspaceSceneTabBtn', 'workspaceActorTabBtn', 'workspacePublishTabBtn']) {
+  for (const id of ['workspaceSceneTabBtn', 'workspaceActorTabBtn', 'workspaceWeaponTabBtn', 'workspacePublishTabBtn']) {
     dom[id].addEventListener('click', closeObjectTab);
   }
   dom.objectSceneSelect.addEventListener('change', () => {
@@ -363,11 +381,17 @@ function renderForm() {
   dom.objectBattleEnemyIdInput.value = normalized.enemyId || '';
   dom.objectTriggerWidthInput.value = normalized.width ?? '';
   dom.objectTriggerHeightInput.value = normalized.height ?? '';
+  dom.objectPickupIdInput.value = normalized.id || '';
+  dom.objectPickupNameInput.value = normalized.name || '';
+  dom.objectRewardPackageIdInput.value = normalized.rewardPackageId || '';
+  dom.objectLootTableIdInput.value = normalized.lootTableId || '';
+  dom.objectRespawnSecondsInput.value = normalized.respawnSeconds ?? 0;
   dom.objectExtraJsonInput.value = JSON.stringify(legacyObjectExtras(state.type, normalized), null, 2);
   dom.portalFields.hidden = state.type !== 'portals';
   dom.shopFields.hidden = state.type !== 'shops';
   dom.enemySpawnFields.hidden = state.type !== 'enemySpawns';
   dom.battleTriggerFields.hidden = state.type !== 'battleTriggers';
+  dom.rewardPickupFields.hidden = state.type !== 'rewardPickups';
   dom.deleteLegacyObjectBtn.disabled = state.selectedIndex < 0;
   dom.saveLegacyObjectBtn.textContent = state.selectedIndex < 0 ? 'Add Object' : 'Save Object';
 }
@@ -400,6 +424,12 @@ function objectFromForm() {
     value.enemyId = dom.objectBattleEnemyIdInput.value;
     value.width = dom.objectTriggerWidthInput.value;
     value.height = dom.objectTriggerHeightInput.value;
+  } else if (state.type === 'rewardPickups') {
+    value.id = dom.objectPickupIdInput.value;
+    value.name = dom.objectPickupNameInput.value;
+    value.rewardPackageId = dom.objectRewardPackageIdInput.value;
+    value.lootTableId = dom.objectLootTableIdInput.value;
+    value.respawnSeconds = dom.objectRespawnSecondsInput.value;
   }
   return normalizeLegacyObject(state.type, value);
 }
@@ -425,6 +455,7 @@ function saveObject(event) {
     ...state.draft,
     scenes: state.draft.scenes.map((entry) => entry.id === scene.id ? nextScene : entry),
   };
+  syncSceneObjectsToWorkspace(nextScene);
   if (wasNew) state.selectedIndex = nextScene.objects[state.type].length - 1;
   try {
     persistObjectDraft();
@@ -450,6 +481,7 @@ function deleteObject() {
     ...state.draft,
     scenes: state.draft.scenes.map((entry) => entry.id === scene.id ? nextScene : entry),
   };
+  syncSceneObjectsToWorkspace(nextScene);
   state.selectedIndex = -1;
   try {
     persistObjectDraft();
@@ -461,6 +493,23 @@ function deleteObject() {
   }
   renderAll();
   setStatus(`${legacyObjectConfig(state.type).singular} deleted.`);
+}
+
+function syncSceneObjectsToWorkspace(scene) {
+  const live = window.pixelEngineWorkspace?.getState?.();
+  const target = live?.scenes?.find((entry) => entry.id === scene.id);
+  if (target) target.objects = clone(scene.objects);
+}
+
+function syncFromWorkspaceState() {
+  const live = window.pixelEngineWorkspace?.getState?.();
+  if (!state.draft || live?.projectId !== state.projectId) return;
+  const liveById = new Map((live.scenes || []).map((scene) => [scene.id, scene]));
+  state.draft.scenes = state.draft.scenes.map((scene) => {
+    const source = liveById.get(scene.id);
+    return source ? ensureLegacyObjectCollections({ ...scene, objects: clone(source.objects || {}) }) : scene;
+  });
+  if (dom.workspaceObjectsTab?.classList.contains('active')) renderAll();
 }
 
 function persistObjectDraft() {

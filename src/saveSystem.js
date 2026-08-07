@@ -1,6 +1,6 @@
 import { getActiveGameId } from './gameManifest.js';
 
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 const DEFAULT_SLOT = 1;
 const LEGACY_SAVE_KEYS = ['pixel_engine_save_v2', 'pixel_engine_save_v1'];
 
@@ -31,10 +31,40 @@ export function loadGame(slot = DEFAULT_SLOT) {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const payload = parsed.payload ? parsed.payload : parsed;
-    return validateSnapshot(payload) ? payload : null;
+    return validateSnapshot(payload) ? migrateSnapshot(payload) : null;
   } catch {
     return null;
   }
+}
+
+function migrateSnapshot(snapshot) {
+  const player = snapshot.player;
+  player.resources = player.resources && typeof player.resources === 'object' ? player.resources : {};
+  player.cooldowns = {
+    autoAttack: 0,
+    specialAttack: 0,
+    reload: 0,
+    ...(player.cooldowns || {}),
+  };
+  player.equipmentInstances = player.equipmentInstances && typeof player.equipmentInstances === 'object'
+    ? player.equipmentInstances
+    : {};
+  player.completionCounts = player.completionCounts && typeof player.completionCounts === 'object'
+    ? player.completionCounts
+    : {};
+  player.pickupState = player.pickupState && typeof player.pickupState === 'object'
+    ? player.pickupState
+    : {};
+  player.shopState = player.shopState && typeof player.shopState === 'object'
+    ? player.shopState
+    : {};
+  player.currencies = player.currencies && typeof player.currencies === 'object'
+    ? player.currencies
+    : {};
+  player.completedBattleTriggers = Array.isArray(player.completedBattleTriggers)
+    ? player.completedBattleTriggers
+    : [];
+  return snapshot;
 }
 
 function validateSnapshot(snapshot) {

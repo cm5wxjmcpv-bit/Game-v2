@@ -1,34 +1,36 @@
 {
-  "shops": [
+  "catalogs": [
     {
-      "id": "shop_blacksmith_t1",
-      "name": "Forge Point",
-      "type": "blacksmith",
-      "bagUpgradeCost": 80,
+      "id": "catalog_blacksmith_t1",
+      "name": "Starter Blacksmith Catalog",
       "stock": [
-        { "itemId": "weapon_wood_sword", "buyPrice": 24, "sellPrice": 12, "stock": null },
-        { "itemId": "armor_chain", "buyPrice": 70, "sellPrice": 30, "stock": 2 }
+        { "itemId": "weapon_wood_sword", "buyPrice": 24, "stock": null },
+        { "itemId": "weapon_hunter_bow", "buyPrice": 44, "stock": 2, "restockSeconds": 300 },
+        { "itemId": "weapon_focus_rod", "buyPrice": 72, "stock": 1, "restockSeconds": 600 },
+        { "itemId": "ammo_arrow", "buyPrice": 2, "stock": 40, "restockSeconds": 120 },
+        { "itemId": "armor_chain", "buyPrice": 70, "stock": 2, "restockSeconds": 300 }
       ]
     },
     {
-      "id": "shop_potion_t1",
-      "name": "Vial & Herb",
-      "type": "potion",
-      "bagUpgradeCost": 60,
+      "id": "catalog_potion_t1",
+      "name": "Starter Supply Catalog",
       "stock": [
-        { "itemId": "potion_small", "buyPrice": 10, "sellPrice": 4, "stock": null },
-        { "itemId": "ore_iron", "buyPrice": 8, "sellPrice": 3, "stock": 20 }
+        { "itemId": "potion_small", "buyPrice": 10, "stock": null },
+        { "itemId": "ore_iron", "buyPrice": 8, "stock": 20, "restockSeconds": 120 }
       ]
     },
     {
-      "id": "shop_rare_t2",
-      "name": "Curio Vault",
-      "type": "special",
-      "bagUpgradeCost": 140,
+      "id": "catalog_rare_t2",
+      "name": "Rare Curio Catalog",
       "stock": [
-        { "itemId": "acc_lucky_charm", "buyPrice": 120, "sellPrice": 65, "stock": 1 },
-        { "itemId": "gem_amber", "buyPrice": 45, "sellPrice": 20, "stock": 4 }
+        { "itemId": "acc_lucky_charm", "buyPrice": 120, "stock": 1, "restockSeconds": 900 },
+        { "itemId": "gem_amber", "buyPrice": 45, "stock": 4, "restockSeconds": 600 }
       ]
     }
+  ],
+  "shops": [
+    { "id": "shop_blacksmith_t1", "name": "Forge Point", "type": "blacksmith", "catalogId": "catalog_blacksmith_t1", "overrides": [], "bagUpgradeCost": 80 },
+    { "id": "shop_potion_t1", "name": "Vial & Herb", "type": "potion", "catalogId": "catalog_potion_t1", "overrides": [], "bagUpgradeCost": 60 },
+    { "id": "shop_rare_t2", "name": "Curio Vault", "type": "special", "catalogId": "catalog_rare_t2", "overrides": [], "bagUpgradeCost": 140 }
   ]
 }

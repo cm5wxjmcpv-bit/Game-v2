@@ -4,6 +4,7 @@ const TYPE_CONFIG = Object.freeze({
   fountains: { label: 'Fountains', singular: 'Fountain', color: '#06b6d4' },
   enemySpawns: { label: 'Enemy Spawns', singular: 'Enemy Spawn', color: '#ef4444' },
   battleTriggers: { label: 'Battle Triggers', singular: 'Battle Trigger', color: '#f97316' },
+  rewardPickups: { label: 'Reward Pickups', singular: 'Reward Pickup', color: '#facc15' },
 });
 
 export const LEGACY_OBJECT_TYPES = Object.freeze(Object.keys(TYPE_CONFIG));
@@ -14,6 +15,7 @@ const CORE_KEYS = Object.freeze({
   fountains: ['x', 'y'],
   enemySpawns: ['x', 'y', 'enemyId'],
   battleTriggers: ['x', 'y', 'width', 'height', 'encounterId', 'enemyId'],
+  rewardPickups: ['id', 'name', 'x', 'y', 'rewardPackageId', 'lootTableId', 'respawnSeconds'],
 });
 
 function finiteNumber(value, fallback = 0, minimum = null) {
@@ -79,6 +81,12 @@ export function normalizeLegacyObject(type, value = {}) {
     else delete object.height;
     assignOptionalString(object, 'encounterId', value.encounterId);
     assignOptionalString(object, 'enemyId', value.enemyId);
+  } else if (type === 'rewardPickups') {
+    object.id = cleanString(value.id);
+    assignOptionalString(object, 'name', value.name);
+    assignOptionalString(object, 'rewardPackageId', value.rewardPackageId);
+    assignOptionalString(object, 'lootTableId', value.lootTableId);
+    object.respawnSeconds = finiteNumber(value.respawnSeconds, 0, 0);
   }
 
   return object;
@@ -116,6 +124,10 @@ export function validateLegacyObject(type, value, scene) {
       errors.push('The battle trigger area must remain inside the selected scene.');
     }
   }
+  if (type === 'rewardPickups') {
+    if (!object.id) errors.push('A reward pickup requires a unique ID.');
+    if (!object.rewardPackageId && !object.lootTableId) errors.push('A reward pickup requires a fixed reward package or reusable loot table.');
+  }
   return errors;
 }
 
@@ -141,6 +153,7 @@ export function legacyObjectLabel(type, value = {}, index = 0) {
   if (type === 'shops') return `${prefix}: ${object.shopId || 'unassigned'}`;
   if (type === 'enemySpawns') return `${prefix}: ${object.enemyId || 'unassigned'}`;
   if (type === 'battleTriggers') return `${prefix}: ${object.encounterId || object.enemyId || 'unassigned'}`;
+  if (type === 'rewardPickups') return `${prefix}: ${object.name || object.rewardPackageId || object.lootTableId || 'unassigned'}`;
   return prefix;
 }
 

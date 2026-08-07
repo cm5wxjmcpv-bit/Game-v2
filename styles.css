@@ -56,12 +56,30 @@ body {
   background: var(--panel); border: 1px solid #31496f; border-radius: 6px; padding: 14px;
 }
 .modal h2 { margin-top: 0; }
+.modal-wide { width: min(980px, 94vw); }
+.modal-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; }
 button {
   border: 1px solid #385885; background: var(--panel-alt); color: var(--text);
   padding: 6px 10px; cursor: pointer; font-family: inherit;
 }
 button:hover { filter: brightness(1.12); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.inventory-list { display: grid; gap: 8px; margin: 8px 0 16px; }
+.inventory-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px; border: 1px solid #354865; border-radius: 5px; background: #192235;
+}
+.inventory-row.equipped-row { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
+.inventory-actions { justify-content: flex-end; }
+.item-card { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.item-icon { width: 42px; height: 42px; object-fit: contain; image-rendering: pixelated; background: #101725; border-radius: 4px; }
+.item-icon-fallback { display: grid; place-items: center; color: #dbeafe; }
+.rarity-uncommon strong { color: #4ade80; }
+.rarity-rare strong { color: #60a5fa; }
+.rarity-epic strong { color: #c084fc; }
+.rarity-legendary strong { color: #f59e0b; }
+.equipment-summary { padding: 10px; border: 1px solid #385885; background: #172035; margin-bottom: 12px; }
 .tag { font-size: 12px; padding: 2px 6px; border-radius: 3px; background: #344864; }
 .small { font-size: 12px; opacity: .9; }
 .good { color: var(--accent); }

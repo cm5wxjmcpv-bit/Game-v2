@@ -3,6 +3,9 @@ import { buildActorRegistry } from './actorRuntime.js';
 import { buildSceneRegistry, normalizeSceneMap } from './sceneRuntime.js';
 import { normalizeSceneEntities } from './sceneEntityRuntime.js';
 import { normalizeSystemConfig } from './systemConfig.js';
+import { normalizeItemDefinition } from './weaponSystem.js';
+import { normalizeCompletionReward, normalizeLootTable, normalizeRewardPackage, completionRewardKey } from './rewardSystem.js';
+import { buildShopRegistry } from './shops.js';
 
 const DEFAULT_DATA_PATHS = Object.freeze({
   tiles: 'data/tiles/tiles.json',
@@ -17,6 +20,8 @@ const DEFAULT_DATA_PATHS = Object.freeze({
   progression: 'data/world/progression.json',
   encounters: 'data/encounters/encounters.json',
   encounterTables: 'data/encounters/tables.json',
+  lootTables: null,
+  rewards: null,
   settings: null,
   saveMetadata: null,
   townsDirectory: 'data/towns',
@@ -122,6 +127,7 @@ function validateAndNormalizeMap(map, expectedId, kind = 'map') {
   if (!Array.isArray(map.objects.fountains)) map.objects.fountains = [];
   if (!Array.isArray(map.objects.enemySpawns)) map.objects.enemySpawns = [];
   if (!Array.isArray(map.objects.battleTriggers)) map.objects.battleTriggers = [];
+  if (!Array.isArray(map.objects.rewardPickups)) map.objects.rewardPickups = [];
 
   map.objects.battleTriggers = map.objects.battleTriggers
     .filter((trigger) => trigger && typeof trigger === 'object' && trigger.id && trigger.encounterId)
@@ -130,6 +136,18 @@ function validateAndNormalizeMap(map, expectedId, kind = 'map') {
       width: Number.isFinite(trigger.width) && trigger.width > 0 ? trigger.width : 1,
       height: Number.isFinite(trigger.height) && trigger.height > 0 ? trigger.height : 1,
       once: trigger.once !== false,
+    }));
+
+  map.objects.rewardPickups = map.objects.rewardPickups
+    .filter((pickup) => pickup && typeof pickup === 'object' && pickup.id)
+    .map((pickup) => ({
+      ...pickup,
+      id: String(pickup.id),
+      x: Number.isFinite(Number(pickup.x)) ? Number(pickup.x) : 0,
+      y: Number.isFinite(Number(pickup.y)) ? Number(pickup.y) : 0,
+      rewardPackageId: typeof pickup.rewardPackageId === 'string' ? pickup.rewardPackageId : null,
+      lootTableId: typeof pickup.lootTableId === 'string' ? pickup.lootTableId : null,
+      respawnSeconds: Math.max(0, Number(pickup.respawnSeconds) || 0),
     }));
 
   map.entities = normalizeSceneEntities(map.entities);
@@ -189,7 +207,7 @@ export async function loadDatabase() {
   const paths = getDataPaths(gamePackage.manifest);
   const gamePath = (path) => resolveGamePath(gamePackage, path);
 
-  const [tiles, tileEffects, texturePack, rawWorld, classes, actorPayload, items, enemies, shops, progression, encounters, encounterTables, settings, saveMetadata] = await Promise.all([
+  const [tiles, tileEffects, texturePack, rawWorld, classes, actorPayload, items, enemies, shops, progression, encounters, encounterTables, lootTables, rewards, settings, saveMetadata] = await Promise.all([
     loadJSON(gamePath(paths.tiles), { tiles: [] }),
     loadJSON(gamePath(paths.tileEffects), { effects: [] }),
     loadJSON(gamePath(paths.texturePack), { textures: [] }),
@@ -202,6 +220,8 @@ export async function loadDatabase() {
     loadJSON(gamePath(paths.progression), { unlocks: {} }),
     loadJSON(gamePath(paths.encounters), { encounters: [] }),
     loadJSON(gamePath(paths.encounterTables), { tables: [] }),
+    paths.lootTables ? loadJSON(gamePath(paths.lootTables), { lootTables: [] }) : Promise.resolve({ lootTables: [] }),
+    paths.rewards ? loadJSON(gamePath(paths.rewards), { rewardPackages: [], completionRewards: [] }) : Promise.resolve({ rewardPackages: [], completionRewards: [] }),
     paths.settings ? loadJSON(gamePath(paths.settings), {}) : Promise.resolve({}),
     paths.saveMetadata ? loadJSON(gamePath(paths.saveMetadata), { enabled: true }) : Promise.resolve({ enabled: true }),
   ]);
@@ -222,6 +242,12 @@ export async function loadDatabase() {
     ? { ...requestedStartScene }
     : fallbackStartScene;
   const actorsById = buildActorRegistry(classes.classes || [], actorPayload.actors || []);
+  const normalizedItems = (items.items || []).map(normalizeItemDefinition);
+  const normalizedLootTables = (lootTables.lootTables || []).map(normalizeLootTable).filter((table) => table.id);
+  const rewardPackages = (rewards.rewardPackages || []).map(normalizeRewardPackage).filter((entry) => entry.id);
+  const completionRewards = (rewards.completionRewards || []).map(normalizeCompletionReward)
+    .filter((entry) => entry.source.id);
+  const shopRegistry = buildShopRegistry(shops);
 
   return {
     game: {
@@ -241,16 +267,27 @@ export async function loadDatabase() {
     classes: classes.classes || [],
     actorsById,
     actors: Object.values(actorsById),
-    itemsById: mapById(items.items, 'item'),
+    itemsById: mapById(normalizedItems, 'item'),
+    items: normalizedItems,
     enemiesById: mapById(enemies.enemies, 'enemy'),
-    shopsById: mapById(shops.shops, 'shop'),
+    shopsById: shopRegistry.shopsById,
+    shops: Object.values(shopRegistry.shopsById),
+    shopCatalogsById: shopRegistry.catalogsById,
+    shopCatalogs: Object.values(shopRegistry.catalogsById),
     encountersById: mapById(encounters.encounters, 'encounter'),
     encounterTablesById: mapById(encounterTables.tables, 'encounter table'),
+    lootTablesById: mapById(normalizedLootTables, 'loot table'),
+    lootTables: normalizedLootTables,
+    rewardPackagesById: mapById(rewardPackages, 'reward package'),
+    rewardPackages,
+    completionRewardsBySource: Object.fromEntries(completionRewards.map((entry) => [completionRewardKey(entry.source.type, entry.source.id), entry])),
+    completionRewards,
     townsById: Object.fromEntries(townMaps.filter((m) => m?.id).map((m) => [m.id, m])),
     levelsById: Object.fromEntries(levelMaps.filter((m) => m?.id).map((m) => [m.id, m])),
     scenesById,
     scenes: Object.values(scenesById),
     progression,
+    settings,
     world,
   };
 }

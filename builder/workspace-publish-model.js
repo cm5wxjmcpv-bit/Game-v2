@@ -74,6 +74,7 @@ export function buildWorkspacePublishPlan({
   scenes,
   baselineScenes,
   assetFiles = [],
+  contentFiles = [],
 }) {
   const normalizedProjectId = safeId(projectId);
   const errors = [];
@@ -134,6 +135,28 @@ export function buildWorkspacePublishPlan({
   }
 
   const packagePrefix = `games/${normalizedProjectId}/`;
+  for (const contentFile of contentFiles || []) {
+    try {
+      const path = String(contentFile?.path || '');
+      if (!path.endsWith('.json') || path.includes('..') || path.startsWith('.github/') || path.includes('/.github/')) {
+        throw new Error(`The project content publish target is unsafe: ${path || '(missing path)'}`);
+      }
+      if (!path.startsWith(packagePrefix) && !path.startsWith('data/')) {
+        throw new Error(`Project content files must stay inside ${packagePrefix} or the manifest-resolved data directory.`);
+      }
+      if (!changed(contentFile.currentPayload, contentFile.baselinePayload)) continue;
+      pushFile(files, seen, {
+        kind: contentFile.kind || 'weapons/rewards/shops',
+        id: contentFile.id || 'project-content',
+        path,
+        operation: 'update',
+        baselineContent: jsonFileText(contentFile.baselinePayload),
+        content: jsonFileText(contentFile.currentPayload),
+      });
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
   for (const assetFile of assetFiles || []) {
     try {
       const path = String(assetFile?.path || '');
@@ -158,7 +181,7 @@ export function buildWorkspacePublishPlan({
   }
 
   if (files.length > 50) errors.push('A single workspace publish is limited to 50 files.');
-  if (!files.length && !errors.length) warnings.push('No actor, scene, tile, or texture changes are ready to publish.');
+  if (!files.length && !errors.length) warnings.push('No actor, scene, weapon, reward, shop, tile, or texture changes are ready to publish.');
 
   return {
     schemaVersion: WORKSPACE_PUBLISH_SCHEMA_VERSION,

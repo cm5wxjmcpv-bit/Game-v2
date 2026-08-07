@@ -4,6 +4,8 @@ const DEFAULT_BINDINGS = {
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
   interact: ['KeyE', 'Space'],
+  special: ['KeyQ'],
+  inventory: ['KeyI'],
   pause: ['Escape'],
   debug: ['Backquote'],
 };

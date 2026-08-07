@@ -1,4 +1,5 @@
 import { actorFromLegacyClass, normalizeActorDefinition } from './actorRuntime.js';
+import { addItemToBag } from './inventory.js';
 
 function clone(value) {
   return value && typeof value === 'object' ? structuredClone(value) : value;
@@ -22,7 +23,7 @@ export function createPlayer(actorData, itemsById, startConfig = {}) {
   const weaponId = startingEquipment.weapon;
   const maxHp = components.health.max;
 
-  return {
+  const player = {
     id: 'player',
     actorId: actor.id,
     actorName: actor.name,
@@ -49,13 +50,24 @@ export function createPlayer(actorData, itemsById, startConfig = {}) {
       items: [],
     },
     equipment: startingEquipment,
+    equipmentInstances: {},
     effects: [],
+    resources: {
+      mana: {
+        max: components.resources?.mana?.max ?? 20,
+        current: components.resources?.mana?.max ?? 20,
+        regenPerSecond: components.resources?.mana?.regenPerSecond ?? 1,
+      },
+    },
     unlocks: {
       towns: [...(startConfig.unlockedTowns || [])],
       levels: [...(startConfig.unlockedLevels || [])],
     },
     completedLevels: [],
-    cooldowns: { autoAttack: 0 },
+    completionCounts: {},
+    pickupState: {},
+    shopState: {},
+    cooldowns: { autoAttack: 0, specialAttack: 0, reload: 0 },
     baseWeapon: weaponId ? itemsById[weaponId] || null : null,
     questLog: [],
     components: clone(components),
@@ -71,6 +83,14 @@ export function createPlayer(actorData, itemsById, startConfig = {}) {
       sprite: clone(components.render.sprite),
     },
   };
+
+  for (const itemId of Object.values(startingEquipment).filter(Boolean)) {
+    addItemToBag(player, itemId, 1, itemsById);
+  }
+  for (const entry of components.inventory.starting || []) {
+    if (entry?.itemId) addItemToBag(player, entry.itemId, entry.count || 1, itemsById);
+  }
+  return player;
 }
 
 export function createEnemy(template, spawn) {

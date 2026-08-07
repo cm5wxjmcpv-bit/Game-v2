@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "weapons": {
+    "damageFormula": {
+      "characterAttackWeight": 1,
+      "weaponPowerWeight": 1,
+      "defenseWeight": 1
+    },
+    "sellPricePercent": 0.5,
+    "mana": {
+      "defaultMax": 20,
+      "regenPerSecond": 1,
+      "safeAreaMultiplier": 6,
+      "fountainMultiplier": 20
+    },
+    "rarities": {
+      "common": { "label": "Common", "color": "#94a3b8", "priceMultiplier": 1, "statMultiplier": 1 },
+      "uncommon": { "label": "Uncommon", "color": "#4ade80", "priceMultiplier": 1.35, "statMultiplier": 1.15 },
+      "rare": { "label": "Rare", "color": "#60a5fa", "priceMultiplier": 2, "statMultiplier": 1.35 },
+      "epic": { "label": "Epic", "color": "#c084fc", "priceMultiplier": 3.25, "statMultiplier": 1.65 },
+      "legendary": { "label": "Legendary", "color": "#f59e0b", "priceMultiplier": 5, "statMultiplier": 2 }
+    },
+    "damageTypes": ["physical", "magic", "fire", "ice", "lightning", "poison"]
+  }
+}

@@ -63,6 +63,11 @@ export class Renderer {
       ctx.fillStyle = '#67d8a5';
       ctx.fillRect(playerX, playerY, 54, 54);
     }
+    const battleArt = this.getEquippedWeaponArt(game, 'equipped');
+    const battleWeaponImage = this.getTextureImage(battleArt?.src);
+    if (battleWeaponImage) {
+      this.drawTransformedWeaponImage(battleWeaponImage, battleArt, playerX + 49, playerY + 37, 30, 'right');
+    }
     ctx.fillStyle = '#fff';
     ctx.fillText(`Player HP:${Math.max(0, Math.floor(game.player.stats.hp))}/${game.player.stats.maxHp}`, playerX - 38, playerY - 12);
 
@@ -73,11 +78,11 @@ export class Renderer {
     ctx.fillStyle = '#fff';
     ctx.fillText(`Encounter: ${battle.encounterId}`, 20, h - 118);
     ctx.fillText(`Turn: ${battle.state === 'player_turn' ? 'Player' : 'Enemies'}`, 20, h - 94);
-    ctx.fillText('Actions: 1 Light | 2 Heavy | 3 Magic | E Confirm', 20, h - 70);
-    const options = ['1 Light', '2 Heavy', '3 Magic'];
+    ctx.fillText('Actions: 1 Standard | 2 Special | E Confirm', 20, h - 70);
+    const options = battle.actionLabels || ['Standard', 'Special'];
     options.forEach((label, index) => {
       ctx.fillStyle = battle.selectedActionIndex === index ? '#8ee3ff' : '#c9d7ee';
-      ctx.fillText(`${battle.selectedActionIndex === index ? '>' : ' '} ${label}`, 420 + index * 130, h - 70);
+      ctx.fillText(`${battle.selectedActionIndex === index ? '>' : ' '} ${index + 1} ${label}`, 360 + index * 240, h - 70);
     });
     ctx.fillStyle = '#fff';
     ctx.fillText(battle.turnMessage, 20, h - 40);
@@ -145,6 +150,15 @@ export class Renderer {
       ctx.fillStyle = '#45d7f5';
       ctx.fillRect(pos.x + 8, pos.y + 8, 16, 16);
     }
+    for (const loot of game.groundLoot || []) {
+      const pos = game.camera.worldToScreen(loot.x, loot.y);
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath();
+      ctx.arc(pos.x + 16, pos.y + 16, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff0a8';
+      ctx.strokeRect(pos.x + 10, pos.y + 10, 12, 12);
+    }
   }
 
   drawEntities(game) {
@@ -154,6 +168,7 @@ export class Renderer {
       ctx.fillStyle = '#7af0a0';
       ctx.fillRect(playerPos.x + 6, playerPos.y + 6, 20, 20);
     }
+    this.drawEquippedWeapon(game, playerPos.x, playerPos.y);
 
     for (const enemy of game.currentEnemies) {
       if (enemy.dead) continue;
@@ -243,6 +258,57 @@ export class Renderer {
     return true;
   }
 
+  getEquippedWeaponArt(game, use = 'equipped') {
+    const item = game.db?.itemsById?.[game.player?.equipment?.weapon];
+    return item?.weapon?.art?.[use] || item?.weapon?.art?.equipped || null;
+  }
+
+  drawTransformedWeaponImage(image, art, x, y, size = 20, facing = 'right') {
+    const scale = Math.max(0.05, Number(art?.scale) || 1);
+    const rotation = ((Number(art?.rotation) || 0) * Math.PI) / 180;
+    const crop = art?.crop || {};
+    const sx = Math.max(0, Number(crop.left) || 0);
+    const sy = Math.max(0, Number(crop.top) || 0);
+    const sw = Math.max(1, image.naturalWidth - sx - Math.max(0, Number(crop.right) || 0));
+    const sh = Math.max(1, image.naturalHeight - sy - Math.max(0, Number(crop.bottom) || 0));
+    this.ctx.save();
+    this.ctx.translate(x, y);
+    this.ctx.rotate(rotation);
+    this.ctx.scale((art?.flipX ? -1 : 1) * (facing === 'left' ? -1 : 1), 1);
+    this.ctx.drawImage(image, sx, sy, sw, sh, -size * scale * 0.5, -size * scale * 0.5, size * scale, size * scale);
+    this.ctx.restore();
+  }
+
+  drawEquippedWeapon(game, screenX, screenY) {
+    const item = game.db?.itemsById?.[game.player?.equipment?.weapon];
+    if (!item?.weapon) return false;
+    const facing = game.player.animation?.facing || game.player.facing || 'down';
+    const offsets = {
+      up: { x: 9, y: 7 },
+      down: { x: 23, y: 23 },
+      left: { x: 7, y: 19 },
+      right: { x: 25, y: 19 },
+    };
+    const offset = offsets[facing] || offsets.down;
+    const anchorX = screenX + offset.x - 16;
+    const anchorY = screenY + offset.y - 16;
+    const art = this.getEquippedWeaponArt(game, 'equipped');
+    const image = this.getTextureImage(art?.src);
+    if (image) {
+      this.drawTransformedWeaponImage(image, art, anchorX, anchorY, 19, facing);
+      return true;
+    }
+    this.ctx.save();
+    this.ctx.strokeStyle = item.rarity === 'legendary' ? '#f59e0b' : '#dbeafe';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(anchorX - 5, anchorY + 5);
+    this.ctx.lineTo(anchorX + 7, anchorY - 7);
+    this.ctx.stroke();
+    this.ctx.restore();
+    return true;
+  }
+
   drawFx(game) {
     const { ctx } = this;
     for (const m of game.fx.hitMarkers) {
@@ -252,6 +318,27 @@ export class Renderer {
       m.ttl -= game.dt;
     }
     game.fx.hitMarkers = game.fx.hitMarkers.filter((m) => m.ttl > 0);
+
+    for (const fx of game.fx.weaponAttacks || []) {
+      fx.elapsed += game.dt;
+      const progress = Math.min(1, fx.elapsed / Math.max(0.01, fx.duration));
+      const worldX = fx.fromX + (fx.toX - fx.fromX) * progress;
+      const worldY = fx.fromY + (fx.toY - fx.fromY) * progress;
+      const pos = game.camera.worldToScreen(worldX, worldY);
+      const art = fx.art?.projectile || fx.art?.equipped;
+      const image = this.getTextureImage(art?.src);
+      if (image) {
+        this.drawTransformedWeaponImage(image, art, pos.x + 16, pos.y + 16, fx.family === 'melee' ? 24 : 14, 'right');
+      } else {
+        ctx.strokeStyle = fx.family === 'magic' ? '#b794f4' : fx.family === 'ranged' ? '#f6c453' : '#e2e8f0';
+        ctx.lineWidth = fx.family === 'melee' ? 4 : 2;
+        ctx.beginPath();
+        ctx.moveTo(pos.x + 7, pos.y + 22);
+        ctx.lineTo(pos.x + 24, pos.y + 8);
+        ctx.stroke();
+      }
+    }
+    game.fx.weaponAttacks = (game.fx.weaponAttacks || []).filter((fx) => fx.elapsed < fx.duration);
   }
 
   drawDebug(game) {

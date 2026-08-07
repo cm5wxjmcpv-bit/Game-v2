@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="workspace.css" />
   <link rel="stylesheet" href="new-game-wizard.css" />
+  <link rel="stylesheet" href="weapon-maker.css" />
 </head>
 <body>
   <header class="site-header workspace-header">
@@ -51,6 +52,7 @@
     <nav class="tab-bar workspace-tabs" role="tablist" aria-label="Project workspace tabs">
       <button id="workspaceSceneTabBtn" type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="workspaceSceneTab" tabindex="0">Scene & Entities</button>
       <button id="workspaceActorTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceActorTab" tabindex="-1">Actors</button>
+      <button id="workspaceWeaponTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceWeaponTab" tabindex="-1">Weapons</button>
       <button id="workspaceNewGameTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceNewGameTab" tabindex="-1">New Game</button>
       <button id="workspacePublishTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspacePublishTab" tabindex="-1">Publish</button>
     </nav>
@@ -175,6 +177,10 @@
       </section>
     </section>
 
+    <section id="workspaceWeaponTab" class="panel workspace-tab weapon-maker-panel" role="tabpanel" aria-labelledby="workspaceWeaponTabBtn" aria-hidden="true">
+      <div id="weaponMakerRoot"><p>Loading Weapon Maker…</p></div>
+    </section>
+
     <section id="workspaceNewGameTab" class="panel workspace-tab new-game-wizard-panel" role="tabpanel" aria-labelledby="workspaceNewGameTabBtn" aria-hidden="true">
       <div class="new-game-wizard-heading">
         <div>
@@ -293,6 +299,7 @@
 
   <script type="module" src="workspace-map-launcher.js"></script>
   <script type="module" src="workspace.js"></script>
+  <script type="module" src="weapon-maker-ui.js"></script>
   <script type="module" src="new-game-wizard-ui.js"></script>
 </body>
 </html>
