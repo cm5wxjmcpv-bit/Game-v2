@@ -46,6 +46,7 @@ const state = {
   tileColors: {},
   dirty: false,
 };
+let projectLoadRequestId = 0;
 
 init().catch((error) => setMessage(`Workspace failed to initialize: ${error.message}`, true));
 
@@ -105,8 +106,8 @@ async function fetchJson(url, fallback) {
   return response.json();
 }
 
-function resolveContentPath(path) {
-  return new URL(String(path || ''), state.contentRootUrl);
+function resolveContentPath(path, contentRootUrl) {
+  return new URL(String(path || ''), contentRootUrl);
 }
 
 function fileIn(directory, id) {
@@ -114,35 +115,42 @@ function fileIn(directory, id) {
 }
 
 async function loadProject(projectId) {
+  const requestId = ++projectLoadRequestId;
   const id = normalizeId(projectId);
   const meta = state.catalog.find((entry) => entry.id === id);
   if (!meta) return setMessage(`Unknown game project: ${projectId}`, true);
   setMessage(`Loading ${meta.name || id}…`);
   const manifestUrl = new URL(`../games/${id}/game.json`, window.location.href);
   const manifest = await fetchJson(manifestUrl);
-  state.projectId = id;
-  state.projectMeta = meta;
-  state.manifest = manifest;
-  state.manifestUrl = manifestUrl;
-  state.contentRootUrl = new URL(manifest.contentRoot || './', manifestUrl);
-
+  const contentRootUrl = new URL(manifest.contentRoot || './', manifestUrl);
   const data = manifest.data || {};
-  const world = await fetchJson(resolveContentPath(data.world));
-  const classesPayload = data.classes ? await fetchJson(resolveContentPath(data.classes), { classes: [] }) : { classes: [] };
-  const actorsPayload = data.actors ? await fetchJson(resolveContentPath(data.actors), { actors: [] }) : { actors: [] };
+  const [world, classesPayload, actorsPayload] = await Promise.all([
+    fetchJson(resolveContentPath(data.world, contentRootUrl)),
+    data.classes ? fetchJson(resolveContentPath(data.classes, contentRootUrl), { classes: [] }) : { classes: [] },
+    data.actors ? fetchJson(resolveContentPath(data.actors, contentRootUrl), { actors: [] }) : { actors: [] },
+  ]);
   const directIds = new Set((actorsPayload.actors || []).map((actor) => actor.id));
-  state.actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []).map((actor) => ({
+  const actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []).map((actor) => ({
     ...actor,
     _workspaceSource: directIds.has(actor.id) ? 'direct actor' : 'legacy class',
   }));
 
-  const [towns, levels, scenes] = await Promise.all([
-    loadSceneGroup(world.towns || [], data.townsDirectory, 'town'),
-    loadSceneGroup(world.levels || [], data.levelsDirectory, 'level'),
-    loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene'),
+  const [towns, levels, scenes, tileColors] = await Promise.all([
+    loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl),
+    loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl),
+    loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl),
+    loadTileColors(data, contentRootUrl),
   ]);
+  if (requestId !== projectLoadRequestId) return;
+
+  state.projectId = id;
+  state.projectMeta = meta;
+  state.manifest = manifest;
+  state.manifestUrl = manifestUrl;
+  state.contentRootUrl = contentRootUrl;
+  state.actors = actors;
   state.scenes = [...towns, ...levels, ...scenes];
-  await loadTileColors(data);
+  state.tileColors = tileColors;
   restoreDraft();
 
   state.selectedActorId = state.actors[0]?.id || '';
@@ -158,20 +166,20 @@ async function loadProject(projectId) {
   setMessage(`${meta.name || id} loaded. Changes stay local until exported.`);
 }
 
-async function loadSceneGroup(ids, directory, kind) {
+async function loadSceneGroup(ids, directory, kind, contentRootUrl) {
   if (!directory) return [];
   return Promise.all((ids || []).map(async (id) => {
     const path = fileIn(directory, id);
-    const scene = normalizeScene(await fetchJson(resolveContentPath(path)));
+    const scene = normalizeScene(await fetchJson(resolveContentPath(path, contentRootUrl)));
     return { ...scene, _workspaceKind: kind, _workspacePath: path };
   }));
 }
 
-async function loadTileColors(data) {
-  const tilesPayload = data.tiles ? await fetchJson(resolveContentPath(data.tiles), { tiles: [] }) : { tiles: [] };
-  const texturesPayload = data.texturePack ? await fetchJson(resolveContentPath(data.texturePack), { textures: [] }) : { textures: [] };
+async function loadTileColors(data, contentRootUrl) {
+  const tilesPayload = data.tiles ? await fetchJson(resolveContentPath(data.tiles, contentRootUrl), { tiles: [] }) : { tiles: [] };
+  const texturesPayload = data.texturePack ? await fetchJson(resolveContentPath(data.texturePack, contentRootUrl), { textures: [] }) : { textures: [] };
   const textures = Object.fromEntries((texturesPayload.textures || []).map((entry) => [entry.id, entry]));
-  state.tileColors = Object.fromEntries((tilesPayload.tiles || []).map((tile) => {
+  return Object.fromEntries((tilesPayload.tiles || []).map((tile) => {
     const texture = textures[tile.texture] || {};
     return [tile.id, texture.color || tile.minimapColor || hashColor(tile.id)];
   }));

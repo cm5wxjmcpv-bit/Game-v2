@@ -115,6 +115,8 @@ test('workspace builds a custom texture into a level and stages both for publish
 test('image import saves, maps, and stages a custom texture without manual mapping', async ({ page }) => {
   const monitor = monitorPage(page);
   await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await expect(page.locator('#openMapEditorBtn')).toBeEnabled();
   await page.locator('#openMapEditorBtn').click();
   await expect(page).toHaveURL(/\/builder\/map-bridge\.html$/);
 
