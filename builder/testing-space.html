@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Testing Space & Level Library</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="testing-space.css" />
+</head>
+<body>
+  <header class="site-header testing-header">
+    <div>
+      <p class="testing-kicker">PIXEL ENGINE</p>
+      <h1>Testing Space & Level Library</h1>
+      <p>Build levels outside a game, keep multiple drafts, reopen them later, and preview them before assigning them to a game project.</p>
+    </div>
+    <div class="testing-header-actions">
+      <a class="file-label" href="../">Main Hub</a>
+      <a class="file-label" href="testing-editor.html?testing=new">New Testing Level</a>
+    </div>
+  </header>
+
+  <main class="testing-shell">
+    <section class="panel testing-summary-panel">
+      <div>
+        <h2>Saved Testing Levels</h2>
+        <p id="testingSummary">Loading testing library…</p>
+      </div>
+      <div class="testing-summary-actions">
+        <a class="testing-primary-link" href="testing-editor.html?testing=new">Build New Level</a>
+        <label for="testingImportInput" class="file-label">Import Level JSON</label>
+        <input id="testingImportInput" type="file" accept="application/json" />
+      </div>
+      <p id="testingMessage" class="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="testingLevelList" class="testing-level-grid" aria-live="polite"></section>
+
+    <section class="panel testing-next-panel">
+      <h2>Game Assignment</h2>
+      <p>Testing levels stay separate from every game until you intentionally add one to a game project. The saved library created here is the foundation for that next connection, so experimental maps cannot accidentally overwrite a published game level.</p>
+    </section>
+  </main>
+
+  <script type="module" src="testing-space.js"></script>
+</body>
+</html>

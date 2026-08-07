@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Testing Level Editor</title>
+  <link rel="stylesheet" href="testing-editor.css" />
+</head>
+<body>
+  <header class="testing-editor-toolbar">
+    <div class="testing-editor-title">
+      <strong id="testingEditorTitle">Testing Level Editor</strong>
+      <span id="testingEditorStatus" role="status" aria-live="polite">Loading builder…</span>
+    </div>
+    <div class="testing-editor-actions">
+      <button id="testingSaveBtn" type="button" disabled>Save to Testing Space</button>
+      <button id="testingSaveTestBtn" type="button" disabled>Save & Test</button>
+      <a href="testing-space.html">Manage Levels</a>
+      <a href="../">Main Hub</a>
+    </div>
+  </header>
+  <iframe id="testingBuilderFrame" title="2D Level Builder"></iframe>
+  <script type="module" src="testing-editor.js"></script>
+</body>
+</html>
