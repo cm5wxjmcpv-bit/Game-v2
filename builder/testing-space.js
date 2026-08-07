@@ -7,16 +7,31 @@ import {
   normalizeTestingMap,
   upsertTestingLevel,
 } from './testing-library-model.js';
+import {
+  TESTING_ADD_TO_GAME_PENDING_KEY,
+  createTestingAddToGameRequest,
+} from './testing-add-to-game-model.js';
 
+const CATALOG_URL = new URL('../games/catalog.json', window.location.href);
 const dom = {
   summary: document.getElementById('testingSummary'),
   list: document.getElementById('testingLevelList'),
   message: document.getElementById('testingMessage'),
   importInput: document.getElementById('testingImportInput'),
+  addDialog: document.getElementById('testingAddDialog'),
+  addForm: document.getElementById('testingAddForm'),
+  addLevelLabel: document.getElementById('testingAddLevelLabel'),
+  addGameSelect: document.getElementById('testingAddGameSelect'),
+  addStatus: document.getElementById('testingAddStatus'),
+  addCancel: document.getElementById('testingAddCancelBtn'),
+  addConfirm: document.getElementById('testingAddConfirmBtn'),
 };
 
 let library = readLibrary();
+let catalog = [];
+let pendingAddLibraryId = '';
 render();
+loadGameCatalog();
 
 dom.importInput.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
@@ -45,6 +60,11 @@ dom.list.addEventListener('click', (event) => {
   if (!entry) {
     setMessage('That testing level is no longer available.', true);
     render();
+    return;
+  }
+
+  if (action === 'add') {
+    openAddToGameDialog(entry);
     return;
   }
 
@@ -95,6 +115,93 @@ dom.list.addEventListener('click', (event) => {
   }
 });
 
+dom.addCancel.addEventListener('click', closeAddToGameDialog);
+dom.addForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const entry = findTestingLevel(library, pendingAddLibraryId);
+  if (!entry) {
+    setAddStatus('That testing level is no longer available.', true);
+    return;
+  }
+  const projectId = dom.addGameSelect.value;
+  if (!catalog.some((game) => game.id === projectId)) {
+    setAddStatus('Choose a registered game project.', true);
+    return;
+  }
+  try {
+    const request = createTestingAddToGameRequest({ entry, projectId });
+    localStorage.setItem(TESTING_ADD_TO_GAME_PENDING_KEY, JSON.stringify(request));
+    dom.addConfirm.disabled = true;
+    setAddStatus(`Opening ${gameName(projectId)} and staging an independent copy…`);
+    const url = new URL('workspace.html', window.location.href);
+    url.searchParams.set('game', projectId);
+    url.searchParams.set('testingImport', '1');
+    window.location.href = url.href;
+  } catch (error) {
+    setAddStatus(`Add to Game could not start: ${error.message}`, true);
+  }
+});
+
+async function loadGameCatalog() {
+  try {
+    const response = await fetch(CATALOG_URL, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Unable to load games/catalog.json (${response.status}).`);
+    const payload = await response.json();
+    catalog = (Array.isArray(payload?.games) ? payload.games : [])
+      .map((game) => ({
+        id: String(game?.id || '').trim().toLowerCase(),
+        name: String(game?.name || game?.id || 'Game'),
+        description: String(game?.description || ''),
+      }))
+      .filter((game) => /^[a-z0-9][a-z0-9_-]*$/.test(game.id));
+    renderGameOptions();
+  } catch (error) {
+    catalog = [];
+    renderGameOptions();
+    setMessage(`Game list could not be loaded: ${error.message}`, true);
+  }
+}
+
+function renderGameOptions() {
+  dom.addGameSelect.replaceChildren();
+  if (!catalog.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'No registered games available';
+    dom.addGameSelect.appendChild(option);
+    dom.addConfirm.disabled = true;
+    return;
+  }
+  for (const game of catalog) {
+    const option = document.createElement('option');
+    option.value = game.id;
+    option.textContent = game.name;
+    dom.addGameSelect.appendChild(option);
+  }
+  dom.addConfirm.disabled = false;
+}
+
+function openAddToGameDialog(entry) {
+  pendingAddLibraryId = entry.libraryId;
+  dom.addLevelLabel.textContent = `${entry.name} • ${entry.map.mapId} • ${entry.map.width} × ${entry.map.height}`;
+  setAddStatus(catalog.length
+    ? 'Choose the game that should receive the independent copy.'
+    : 'Loading registered games…');
+  dom.addConfirm.disabled = !catalog.length;
+  if (typeof dom.addDialog.showModal === 'function') dom.addDialog.showModal();
+  else dom.addDialog.setAttribute('open', '');
+}
+
+function closeAddToGameDialog() {
+  pendingAddLibraryId = '';
+  if (typeof dom.addDialog.close === 'function') dom.addDialog.close();
+  else dom.addDialog.removeAttribute('open');
+}
+
+function gameName(projectId) {
+  return catalog.find((game) => game.id === projectId)?.name || projectId;
+}
+
 function readLibrary() {
   try {
     const raw = localStorage.getItem(TESTING_LEVEL_LIBRARY_KEY);
@@ -111,7 +218,7 @@ function persistLibrary(nextLibrary) {
 function render() {
   library = normalizeTestingLibrary(library);
   dom.summary.textContent = library.levels.length
-    ? `${library.levels.length} saved testing level${library.levels.length === 1 ? '' : 's'}. These levels are not attached to a game.`
+    ? `${library.levels.length} saved testing level${library.levels.length === 1 ? '' : 's'}. These levels are not attached to a game until you use Add to Game.`
     : 'No testing levels saved yet. Start a new level or import a JSON map.';
   dom.list.replaceChildren();
 
@@ -155,7 +262,8 @@ function createCard(entry) {
   const actions = document.createElement('div');
   actions.className = 'testing-card-actions';
   actions.append(
-    actionButton('Edit in Builder', 'edit', entry.libraryId),
+    actionButton('Add to Game', 'add', entry.libraryId),
+    actionButton('Edit in Builder', 'edit', entry.libraryId, 'secondary-btn'),
     actionButton('Test Level', 'test', entry.libraryId, 'secondary-btn'),
     actionButton('Duplicate', 'duplicate', entry.libraryId, 'secondary-btn'),
     actionButton('Export JSON', 'export', entry.libraryId, 'secondary-btn'),
@@ -187,6 +295,11 @@ function formatDate(value) {
 function setMessage(text, isError = false) {
   dom.message.textContent = text;
   dom.message.classList.toggle('error', isError);
+}
+
+function setAddStatus(text, isError = false) {
+  dom.addStatus.textContent = text;
+  dom.addStatus.classList.toggle('error', isError);
 }
 
 function downloadJson(payload, filename) {
