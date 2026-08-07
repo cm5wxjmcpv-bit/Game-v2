@@ -16,6 +16,7 @@ import {
   commitStorageUpdates,
 } from './workspace-return-model.js';
 import './workspace-publish-ui.js';
+import './testing-add-to-game-workspace.js';
 
 const publishStyles = document.createElement('link');
 publishStyles.rel = 'stylesheet';
