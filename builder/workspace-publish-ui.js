@@ -110,9 +110,10 @@ async function loadRepositoryBaseline(projectId) {
     fileContents[repoPathFromUrl(actorsUrl, REPOSITORY_ROOT_URL)] = rawJsonText(actorsPayload);
   }
   const actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []);
-  const [towns, levels, scenes, tilesSource, texturesSource, itemsSource, shopsSource, lootSource, rewardsSource, settingsSource] = await Promise.all([
+  const [towns, levels, buildings, scenes, tilesSource, texturesSource, itemsSource, shopsSource, lootSource, rewardsSource, settingsSource] = await Promise.all([
     loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl, fileContents),
     loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl, fileContents),
+    loadSceneGroup(world.buildings || [], data.buildingsDirectory, 'building', contentRootUrl, fileContents),
     loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl, fileContents),
     loadManifestDataSource(data.tiles, contentRootUrl, fileContents, dataCache),
     loadManifestDataSource(data.texturePack, contentRootUrl, fileContents, dataCache),
@@ -126,7 +127,7 @@ async function loadRepositoryBaseline(projectId) {
     manifest,
     contentRootUrl,
     actors,
-    scenes: [...towns, ...levels, ...scenes],
+    scenes: [...towns, ...levels, ...buildings, ...scenes],
     fileContents,
     tilesSource,
     texturesSource,
@@ -152,8 +153,10 @@ function readCurrentDraft(projectId, baseline) {
   const sourceById = new Map(baseline.scenes.map((scene) => [scene.id, scene]));
   const scenes = draft.scenes.map((scene) => ({
     ...normalizeScene(scene),
-    _workspaceKind: sourceById.get(scene.id)?._workspaceKind || 'scene',
-    _workspacePath: sourceById.get(scene.id)?._workspacePath || '',
+    _workspaceKind: sourceById.get(scene.id)?._workspaceKind || (scene.mapType === 'building' ? 'building' : 'scene'),
+    _workspacePath: sourceById.get(scene.id)?._workspacePath || (scene.mapType === 'building' && baseline.manifest?.data?.buildingsDirectory
+      ? fileIn(baseline.manifest.data.buildingsDirectory, scene.id)
+      : ''),
   }));
   return {
     actors: draft.actors,
@@ -278,7 +281,7 @@ async function refreshPublishPlan() {
     dom.publishCommitInput.value ||= `Update ${projectId} game content`;
     renderPublishPlan();
     if (state.plan.errors.length) setPublishStatus(state.plan.errors.join(' '), true);
-    else if (!state.plan.files.length) setPublishStatus('No changed level, actor, weapon, reward, shop, tile, or texture files are ready to publish.');
+    else if (!state.plan.files.length) setPublishStatus('No changed map, actor, weapon, reward, shop, tile, or texture files are ready to publish.');
     else setPublishStatus(`${state.plan.files.length} changed file(s) are ready for review and test publishing.`);
   } catch (error) {
     state.plan = null;
