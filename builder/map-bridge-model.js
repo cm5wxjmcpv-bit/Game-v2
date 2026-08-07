@@ -203,7 +203,7 @@ export function buildBridgeTextureEntries(handoff) {
   validateMapBridgeHandoff(handoff);
   const aliases = Object.entries(handoff.aliasColors || {}).map(([id, color]) => ({
     id,
-    name: `Workspace bridge: ${handoff.tileAliases?.[id] || id}`,
+    name: `Package tile: ${handoff.tileAliases?.[id] || id}`,
     size: 16,
     pixels: Array.from({ length: 16 }, () => Array.from({ length: 16 }, () => ({ color, alpha: 1 }))),
     previewColor: color,

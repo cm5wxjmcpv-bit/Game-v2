@@ -10,6 +10,7 @@ import {
   removeLegacyObject,
   validateLegacyObject,
 } from './workspace-object-model.js';
+import { activateWorkspaceTab, deactivateWorkspaceTab } from './workspace-tabs.js';
 
 const DRAFT_PREFIX = 'pixel_engine_builder_workspace_';
 
@@ -46,11 +47,16 @@ function install() {
   button.type = 'button';
   button.className = 'tab-btn';
   button.textContent = 'Scene Objects';
+  button.setAttribute('role', 'tab');
+  button.setAttribute('aria-selected', 'false');
+  button.setAttribute('aria-controls', 'workspaceObjectsTab');
   tabBar.insertBefore(button, publishButton);
 
   const section = document.createElement('section');
   section.id = 'workspaceObjectsTab';
   section.className = 'workspace-object-grid workspace-tab';
+  section.setAttribute('role', 'tabpanel');
+  section.setAttribute('aria-labelledby', 'workspaceObjectsTabBtn');
   section.innerHTML = objectEditorMarkup();
   publishTab.parentElement.insertBefore(section, publishTab);
 
@@ -204,16 +210,12 @@ function bindEvents() {
 }
 
 function openObjectTab() {
-  for (const tab of [dom.workspaceSceneTab, dom.workspaceActorTab, dom.workspacePublishTab]) tab.classList.remove('active');
-  for (const button of [dom.workspaceSceneTabBtn, dom.workspaceActorTabBtn, dom.workspacePublishTabBtn]) button.classList.remove('active');
-  dom.workspaceObjectsTab.classList.add('active');
-  dom.workspaceObjectsTabBtn.classList.add('active');
+  activateWorkspaceTab(dom.workspaceObjectsTab, dom.workspaceObjectsTabBtn);
   refreshFromWorkspaceDraft();
 }
 
 function closeObjectTab() {
-  dom.workspaceObjectsTab.classList.remove('active');
-  dom.workspaceObjectsTabBtn.classList.remove('active');
+  deactivateWorkspaceTab(dom.workspaceObjectsTab, dom.workspaceObjectsTabBtn);
 }
 
 function currentProjectId() {

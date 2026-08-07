@@ -7,6 +7,7 @@ const corsHeaders = {
   'access-control-allow-headers': 'Accept,Authorization,Content-Type,X-GitHub-Api-Version',
   'content-type': 'application/json',
 };
+const publishCommitSha = 'a'.repeat(40);
 
 function json(route, payload, status = 200) {
   return route.fulfill({ status, headers: corsHeaders, body: JSON.stringify(payload) });
@@ -35,7 +36,7 @@ test('workspace publishes changed package JSON to a new draft pull request witho
     if (url.pathname.endsWith('/git/commits/base-sha')) return json(route, { tree: { sha: 'base-tree' } });
     if (url.pathname.endsWith('/git/blobs')) return json(route, { sha: 'actor-blob' }, 201);
     if (url.pathname.endsWith('/git/trees')) return json(route, { sha: 'publish-tree' }, 201);
-    if (url.pathname.endsWith('/git/commits')) return json(route, { sha: 'publish-commit' }, 201);
+    if (url.pathname.endsWith('/git/commits')) return json(route, { sha: publishCommitSha }, 201);
     if (url.pathname.endsWith('/git/refs')) return json(route, { ref: body.ref }, 201);
     if (url.pathname.endsWith('/pulls')) {
       return json(route, { number: 22, html_url: 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/22' }, 201);
@@ -60,6 +61,14 @@ test('workspace publishes changed package JSON to a new draft pull request witho
 
   await expect(page.locator('#publishPrLink')).toBeVisible();
   await expect(page.locator('#publishPrLink')).toHaveAttribute('href', 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/22');
+  await expect(page.locator('#publishPreviewLink')).toBeVisible();
+  const previewHref = await page.locator('#publishPreviewLink').getAttribute('href');
+  const previewUrl = new URL(previewHref);
+  expect(previewUrl.pathname).toBe('/preview.html');
+  expect(previewUrl.searchParams.get('game')).toBe('scene-demo');
+  expect(previewUrl.searchParams.get('scene')).toBe('scene_lab');
+  expect(previewUrl.searchParams.get('previewCommit')).toBe(publishCommitSha);
+  expect(previewUrl.searchParams.get('previewPr')).toBe('22');
   await expect(page.locator('#publishStatus')).toContainText('Draft pull request #22 created');
   await expect(page.locator('#publishTokenInput')).toHaveValue('');
 

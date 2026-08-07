@@ -28,7 +28,9 @@ initialize();
 function initialize() {
   try {
     handoff = validateMapBridgeHandoff(JSON.parse(localStorage.getItem(MAP_BRIDGE_HANDOFF_KEY) || 'null'));
-    dom.title.textContent = `Level & Texture Builder • ${handoff.sceneId}`;
+    const sceneName = handoff.originalScene?.name || handoff.sceneId;
+    const sceneLabel = sceneName === handoff.sceneId ? sceneName : `${sceneName} (${handoff.sceneId})`;
+    dom.title.textContent = `${handoff.projectId} › ${sceneLabel}`;
     dom.frame.style.pointerEvents = 'none';
     installTemporaryTextureLibrary();
     bindEvents();
@@ -90,6 +92,25 @@ function configureFocusedEditor(frameWindow, frameDocument) {
       if (element) element.disabled = true;
     });
 
+  const hide = (element) => {
+    if (element) element.hidden = true;
+  };
+  hide(frameDocument.querySelector('.site-header'));
+  hide(frameDocument.getElementById('tabViewerBtn'));
+  hide(frameDocument.getElementById('tabItemEditorBtn'));
+  hide(frameDocument.querySelector('.game-texture-pack-panel'));
+  hide(frameDocument.querySelector('.game-sync-preview-panel'));
+  hide(frameDocument.querySelector('.legend'));
+  hide(frameDocument.getElementById('exportBtn'));
+  hide(frameDocument.getElementById('exportGameBtn'));
+  hide(frameDocument.querySelector('label[for="importInput"]'));
+  hide(frameDocument.getElementById('importInput'));
+  hide(frameDocument.getElementById('openViewerBtn'));
+
+  const mapActions = frameDocument.getElementById('clearBtn')?.closest('.actions');
+  const mapActionsHeading = mapActions?.previousElementSibling;
+  if (mapActionsHeading?.matches('h2')) mapActionsHeading.textContent = 'Level Actions';
+
   const header = frameDocument.querySelector('.site-header p');
   if (header) header.textContent = 'Build textures, save them to the Custom Texture Library, paint the level, and send the finished level and used textures back to the Game Workspace.';
 
@@ -124,6 +145,21 @@ function configureFocusedEditor(frameWindow, frameDocument) {
   frameDocument.getElementById('layerObjectBtn')?.addEventListener('click', () => frameWindow.setTimeout(restrictPalette, 0));
   frameDocument.getElementById('textureSaveToLibraryBtn')?.addEventListener('click', () => frameWindow.setTimeout(restrictPalette, 0));
   frameDocument.getElementById('tabMapEditorBtn')?.addEventListener('click', () => frameWindow.setTimeout(restrictPalette, 0));
+
+  const protectedAliasIds = new Set(Object.keys(handoff.tileAliases || {}));
+  const protectPackageTextures = () => {
+    frameDocument.querySelectorAll('#textureLibraryList [data-library-action="delete"]').forEach((button) => {
+      if (!protectedAliasIds.has(button.dataset.textureId || '')) return;
+      button.disabled = true;
+      button.title = 'Package textures are preserved by the connected workspace.';
+    });
+  };
+  const textureLibrary = frameDocument.getElementById('textureLibraryList');
+  if (textureLibrary) {
+    const libraryObserver = new frameWindow.MutationObserver(protectPackageTextures);
+    libraryObserver.observe(textureLibrary, { childList: true, subtree: true });
+  }
+  protectPackageTextures();
   restrictPalette();
   return restrictPalette;
 }
@@ -283,6 +319,7 @@ async function processCapturedMap(blob) {
 }
 
 function cancelBridge() {
+  if (handoff && !window.confirm('Return to the Game Workspace and discard changes made in this Level & Texture Builder session?')) return;
   restoreOriginalTextureLibrary();
   localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
   localStorage.removeItem(MAP_BRIDGE_HANDOFF_KEY);

@@ -57,11 +57,47 @@ button.secondary { background: #475569; }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .bridge-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid #cbd5e1;
   background: #fff8d6;
   color: #59470a;
   line-height: 1.4;
+}
+
+.bridge-steps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bridge-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bridge-steps span {
+  display: inline-grid;
+  width: 1.45rem;
+  height: 1.45rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #92400e;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.bridge-notice small {
+  flex-basis: 100%;
 }
 
 .bridge-frame-shell {
@@ -85,4 +121,5 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .bridge-header { align-items: flex-start; flex-direction: column; }
   .bridge-actions { width: 100%; }
   .bridge-actions button { flex: 1; }
+  .bridge-steps { align-items: flex-start; flex-direction: column; }
 }

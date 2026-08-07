@@ -1,4 +1,8 @@
-.workspace-object-grid {
+.workspace-object-grid.workspace-tab {
+  display: none;
+}
+
+.workspace-object-grid.workspace-tab.active {
   display: grid;
   grid-template-columns: minmax(240px, 0.8fr) minmax(360px, 1.5fr) minmax(320px, 1fr);
   gap: 1rem;

@@ -1,0 +1,79 @@
+.preview-banner {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 30;
+  display: flex;
+  max-width: min(760px, calc(100vw - 1.5rem));
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #5dd39e;
+  border-radius: 6px;
+  background: rgba(18, 22, 34, 0.96);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.36);
+  color: #e6eefc;
+}
+
+.preview-summary {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.preview-summary strong {
+  color: #5dd39e;
+}
+
+.preview-summary span,
+.preview-summary small {
+  overflow-wrap: anywhere;
+}
+
+.preview-summary small {
+  opacity: 0.82;
+}
+
+.preview-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.45rem;
+}
+
+.preview-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #385885;
+  border-radius: 4px;
+  background: #27344d;
+  color: #e6eefc;
+  text-decoration: none;
+}
+
+.preview-actions a:hover,
+.preview-actions a:focus-visible {
+  filter: brightness(1.16);
+}
+
+.preview-banner.preview-error {
+  border-color: #f25f5c;
+}
+
+.preview-banner.preview-error .preview-summary strong {
+  color: #f25f5c;
+}
+
+@media (max-width: 700px) {
+  .preview-banner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .preview-actions a {
+    flex: 1;
+    justify-content: center;
+  }
+}

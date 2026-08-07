@@ -8,6 +8,9 @@
   const CUSTOM_TEXTURE_LIBRARY_STORAGE_KEY = 'levelBuilderCustomTextureLibrary';
   const TEXTURE_MAX_SAVED_CUSTOM_COLORS = 16;
   const TEXTURE_HISTORY_LIMIT = 30;
+  const TEXTURE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+  const TEXTURE_IMAGE_MAX_SIDE = 4096;
+  const TEXTURE_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
   const MAP_HISTORY_LIMIT = 30;
   const MAX_MAP_SIDE = 200;
   const TEXTURE_EXPORT_ENGINE_DIR = 'assets/textures/starter';
@@ -460,6 +463,8 @@
     weaponFields: document.getElementById('weaponFields'),
     consumableFields: document.getElementById('consumableFields'),
     textureSizeSelect: document.getElementById('textureSizeSelect'),
+    textureImageImportMode: document.getElementById('textureImageImportMode'),
+    textureImageImportInput: document.getElementById('textureImageImportInput'),
     textureColorPicker: document.getElementById('textureColorPicker'),
     texturePalette: document.getElementById('texturePalette'),
     texturePaintToolBtn: document.getElementById('texturePaintToolBtn'),
@@ -481,6 +486,7 @@
     textureClearLayerBtn: document.getElementById('textureClearLayerBtn'),
     textureFilenameInput: document.getElementById('textureFilenameInput'),
     textureSaveToLibraryBtn: document.getElementById('textureSaveToLibraryBtn'),
+    textureSaveAndUseBtn: document.getElementById('textureSaveAndUseBtn'),
     textureExportBtn: document.getElementById('textureExportBtn'),
     textureExportPngBtn: document.getElementById('textureExportPngBtn'),
     textureExportEngineEntryBtn: document.getElementById('textureExportEngineEntryBtn'),
@@ -1390,6 +1396,25 @@
 
     dom.textureSaveToLibraryBtn.addEventListener('click', function () {
       saveCurrentTextureToLibrary();
+    });
+
+    dom.textureSaveAndUseBtn.addEventListener('click', function () {
+      const textureId = saveCurrentTextureToLibrary();
+      if (!textureId) {
+        return;
+      }
+      selectCustomTextureForMap(
+        textureId,
+        'Custom texture "' + textureId + '" is saved, selected, and ready to paint on the level.'
+      );
+    });
+
+    dom.textureImageImportInput.addEventListener('change', function (event) {
+      if (!event.target.files || !event.target.files[0]) {
+        return;
+      }
+      importTextureImageAndUse(event.target.files[0]);
+      event.target.value = '';
     });
 
     dom.textureLibraryExportBtn.addEventListener('click', function () {
@@ -2489,6 +2514,132 @@
     reader.readAsText(file);
   }
 
+  async function importTextureImageAndUse(file) {
+    try {
+      validateTextureImageFile(file);
+      updateTextureStatus('Importing "' + file.name + '"…');
+      const image = await loadTextureImageFile(file);
+      if (image.naturalWidth > TEXTURE_IMAGE_MAX_SIDE || image.naturalHeight > TEXTURE_IMAGE_MAX_SIDE) {
+        throw new Error('Image dimensions must not exceed ' + TEXTURE_IMAGE_MAX_SIDE + ' x ' + TEXTURE_IMAGE_MAX_SIDE + '.');
+      }
+
+      const size = state.textureBuilder.size;
+      const placementMode = dom.textureImageImportMode.value;
+      const pixels = convertImageToTexturePixels(image, size, placementMode);
+      const importedName = sanitizeTextureFilename(String(file.name || '').replace(/\.[^.]+$/, '')) || ('imported_texture_' + size + 'x' + size);
+
+      pushTextureUndoState();
+      resetTextureLayers(size, false);
+      state.textureBuilder.layers[0].name = 'Imported Image';
+      state.textureBuilder.layers[0].pixels = pixels;
+      dom.textureFilenameInput.value = importedName;
+      renderTextureLayerList();
+      renderTextureGrid();
+
+      const textureId = saveCurrentTextureToLibrary();
+      if (!textureId) {
+        return;
+      }
+      selectCustomTextureForMap(
+        textureId,
+        'Imported "' + file.name + '" as "' + textureId + '". It is saved, mapped, and ready to paint on the level.'
+      );
+    } catch (error) {
+      updateTextureStatus('Image import failed: ' + error.message, true);
+    }
+  }
+
+  function validateTextureImageFile(file) {
+    if (!file || typeof file !== 'object') {
+      throw new Error('Choose an image file to import.');
+    }
+    const mimeType = String(file.type || '').toLowerCase();
+    const hasSupportedExtension = /\.(png|jpe?g|webp)$/i.test(String(file.name || ''));
+    if ((mimeType && TEXTURE_IMAGE_MIME_TYPES.indexOf(mimeType) === -1) || (!mimeType && !hasSupportedExtension)) {
+      throw new Error('Choose a PNG, JPG, or WebP image.');
+    }
+    if (Number(file.size) > TEXTURE_IMAGE_MAX_BYTES) {
+      throw new Error('Image file must be 10 MB or smaller.');
+    }
+  }
+
+  function loadTextureImageFile(file) {
+    return new Promise(function (resolve, reject) {
+      const image = new Image();
+      const objectUrl = window.URL.createObjectURL(file);
+      image.onload = function () {
+        window.URL.revokeObjectURL(objectUrl);
+        if (!image.naturalWidth || !image.naturalHeight) {
+          reject(new Error('The selected image has no readable pixels.'));
+          return;
+        }
+        resolve(image);
+      };
+      image.onerror = function () {
+        window.URL.revokeObjectURL(objectUrl);
+        reject(new Error('The selected image could not be decoded.'));
+      };
+      image.src = objectUrl;
+    });
+  }
+
+  function convertImageToTexturePixels(image, size, placementMode) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('This browser cannot prepare the imported texture.');
+    }
+    context.clearRect(0, 0, size, size);
+    context.imageSmoothingEnabled = false;
+
+    if (placementMode === 'fit') {
+      const scale = Math.min(size / image.naturalWidth, size / image.naturalHeight);
+      const drawWidth = image.naturalWidth * scale;
+      const drawHeight = image.naturalHeight * scale;
+      context.drawImage(image, (size - drawWidth) / 2, (size - drawHeight) / 2, drawWidth, drawHeight);
+    } else if (placementMode === 'stretch') {
+      context.drawImage(image, 0, 0, size, size);
+    } else {
+      const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+      const sourceX = (image.naturalWidth - sourceSize) / 2;
+      const sourceY = (image.naturalHeight - sourceSize) / 2;
+      context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+    }
+
+    const imageData = context.getImageData(0, 0, size, size).data;
+    const pixels = createLayerGrid(size, size, null);
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        const offset = (row * size + col) * 4;
+        const alpha = imageData[offset + 3];
+        if (alpha === 0) {
+          continue;
+        }
+        const color = '#' + [imageData[offset], imageData[offset + 1], imageData[offset + 2]].map(function (channel) {
+          return channel.toString(16).padStart(2, '0');
+        }).join('');
+        pixels[row][col] = {
+          color: color,
+          alpha: Number((alpha / 255).toFixed(3))
+        };
+      }
+    }
+    return pixels;
+  }
+
+  function selectCustomTextureForMap(textureId, statusText) {
+    state.activeLayer = 'tile';
+    state.activeTool = 'paint';
+    setActiveTab('mapEditor');
+    updateActiveLayerButtons();
+    updateActiveToolButtonState();
+    setSelectedForActiveLayer(textureId);
+    updateStatus(statusText);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function applyImportedTexturePayload(payload) {
     if (!payload || typeof payload !== 'object') {
       throw new Error('Texture JSON must be an object.');
@@ -2605,6 +2756,7 @@
     renderPalette();
     renderLegend();
     updateTextureStatus('Saved custom texture to library: ' + id);
+    return id;
   }
 
   function getFlattenedTexturePixelGrid() {
