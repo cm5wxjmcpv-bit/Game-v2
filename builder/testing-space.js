@@ -58,7 +58,7 @@ dom.list.addEventListener('click', (event) => {
   const action = button.dataset.testingAction;
   const entry = findTestingLevel(library, libraryId);
   if (!entry) {
-    setMessage('That testing level is no longer available.', true);
+    setMessage('That testing map is no longer available.', true);
     render();
     return;
   }
@@ -102,7 +102,7 @@ dom.list.addEventListener('click', (event) => {
   }
 
   if (action === 'delete') {
-    if (!window.confirm(`Delete testing level “${entry.name}”?`)) return;
+    if (!window.confirm(`Delete testing map “${entry.name}”?`)) return;
     const next = deleteTestingLevel(library, libraryId);
     try {
       persistLibrary(next);
@@ -110,7 +110,7 @@ dom.list.addEventListener('click', (event) => {
       setMessage(`Deleted “${entry.name}”.`);
       render();
     } catch (error) {
-      setMessage(`Level was not deleted because browser storage failed: ${error.message}`, true);
+      setMessage(`Map was not deleted because browser storage failed: ${error.message}`, true);
     }
   }
 });
@@ -120,7 +120,7 @@ dom.addForm.addEventListener('submit', (event) => {
   event.preventDefault();
   const entry = findTestingLevel(library, pendingAddLibraryId);
   if (!entry) {
-    setAddStatus('That testing level is no longer available.', true);
+    setAddStatus('That testing map is no longer available.', true);
     return;
   }
   const projectId = dom.addGameSelect.value;
@@ -218,14 +218,14 @@ function persistLibrary(nextLibrary) {
 function render() {
   library = normalizeTestingLibrary(library);
   dom.summary.textContent = library.levels.length
-    ? `${library.levels.length} saved testing level${library.levels.length === 1 ? '' : 's'}. These levels are not attached to a game until you use Add to Game.`
-    : 'No testing levels saved yet. Start a new level or import a JSON map.';
+    ? `${library.levels.length} saved testing map${library.levels.length === 1 ? '' : 's'}. These maps are not attached to a game until you use Add to Game.`
+    : 'No testing maps saved yet. Start a new map or import a JSON map.';
   dom.list.replaceChildren();
 
   if (!library.levels.length) {
     const empty = document.createElement('div');
     empty.className = 'testing-empty';
-    empty.innerHTML = '<strong>No saved testing levels.</strong><br>Use Build New Level to create one without changing any game package.';
+    empty.innerHTML = '<strong>No saved testing maps.</strong><br>Use Build New Map to create one without changing any game package.';
     dom.list.appendChild(empty);
     return;
   }
@@ -252,7 +252,11 @@ function createCard(entry) {
   const size = document.createElement('span');
   size.textContent = `${entry.map.width} × ${entry.map.height}`;
   const kind = document.createElement('span');
-  kind.textContent = entry.map.mapType === 'town' ? 'Town map' : 'Level map';
+  kind.textContent = entry.map.mapType === 'building'
+    ? 'Building map'
+    : entry.map.mapType === 'town'
+      ? 'Town map'
+      : 'Level map';
   const textures = document.createElement('span');
   textures.textContent = `${entry.textures.length} saved custom texture${entry.textures.length === 1 ? '' : 's'}`;
   const updated = document.createElement('span');
@@ -264,7 +268,7 @@ function createCard(entry) {
   actions.append(
     actionButton('Add to Game', 'add', entry.libraryId),
     actionButton('Edit in Builder', 'edit', entry.libraryId, 'secondary-btn'),
-    actionButton('Test Level', 'test', entry.libraryId, 'secondary-btn'),
+    actionButton('Test Map', 'test', entry.libraryId, 'secondary-btn'),
     actionButton('Duplicate', 'duplicate', entry.libraryId, 'secondary-btn'),
     actionButton('Export JSON', 'export', entry.libraryId, 'secondary-btn'),
     actionButton('Delete', 'delete', entry.libraryId, 'danger-btn'),
