@@ -17,7 +17,7 @@ import {
 const REPOSITORY_ROOT_URL = new URL('../', window.location.href);
 let consuming = false;
 
-document.addEventListener('pixel-engine-workspace-loaded', (event) => {
+window.addEventListener('pixel-engine-workspace-loaded', (event) => {
   const projectId = event.detail?.projectId || '';
   rehydrateTestingSceneMetadata(projectId);
   consumePendingTestingLevel(projectId);
