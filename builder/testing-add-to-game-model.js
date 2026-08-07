@@ -87,6 +87,7 @@ function safeId(value) {
 }
 
 function sceneKindForMap(map) {
+  if (map.mapType === 'building') return 'building';
   return map.mapType === 'town' ? 'town' : 'level';
 }
 
@@ -94,6 +95,7 @@ function directoryForKind(manifest, kind) {
   const data = manifest?.data || {};
   if (kind === 'town') return String(data.townsDirectory || '').replace(/\/$/, '');
   if (kind === 'level') return String(data.levelsDirectory || '').replace(/\/$/, '');
+  if (kind === 'building') return String(data.buildingsDirectory || '').replace(/\/$/, '');
   return String(data.scenesDirectory || '').replace(/\/$/, '');
 }
 
@@ -264,8 +266,8 @@ export function registerTestingSceneInWorld(worldValue, scene) {
   if (!worldValue || typeof worldValue !== 'object') throw new Error('The game world index is unavailable.');
   if (!scene || typeof scene !== 'object') throw new Error('The new game scene is unavailable.');
   const world = clone(worldValue);
-  const kind = scene.mapType === 'town' ? 'town' : 'level';
-  const listName = kind === 'town' ? 'towns' : 'levels';
+  const kind = scene.mapType === 'building' ? 'building' : scene.mapType === 'town' ? 'town' : 'level';
+  const listName = kind === 'building' ? 'buildings' : kind === 'town' ? 'towns' : 'levels';
   const id = safeId(scene.id);
   if (!id) throw new Error('The new game scene has no valid ID.');
   world[listName] = Array.isArray(world[listName]) ? [...world[listName]] : [];
