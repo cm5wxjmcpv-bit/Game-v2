@@ -8,7 +8,13 @@
   const rawExportButton = document.getElementById('exportBtn');
   const mapTypeLabel = document.getElementById('mapTypeLabel');
   const gameSyncPanel = document.querySelector('.game-sync-preview-panel');
+  const stateRefreshButtons = [
+    document.getElementById('applySizeBtn'),
+    document.getElementById('mapUndoBtn'),
+    document.getElementById('mapRedoBtn'),
+  ].filter(Boolean);
   let aliasing = false;
+  let buildingActive = false;
   let importToken = 0;
 
   if (![...select.options].some((option) => option.value === 'building')) {
@@ -24,8 +30,14 @@
     if (gameSyncPanel) gameSyncPanel.hidden = active;
   }
 
+  function restoreBuildingDisplay() {
+    if (!buildingActive || aliasing) return;
+    select.value = 'building';
+    setBuildingUi(true);
+  }
+
   function useTownEditorBehaviorForBuilding() {
-    if (aliasing || select.value !== 'building') return;
+    if (aliasing || !buildingActive) return;
     aliasing = true;
     select.value = 'town';
     select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -37,16 +49,27 @@
   select.addEventListener('change', function () {
     if (aliasing) return;
     if (select.value === 'building') {
+      buildingActive = true;
       useTownEditorBehaviorForBuilding();
       return;
     }
+    buildingActive = false;
     setBuildingUi(false);
+  });
+
+  stateRefreshButtons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      if (!buildingActive) return;
+      restoreBuildingDisplay();
+      window.setTimeout(restoreBuildingDisplay, 0);
+    });
   });
 
   if (rawExportButton) {
     rawExportButton.addEventListener('click', function () {
-      if (select.value !== 'building') return;
+      if (!buildingActive) return;
       aliasing = true;
+      select.value = 'building';
       select.dispatchEvent(new Event('change', { bubbles: true }));
       aliasing = false;
       window.setTimeout(useTownEditorBehaviorForBuilding, 0);
@@ -63,7 +86,6 @@
         const parsed = JSON.parse(text);
         const source = parsed && typeof parsed.map === 'object' ? parsed.map : parsed;
         const type = String(source?.mapType || source?.type || '').toLowerCase();
-        if (type !== 'building') return;
         const expectedId = String(source?.mapId || source?.id || '').trim().toLowerCase();
         let attempts = 0;
         const timer = window.setInterval(function () {
@@ -72,8 +94,13 @@
           const imported = !expectedId || currentId === expectedId;
           if (!imported && attempts < 100) return;
           window.clearInterval(timer);
-          select.value = 'building';
-          select.dispatchEvent(new Event('change', { bubbles: true }));
+          buildingActive = type === 'building';
+          if (buildingActive) {
+            select.value = 'building';
+            useTownEditorBehaviorForBuilding();
+          } else {
+            setBuildingUi(false);
+          }
         }, 20);
       }).catch(function () {
         // The established builder import handler owns malformed-file reporting.
@@ -81,6 +108,10 @@
     });
   }
 
-  if (select.value === 'building') useTownEditorBehaviorForBuilding();
-  else setBuildingUi(false);
+  if (select.value === 'building') {
+    buildingActive = true;
+    useTownEditorBehaviorForBuilding();
+  } else {
+    setBuildingUi(false);
+  }
 })();
