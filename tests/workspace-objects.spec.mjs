@@ -95,3 +95,34 @@ test('workspace edits enemy spawns and adds a bounded battle trigger with extra 
   });
   assertClean();
 });
+
+test('scene object storage failure rolls the editor back without claiming success', async ({ page }) => {
+  const assertClean = monitorPage(page);
+  await page.goto('/builder/workspace.html?game=sample-rpg');
+  await expect(page.locator('#projectSummary')).toContainText('Sample RPG');
+  await page.locator('#workspaceObjectsTabBtn').click();
+  await page.locator('#legacyObjectList [data-object-index="1"]').click();
+  await expect(page.locator('#portalTargetTownInput')).toHaveValue('town_harbor');
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function failWorkspaceObjectWrite(key, value) {
+      if (String(key) === 'pixel_engine_builder_workspace_sample-rpg') {
+        throw new DOMException('Audit quota reached', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await page.locator('#portalTargetTownInput').fill('unsaved_destination');
+  await page.locator('#saveLegacyObjectBtn').click();
+
+  await expect(page.locator('#objectStatus')).toContainText(/not saved/i);
+  await expect(page.locator('#objectStatus')).toHaveClass(/error/);
+  await expect(page.locator('#portalTargetTownInput')).toHaveValue('town_harbor');
+  const storedTarget = await page.evaluate(() => {
+    const draft = JSON.parse(localStorage.getItem('pixel_engine_builder_workspace_sample-rpg'));
+    return draft.scenes.find((scene) => scene.id === 'town_hub').objects.portals[1].targetTown;
+  });
+  expect(storedTarget).toBe('town_harbor');
+  assertClean();
+});

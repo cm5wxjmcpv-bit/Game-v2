@@ -65,6 +65,58 @@ test('scene and entity normalization preserve engine map compatibility', () => {
   assert.deepEqual(validateEntity(scene.entities[0], scene), []);
 });
 
+test('workspace normalization preserves forward-compatible metadata', () => {
+  const actor = normalizeActor({
+    id: 'pilot',
+    name: 'Pilot',
+    components: {
+      movement: { speed: 4, acceleration: 0.5 },
+      health: { max: 12, regeneration: 1 },
+      render: { fallback: { shape: 'circle', color: '#123456', size: 18, outline: '#ffffff' } },
+      dialogue: { voice: 'calm' },
+    },
+  });
+  assert.equal(actor.components.movement.acceleration, 0.5);
+  assert.equal(actor.components.health.regeneration, 1);
+  assert.equal(actor.components.render.fallback.outline, '#ffffff');
+  assert.deepEqual(actor.components.dialogue, { voice: 'calm' });
+
+  const entity = normalizeEntity({
+    id: 'beacon',
+    type: 'sign',
+    x: 1,
+    y: 1,
+    persistence: { once: true },
+    components: {
+      render: { shape: 'diamond', color: '#abcdef', size: 14, zIndex: 3 },
+      interaction: { action: 'message', message: 'Hello', range: 1, prompt: 'Read' },
+      collision: { solid: false, radius: 0.4, layer: 'props' },
+      quest: { id: 'welcome' },
+    },
+  });
+  assert.deepEqual(entity.persistence, { once: true });
+  assert.equal(entity.components.render.zIndex, 3);
+  assert.equal(entity.components.interaction.prompt, 'Read');
+  assert.equal(entity.components.collision.layer, 'props');
+  assert.deepEqual(entity.components.quest, { id: 'welcome' });
+
+  const scene = normalizeScene({
+    id: 'lab',
+    width: 2,
+    height: 2,
+    tiles: [['floor', 'floor'], ['floor', 'floor']],
+    spawn: { x: 1, y: 1, facing: 'left' },
+    objects: {
+      portals: [],
+      weatherZones: [{ x: 0, y: 0, kind: 'rain' }],
+      packageMetadata: { author: 'test' },
+    },
+  });
+  assert.equal(scene.spawn.facing, 'left');
+  assert.deepEqual(scene.objects.weatherZones, [{ x: 0, y: 0, kind: 'rain' }]);
+  assert.deepEqual(scene.objects.packageMetadata, { author: 'test' });
+});
+
 test('entity validation rejects invalid placement and incomplete actions', () => {
   const scene = normalizeScene({ id: 'small', width: 2, height: 2, tiles: [['a', 'a'], ['a', 'a']] });
   const entity = normalizeEntity({ id: 'door', type: 'door', x: 3, y: 0, components: { interaction: { action: 'scene' } } });

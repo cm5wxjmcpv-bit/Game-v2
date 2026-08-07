@@ -120,6 +120,17 @@ test('unsafe game IDs fall back to the default package', async ({ page }) => {
   monitor.assertClean('unsafe game id fallback');
 });
 
+test('mixed-case game IDs resolve to the canonical package and save key', async ({ page }) => {
+  const monitor = monitorPage(page);
+  await page.goto('/?game=SCENE-DEMO');
+  await startFirstActor(page);
+  await expect(page.locator('#context-panel')).toContainText('Scene: scene_lab');
+  const saveKeys = await page.evaluate(() => Object.keys(localStorage));
+  expect(saveKeys).toContain('pixel_engine_save_scene-demo_slot_1');
+  expect(saveKeys).not.toContain('pixel_engine_save_SCENE-DEMO_slot_1');
+  monitor.assertClean('mixed-case game id');
+});
+
 test('unknown but well-formed game IDs show a readable load failure', async ({ page }) => {
   await page.goto('/?game=package-that-does-not-exist');
   await expect(page.locator('body')).toContainText(/unable to load game|game package.*not found/i);

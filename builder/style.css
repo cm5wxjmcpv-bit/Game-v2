@@ -480,6 +480,13 @@ input[type='file'] {
   background: #ffffff;
 }
 
+.texture-cell:focus-visible,
+.cell:focus-visible {
+  outline: 3px solid #f8fafc;
+  box-shadow: 0 0 0 5px #2563eb;
+  z-index: 2;
+}
+
 .texture-cell.texture-preview {
   outline: 1px solid rgba(37, 99, 235, 0.95);
   outline-offset: -1px;

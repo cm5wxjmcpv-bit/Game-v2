@@ -12,6 +12,15 @@ const contextPanel = document.getElementById('context-panel');
 let flashMessage = '';
 let flashUntil = 0;
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function resizeCanvasToViewport() {
   const width = Math.floor(window.innerWidth);
   const height = Math.floor(window.innerHeight);
@@ -32,12 +41,19 @@ const ui = {
   isOverlayOpen() {
     return !overlay.classList.contains('hidden');
   },
-  showMainMenu(onStart, onLoad, actors = []) {
+  showMainMenu(onStart, onLoad, actors = [], options = {}) {
     overlay.classList.remove('hidden');
     overlay.innerHTML = `<div class="modal"><h2>Pixel Engine</h2><p>Reusable 2D engine shell.</p>
       <div class="row"><button id="new-game">New Game</button><button id="load-game">Load Save</button></div></div>`;
     document.getElementById('new-game').onclick = () => ui.showActorSelect(onStart, actors);
-    document.getElementById('load-game').onclick = () => onLoad();
+    const loadButton = document.getElementById('load-game');
+    loadButton.dataset.saveEnabled = String(options.saveEnabled !== false);
+    if (options.saveEnabled === false) {
+      loadButton.hidden = true;
+      loadButton.disabled = true;
+      loadButton.setAttribute('aria-hidden', 'true');
+    }
+    loadButton.onclick = () => onLoad();
   },
   showActorSelect(onStart, actors = []) {
     overlay.classList.remove('hidden');
@@ -74,10 +90,10 @@ const ui = {
   showShop(shop, player, db, handlers) {
     overlay.classList.remove('hidden');
     const render = () => {
-      overlay.innerHTML = `<div class="modal"><h2>${shop.name}</h2><p class="small">Type: ${shop.type} | Gold: ${player.gold}</p>
+      overlay.innerHTML = `<div class="modal"><h2>${escapeHtml(shop.name)}</h2><p class="small">Type: ${escapeHtml(shop.type)} | Gold: ${escapeHtml(player.gold)}</p>
         <h3>Buy</h3><div id="buy-list" class="row"></div>
         <h3>Sell (from bag)</h3><div id="sell-list" class="row"></div>
-        <div class="row"><button id="bag-plus">Buy +5 bag slots (${shop.bagUpgradeCost}g)</button><button id="close-shop">Exit Shop</button></div>
+        <div class="row"><button id="bag-plus">Buy +5 bag slots (${escapeHtml(shop.bagUpgradeCost)}g)</button><button id="close-shop">Exit Shop</button></div>
       </div>`;
       const buy = document.getElementById('buy-list');
       shop.stock.forEach((offer) => {
@@ -145,26 +161,26 @@ const ui = {
     const p = game.player;
     if (!p) return;
     const identity = p.classId
-      ? `<p>Class: ${p.classId}</p>`
-      : `<p>Actor: ${p.actorName || p.actorId}</p>`;
+      ? `<p>Class: ${escapeHtml(p.classId)}</p>`
+      : `<p>Actor: ${escapeHtml(p.actorName || p.actorId)}</p>`;
     const activeFlash = flashMessage && performance.now() < flashUntil
-      ? `<p class="small">${flashMessage}</p>`
+      ? `<p class="small">${escapeHtml(flashMessage)}</p>`
       : '';
-    playerPanel.innerHTML = `<h3>${p.actorName || 'Player'}</h3>
+    playerPanel.innerHTML = `<h3>${escapeHtml(p.actorName || 'Player')}</h3>
       <p>HP: ${Math.max(0, Math.floor(p.stats.hp))}/${p.stats.maxHp}</p>
-      <p>Gold: ${p.gold}</p>${identity}
+      <p>Gold: ${escapeHtml(p.gold)}</p>${identity}
       <p>Bag: ${p.bag.items.length}/${p.bag.slots}</p>`;
     contextPanel.innerHTML = `<h3>Context</h3>
-      <p>State: ${game.state.current}</p>
-      <p>Scene: ${game.currentSceneId}</p>
-      <p>Town: ${game.currentTownId}</p>
+      <p>State: ${escapeHtml(game.state.current)}</p>
+      <p>Scene: ${escapeHtml(game.currentSceneId)}</p>
+      <p>Town: ${escapeHtml(game.currentTownId)}</p>
       <p class="small">Move: WASD / Arrow | Interact: E | Pause: Esc | Debug: \`</p>
       ${activeFlash}`;
   },
   flash(text) {
     flashMessage = String(text || '');
     flashUntil = performance.now() + 3000;
-    contextPanel.innerHTML += `<p class="small">${flashMessage}</p>`;
+    contextPanel.innerHTML += `<p class="small">${escapeHtml(flashMessage)}</p>`;
   },
 };
 

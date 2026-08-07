@@ -17,6 +17,8 @@ const DEFAULT_DATA_PATHS = Object.freeze({
   progression: 'data/world/progression.json',
   encounters: 'data/encounters/encounters.json',
   encounterTables: 'data/encounters/tables.json',
+  settings: null,
+  saveMetadata: null,
   townsDirectory: 'data/towns',
   levelsDirectory: 'data/levels',
   scenesDirectory: 'data/scenes',
@@ -187,7 +189,7 @@ export async function loadDatabase() {
   const paths = getDataPaths(gamePackage.manifest);
   const gamePath = (path) => resolveGamePath(gamePackage, path);
 
-  const [tiles, tileEffects, texturePack, rawWorld, classes, actorPayload, items, enemies, shops, progression, encounters, encounterTables] = await Promise.all([
+  const [tiles, tileEffects, texturePack, rawWorld, classes, actorPayload, items, enemies, shops, progression, encounters, encounterTables, settings, saveMetadata] = await Promise.all([
     loadJSON(gamePath(paths.tiles), { tiles: [] }),
     loadJSON(gamePath(paths.tileEffects), { effects: [] }),
     loadJSON(gamePath(paths.texturePack), { textures: [] }),
@@ -200,6 +202,8 @@ export async function loadDatabase() {
     loadJSON(gamePath(paths.progression), { unlocks: {} }),
     loadJSON(gamePath(paths.encounters), { encounters: [] }),
     loadJSON(gamePath(paths.encounterTables), { tables: [] }),
+    paths.settings ? loadJSON(gamePath(paths.settings), {}) : Promise.resolve({}),
+    paths.saveMetadata ? loadJSON(gamePath(paths.saveMetadata), { enabled: true }) : Promise.resolve({ enabled: true }),
   ]);
 
   const world = withWorldDefaults(rawWorld, gamePackage.manifest);
@@ -226,6 +230,7 @@ export async function loadDatabase() {
       version: gamePackage.manifest.version,
       engineVersion: gamePackage.manifest.engineVersion,
       systems: normalizeSystemConfig(gamePackage.manifest.systems),
+      saveEnabled: saveMetadata?.enabled !== false && settings?.features?.save !== false,
       startScene,
       manifestUrl: gamePackage.manifestUrl,
     },

@@ -65,8 +65,8 @@ async function init() {
 }
 
 function bindEvents() {
-  dom.loadProjectBtn.addEventListener('click', () => loadProject(dom.projectSelect.value));
-  dom.projectSelect.addEventListener('change', () => loadProject(dom.projectSelect.value));
+  dom.loadProjectBtn.addEventListener('click', (event) => requestProjectLoad(dom.projectSelect.value, event));
+  dom.projectSelect.addEventListener('change', (event) => requestProjectLoad(dom.projectSelect.value, event));
   dom.saveDraftBtn.addEventListener('click', saveDraft);
   dom.clearDraftBtn.addEventListener('click', clearDraft);
   dom.exportBundleBtn.addEventListener('click', exportBundle);
@@ -77,6 +77,11 @@ function bindEvents() {
   dom.newEntityBtn.addEventListener('click', newEntity);
   dom.deleteEntityBtn.addEventListener('click', deleteSelectedEntity);
   dom.entityForm.addEventListener('submit', saveEntity);
+  window.addEventListener('beforeunload', (event) => {
+    if (!state.dirty) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
   dom.entityList.addEventListener('click', (event) => {
     const button = event.target.closest('[data-entity-id]');
     if (button) selectEntity(button.dataset.entityId);
@@ -95,6 +100,18 @@ function bindEvents() {
     event.preventDefault();
     event.returnValue = '';
   });
+}
+
+function requestProjectLoad(projectId, event) {
+  const id = normalizeId(projectId);
+  if (state.dirty && !window.confirm(`Unsaved workspace edits for “${state.projectMeta?.name || state.projectId}” will be discarded. Continue loading “${id || projectId}”?`)) {
+    event?.preventDefault();
+    event?.stopImmediatePropagation();
+    dom.projectSelect.value = state.projectId;
+    setMessage('Project load canceled. Your unsaved workspace edits are still available.');
+    return;
+  }
+  loadProject(projectId);
 }
 
 async function fetchJson(url, fallback) {
@@ -118,8 +135,21 @@ async function loadProject(projectId) {
   const requestId = ++projectLoadRequestId;
   const id = normalizeId(projectId);
   const meta = state.catalog.find((entry) => entry.id === id);
-  if (!meta) return setMessage(`Unknown game project: ${projectId}`, true);
+  if (!meta) {
+    dom.projectSelect.value = state.projectId;
+    return setMessage(`Unknown game project: ${projectId}`, true);
+  }
   setMessage(`Loading ${meta.name || id}…`);
+  try {
+    await loadProjectRequest({ id, meta, requestId });
+  } catch (error) {
+    if (requestId !== projectLoadRequestId) return;
+    dom.projectSelect.value = state.projectId || id;
+    setMessage(`Unable to load ${meta.name || id}: ${error.message}`, true);
+  }
+}
+
+async function loadProjectRequest({ id, meta, requestId }) {
   const manifestUrl = new URL(`../games/${id}/game.json`, window.location.href);
   const manifest = await fetchJson(manifestUrl);
   const contentRootUrl = new URL(manifest.contentRoot || './', manifestUrl);
@@ -318,32 +348,43 @@ function renderActorForm() {
 }
 
 function actorFromForm() {
+  const current = selectedActor() || {};
+  const components = current.components || {};
   const spritePath = dom.actorSpritePathInput.value.trim();
   return normalizeActor({
+    ...current,
     id: dom.actorIdInput.value,
     name: dom.actorNameInput.value,
     components: {
-      movement: { speed: dom.actorSpeedInput.value },
-      health: { max: dom.actorHealthInput.value },
+      ...components,
+      movement: { ...(components.movement || {}), speed: dom.actorSpeedInput.value },
+      health: { ...(components.health || {}), max: dom.actorHealthInput.value },
       combat: {
+        ...(components.combat || {}),
         attack: dom.actorAttackInput.value,
         defense: dom.actorDefenseInput.value,
         agility: dom.actorAgilityInput.value,
-        growth: selectedActor()?.components?.combat?.growth || {},
+        growth: components.combat?.growth || {},
       },
-      wallet: { starting: dom.actorGoldInput.value },
-      inventory: { slots: dom.actorSlotsInput.value, maxStack: dom.actorMaxStackInput.value },
-      equipment: { starting: selectedActor()?.components?.equipment?.starting || {} },
-      progression: { enabled: dom.actorProgressionInput.checked },
+      wallet: { ...(components.wallet || {}), starting: dom.actorGoldInput.value },
+      inventory: { ...(components.inventory || {}), slots: dom.actorSlotsInput.value, maxStack: dom.actorMaxStackInput.value },
+      equipment: { ...(components.equipment || {}), starting: components.equipment?.starting || {} },
+      progression: { ...(components.progression || {}), enabled: dom.actorProgressionInput.checked },
       render: {
-        fallback: { shape: dom.actorShapeSelect.value, color: dom.actorColorInput.value, size: dom.actorSizeInput.value },
+        ...(components.render || {}),
+        fallback: {
+          ...(components.render?.fallback || {}),
+          shape: dom.actorShapeSelect.value,
+          color: dom.actorColorInput.value,
+          size: dom.actorSizeInput.value,
+        },
         sprite: spritePath ? {
-          ...(selectedActor()?.components?.render?.sprite || {}),
+          ...(components.render?.sprite || {}),
           imagePath: spritePath,
           frameWidth: Number(dom.actorFrameWidthInput.value) || 64,
           frameHeight: Number(dom.actorFrameHeightInput.value) || 64,
-          idleFrames: selectedActor()?.components?.render?.sprite?.idleFrames || [0],
-          walkFrames: selectedActor()?.components?.render?.sprite?.walkFrames || [0, 1, 2],
+          idleFrames: components.render?.sprite?.idleFrames || [0],
+          walkFrames: components.render?.sprite?.walkFrames || [0, 1, 2],
         } : null,
       },
     },
@@ -356,6 +397,9 @@ function saveActor(event) {
   const errors = validateActor(actor);
   if (errors.length) return setMessage(errors.join(' '), true);
   const previousId = state.selectedActorId;
+  if (state.actors.some((entry) => entry.id === actor.id && entry.id !== previousId)) {
+    return setMessage(`Actor ID “${actor.id}” already exists. Choose a unique ID.`, true);
+  }
   if (previousId && previousId !== actor.id) state.actors = removeById(state.actors, previousId);
   state.actors = upsertById(state.actors, actor);
   state.selectedActorId = actor.id;
@@ -435,25 +479,31 @@ function renderEntityForm() {
 }
 
 function entityFromForm() {
+  const current = selectedEntity() || {};
+  const components = current.components || {};
   return normalizeEntity({
+    ...current,
     id: dom.entityIdInput.value,
     type: dom.entityTypeInput.value,
     x: dom.entityXInput.value,
     y: dom.entityYInput.value,
     components: {
+      ...components,
       render: {
+        ...(components.render || {}),
         shape: dom.entityShapeSelect.value,
         color: dom.entityColorInput.value,
         size: dom.entitySizeInput.value,
         imagePath: dom.entityImageInput.value.trim(),
       },
       interaction: {
+        ...(components.interaction || {}),
         action: dom.entityActionSelect.value,
         message: dom.entityMessageInput.value,
         targetScene: dom.entityTargetSceneInput.value,
         range: dom.entityRangeInput.value,
       },
-      collision: { solid: dom.entitySolidInput.checked, radius: dom.entityRadiusInput.value },
+      collision: { ...(components.collision || {}), solid: dom.entitySolidInput.checked, radius: dom.entityRadiusInput.value },
     },
   });
 }
@@ -466,6 +516,9 @@ function saveEntity(event) {
   const errors = validateEntity(entity, scene);
   if (errors.length) return setMessage(errors.join(' '), true);
   const previousId = state.selectedEntityId;
+  if ((scene.entities || []).some((entry) => entry.id === entity.id && entry.id !== previousId)) {
+    return setMessage(`Entity ID “${entity.id}” already exists in this scene. Choose a unique ID.`, true);
+  }
   if (previousId && previousId !== entity.id) scene.entities = removeById(scene.entities, previousId);
   scene.entities = upsertById(scene.entities, entity);
   state.selectedEntityId = entity.id;
@@ -550,17 +603,26 @@ function draftKey() {
   return `${DRAFT_PREFIX}${state.projectId}`;
 }
 
-function saveDraft() {
+function saveDraft(event) {
   if (!state.projectId) return;
-  localStorage.setItem(draftKey(), JSON.stringify({
-    version: 1,
-    projectId: state.projectId,
-    actors: cleanJson(state.actors),
-    scenes: cleanJson(state.scenes),
-    savedAt: new Date().toISOString(),
-  }));
-  state.dirty = false;
-  setMessage('Local workspace draft saved in this browser.');
+  dom.saveDraftBtn.dataset.saveStatus = 'pending';
+  try {
+    localStorage.setItem(draftKey(), JSON.stringify({
+      version: 1,
+      projectId: state.projectId,
+      actors: cleanJson(state.actors),
+      scenes: cleanJson(state.scenes),
+      savedAt: new Date().toISOString(),
+    }));
+    dom.saveDraftBtn.dataset.saveStatus = 'success';
+    state.dirty = false;
+    setMessage('Local workspace draft saved in this browser.');
+  } catch (error) {
+    dom.saveDraftBtn.dataset.saveStatus = 'error';
+    event?.preventDefault();
+    event?.stopImmediatePropagation();
+    setMessage(`Local workspace draft was not saved: ${error.message}`, true);
+  }
 }
 
 function restoreDraft() {

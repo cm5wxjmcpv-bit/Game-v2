@@ -60,7 +60,9 @@ export class Game {
     this.db = await loadDatabase();
     this.currentTownId = this.db.world.start.townId || null;
     this.lastSafeSceneId = this.currentTownId;
-    this.ui.showMainMenu(this.startNew.bind(this), this.tryLoadSave.bind(this), this.db.classes);
+    this.ui.showMainMenu(this.startNew.bind(this), this.tryLoadSave.bind(this), this.db.classes, {
+      saveEnabled: this.db.game.saveEnabled !== false,
+    });
   }
 
   startNew(classId) {
@@ -82,6 +84,7 @@ export class Game {
   }
 
   tryLoadSave() {
+    if (this.db?.game?.saveEnabled === false) return this.ui.flash('Saving is disabled for this game package.');
     const save = loadGame();
     if (!save) return this.ui.flash('No save found.');
 
@@ -480,13 +483,16 @@ export class Game {
   }
 
   saveCheckpoint() {
-    saveGame({
+    if (this.db?.game?.saveEnabled === false) return true;
+    const saved = saveGame({
       player: this.player,
       currentSceneId: this.currentSceneId,
       currentSceneType: this.currentSceneType,
       currentTownId: this.currentTownId,
       lastSafeSceneId: this.lastSafeSceneId,
     });
+    if (!saved) this.ui.flash('Game progress could not be saved in this browser. Free storage and try again.');
+    return saved;
   }
 
   ensurePlayerAnimationState() {

@@ -179,9 +179,18 @@ function currentSelection() {
 
 function updateSelection(tileIds) {
   if (!state.sceneId) return;
+  const hadPrevious = state.selections.has(state.sceneId);
+  const previous = hadPrevious ? [...state.selections.get(state.sceneId)] : [];
   const scene = setEditorTileSelection(currentScene(), tileIds, state.tiles);
   state.selections.set(state.sceneId, scene._workspaceEditorTileIds || []);
-  document.getElementById('saveDraftBtn')?.click();
+  const saveButton = document.getElementById('saveDraftBtn');
+  saveButton?.click();
+  if (saveButton?.dataset.saveStatus === 'error') {
+    if (hadPrevious) state.selections.set(state.sceneId, previous);
+    else state.selections.delete(state.sceneId);
+    render();
+    return;
+  }
   render();
   const message = document.getElementById('workspaceMessage');
   if (message) {
@@ -190,7 +199,7 @@ function updateSelection(tileIds) {
   }
 }
 
-function mergeSelectionsIntoDraft() {
+function mergeSelectionsIntoDraft(event) {
   const key = `${WORKSPACE_DRAFT_PREFIX}${state.projectId}`;
   const draft = readDraft();
   if (!draft?.scenes) return;
@@ -198,7 +207,19 @@ function mergeSelectionsIntoDraft() {
     const selected = state.selections.get(scene.id);
     return selected ? setEditorTileSelection(scene, selected, state.tiles) : scene;
   });
-  localStorage.setItem(key, JSON.stringify(draft));
+  try {
+    localStorage.setItem(key, JSON.stringify(draft));
+  } catch (error) {
+    const saveButton = document.getElementById('saveDraftBtn');
+    if (saveButton) saveButton.dataset.saveStatus = 'error';
+    event?.preventDefault();
+    event?.stopImmediatePropagation();
+    const message = document.getElementById('workspaceMessage');
+    if (message) {
+      message.textContent = `Map editor tile permissions were not saved in browser storage: ${error.message}`;
+      message.classList.add('error');
+    }
+  }
 }
 
 function render() {

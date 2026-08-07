@@ -180,6 +180,9 @@ async function openSelectedSceneInMapEditor() {
       message.classList.remove('error');
     }
     saveDraftButton?.click();
+    if (saveDraftButton?.dataset.saveStatus === 'error') {
+      throw new Error('The current workspace draft could not be saved in browser storage. Free storage and try again.');
+    }
     const draft = readJson(`${WORKSPACE_DRAFT_PREFIX}${projectId}`);
     const scene = draft?.scenes?.find((entry) => entry.id === sceneId);
     if (!scene) throw new Error('The selected scene was not found in the saved local draft.');

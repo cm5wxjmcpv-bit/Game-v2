@@ -10,7 +10,12 @@ export function getSaveStorageKey(slot = DEFAULT_SLOT) {
 }
 
 export function saveGame(snapshot, slot = DEFAULT_SLOT) {
-  localStorage.setItem(getSaveStorageKey(slot), JSON.stringify(withSaveMetadata(snapshot, slot)));
+  try {
+    localStorage.setItem(getSaveStorageKey(slot), JSON.stringify(withSaveMetadata(snapshot, slot)));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function loadGame(slot = DEFAULT_SLOT) {
@@ -33,8 +38,20 @@ export function loadGame(slot = DEFAULT_SLOT) {
 }
 
 function validateSnapshot(snapshot) {
-  if (!snapshot?.player) return false;
-  return typeof snapshot.currentSceneId === 'string' || typeof snapshot.currentTownId === 'string';
+  const player = snapshot?.player;
+  const sceneId = typeof snapshot?.currentSceneId === 'string' && snapshot.currentSceneId.trim()
+    ? snapshot.currentSceneId
+    : typeof snapshot?.currentTownId === 'string' && snapshot.currentTownId.trim()
+      ? snapshot.currentTownId
+      : '';
+  if (!player || typeof player !== 'object' || !sceneId) return false;
+  if (!Number.isFinite(player.speed) || !Number.isFinite(player.gold)) return false;
+  if (!player.stats || !Number.isFinite(player.stats.hp) || !Number.isFinite(player.stats.maxHp)) return false;
+  if (!player.bag || !Array.isArray(player.bag.items) || !Number.isInteger(player.bag.slots) || player.bag.slots < 0) return false;
+  if (!player.unlocks || !Array.isArray(player.unlocks.towns) || !Array.isArray(player.unlocks.levels)) return false;
+  if (!Array.isArray(player.completedLevels) || !Array.isArray(player.effects)) return false;
+  if (!player.equipment || typeof player.equipment !== 'object') return false;
+  return true;
 }
 
 function withSaveMetadata(payload, slot) {

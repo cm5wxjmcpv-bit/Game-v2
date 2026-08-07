@@ -103,7 +103,7 @@
 }
 
 @media (max-width: 1100px) {
-  .workspace-object-grid {
+  .workspace-object-grid.workspace-tab.active {
     grid-template-columns: 1fr;
   }
 

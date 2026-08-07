@@ -49,13 +49,13 @@
     </section>
 
     <nav class="tab-bar workspace-tabs" role="tablist" aria-label="Project workspace tabs">
-      <button id="workspaceSceneTabBtn" type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="workspaceSceneTab">Scene & Entities</button>
-      <button id="workspaceActorTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceActorTab">Actors</button>
-      <button id="workspaceNewGameTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceNewGameTab">New Game</button>
-      <button id="workspacePublishTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspacePublishTab">Publish</button>
+      <button id="workspaceSceneTabBtn" type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="workspaceSceneTab" tabindex="0">Scene & Entities</button>
+      <button id="workspaceActorTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceActorTab" tabindex="-1">Actors</button>
+      <button id="workspaceNewGameTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceNewGameTab" tabindex="-1">New Game</button>
+      <button id="workspacePublishTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspacePublishTab" tabindex="-1">Publish</button>
     </nav>
 
-    <section id="workspaceSceneTab" class="workspace-grid workspace-tab active" role="tabpanel" aria-labelledby="workspaceSceneTabBtn">
+    <section id="workspaceSceneTab" class="workspace-grid workspace-tab active" role="tabpanel" aria-labelledby="workspaceSceneTabBtn" aria-hidden="false">
       <aside class="panel workspace-list-panel">
         <h2>Scenes</h2>
         <label class="field-label" for="sceneSelect">Selected Scene</label>
@@ -124,7 +124,7 @@
       </section>
     </section>
 
-    <section id="workspaceActorTab" class="workspace-grid workspace-tab" role="tabpanel" aria-labelledby="workspaceActorTabBtn">
+    <section id="workspaceActorTab" class="workspace-grid workspace-tab" role="tabpanel" aria-labelledby="workspaceActorTabBtn" aria-hidden="true">
       <aside class="panel workspace-list-panel">
         <h2>Actors</h2>
         <div class="workspace-inline-actions">
@@ -175,7 +175,7 @@
       </section>
     </section>
 
-    <section id="workspaceNewGameTab" class="panel workspace-tab new-game-wizard-panel" role="tabpanel" aria-labelledby="workspaceNewGameTabBtn">
+    <section id="workspaceNewGameTab" class="panel workspace-tab new-game-wizard-panel" role="tabpanel" aria-labelledby="workspaceNewGameTabBtn" aria-hidden="true">
       <div class="new-game-wizard-heading">
         <div>
           <h2>New Game Wizard</h2>
@@ -251,7 +251,7 @@
       </section>
     </section>
 
-    <section id="workspacePublishTab" class="panel workspace-tab workspace-publish-panel" role="tabpanel" aria-labelledby="workspacePublishTabBtn">
+    <section id="workspacePublishTab" class="panel workspace-tab workspace-publish-panel" role="tabpanel" aria-labelledby="workspacePublishTabBtn" aria-hidden="true">
       <div class="workspace-publish-heading">
         <div>
           <h2>Publish a Draft Pull Request</h2>

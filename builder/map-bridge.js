@@ -22,12 +22,15 @@ let originalLibraryRaw = null;
 let capturePending = false;
 let capturedBlob = null;
 let captureTimer = null;
+let editorSessionActive = false;
+let leavingIntentionally = false;
 
 initialize();
 
 function initialize() {
   try {
     handoff = validateMapBridgeHandoff(JSON.parse(localStorage.getItem(MAP_BRIDGE_HANDOFF_KEY) || 'null'));
+    handoff.returnUrl = safeWorkspaceReturnUrl(handoff.returnUrl, handoff.projectId);
     const sceneName = handoff.originalScene?.name || handoff.sceneId;
     const sceneLabel = sceneName === handoff.sceneId ? sceneName : `${sceneName} (${handoff.sceneId})`;
     dom.title.textContent = `${handoff.projectId} › ${sceneLabel}`;
@@ -41,11 +44,24 @@ function initialize() {
   }
 }
 
+function safeWorkspaceReturnUrl(value, projectId) {
+  const fallback = new URL(`workspace.html?game=${encodeURIComponent(projectId || '')}`, window.location.href);
+  try {
+    const candidate = new URL(String(value || ''), window.location.href);
+    if (candidate.origin === window.location.origin && candidate.pathname.endsWith('/builder/workspace.html')) {
+      return candidate.href;
+    }
+  } catch {
+    // Fall through to the same-origin workspace URL.
+  }
+  return fallback.href;
+}
+
 function bindEvents() {
   dom.frame.addEventListener('load', onBuilderLoaded);
   dom.cancel.addEventListener('click', cancelBridge);
   dom.returnButton.addEventListener('click', captureAndReturn);
-  window.addEventListener('beforeunload', restoreOriginalTextureLibrary);
+  window.addEventListener('beforeunload', handleBeforeUnload);
 }
 
 function readTextureLibrary() {
@@ -183,8 +199,10 @@ function importEditorMap(frameWindow, frameDocument, restrictPalette) {
       const firstAllowedTile = frameDocument.querySelector('#palette .tile-btn[data-tile-id]:not(:disabled)');
       firstAllowedTile?.click();
       dom.frame.style.pointerEvents = 'auto';
+      dom.status.classList.remove('bridge-error');
       dom.status.textContent = `${handoff.sceneId} loaded. Create and save textures, paint the level, then send the level and used textures to the workspace.`;
       dom.returnButton.disabled = false;
+      editorSessionActive = true;
       return;
     }
     if (attempts >= 100) {
@@ -222,13 +240,13 @@ function captureAndReturn() {
   capturePending = true;
   capturedBlob = null;
   dom.returnButton.disabled = true;
+  dom.status.classList.remove('bridge-error');
   dom.status.textContent = 'Validating the level and collecting its used custom textures…';
   exportButton.click();
   captureTimer = window.setTimeout(() => {
     if (!capturePending) return;
     capturePending = false;
-    dom.returnButton.disabled = false;
-    showError('The level editor export could not be captured. No workspace data was changed.');
+    showError('The level editor export could not be captured. No workspace data was changed.', false);
   }, 2500);
 }
 
@@ -311,10 +329,10 @@ async function processCapturedMap(blob) {
       returnedAt: new Date().toISOString(),
     }));
     restoreOriginalTextureLibrary();
+    leavingIntentionally = true;
     window.location.href = handoff.returnUrl || `workspace.html?game=${encodeURIComponent(handoff.projectId)}`;
   } catch (error) {
-    dom.returnButton.disabled = false;
-    showError(`Level and textures were not returned: ${error.message}`);
+    showError(`Level and textures were not returned: ${error.message}`, false);
   }
 }
 
@@ -323,11 +341,19 @@ function cancelBridge() {
   restoreOriginalTextureLibrary();
   localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
   localStorage.removeItem(MAP_BRIDGE_HANDOFF_KEY);
+  leavingIntentionally = true;
   window.location.href = handoff?.returnUrl || 'workspace.html';
 }
 
-function showError(message) {
+function handleBeforeUnload(event) {
+  restoreOriginalTextureLibrary();
+  if (!editorSessionActive || leavingIntentionally) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+function showError(message, disableReturn = true) {
   dom.status.textContent = message;
   dom.status.classList.add('bridge-error');
-  dom.returnButton.disabled = true;
+  dom.returnButton.disabled = disableReturn;
 }
