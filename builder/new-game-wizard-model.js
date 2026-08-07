@@ -8,7 +8,7 @@ import {
 const GAME_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
 const TILE_SIZES = new Set([16, 24, 32, 48, 64]);
 const PHYSICS_PRESETS = new Set(['top_down', 'bounds_only']);
-const SAVE_SCHEMA_VERSION = 4;
+const SAVE_SCHEMA_VERSION = 5;
 
 function asBoolean(value, fallback = false) {
   return typeof value === 'boolean' ? value : fallback;
@@ -127,6 +127,8 @@ function createPackageFiles(config) {
       progression: 'data/world/progression.json',
       encounters: 'data/encounters/encounters.json',
       encounterTables: 'data/encounters/tables.json',
+      lootTables: 'data/loot/loot-tables.json',
+      rewards: 'data/rewards/rewards.json',
       townsDirectory: 'data/towns',
       levelsDirectory: 'data/levels',
       scenesDirectory: 'data/scenes',
@@ -144,6 +146,19 @@ function createPackageFiles(config) {
     physicsPreset,
     runtimeSystems,
     features: featureSettings,
+    weapons: {
+      damageFormula: { characterAttackWeight: 1, weaponPowerWeight: 1, defenseWeight: 1 },
+      sellPricePercent: 0.5,
+      mana: { defaultMax: 20, regenPerSecond: 1, safeAreaMultiplier: 6 },
+      rarities: {
+        common: { label: 'Common', color: '#94a3b8', priceMultiplier: 1, statMultiplier: 1 },
+        uncommon: { label: 'Uncommon', color: '#4ade80', priceMultiplier: 1.35, statMultiplier: 1.15 },
+        rare: { label: 'Rare', color: '#60a5fa', priceMultiplier: 2, statMultiplier: 1.35 },
+        epic: { label: 'Epic', color: '#c084fc', priceMultiplier: 3.25, statMultiplier: 1.65 },
+        legendary: { label: 'Legendary', color: '#f59e0b', priceMultiplier: 5, statMultiplier: 2 },
+      },
+      damageTypes: ['physical', 'fire', 'ice', 'lightning', 'poison', 'magic'],
+    },
   };
 
   const saveMetadata = {
@@ -164,11 +179,12 @@ function createPackageFiles(config) {
       movement: { speed: 3 },
       health: { max: 10 },
       combat: enableCombat
-        ? { attack: 2, defense: 1, agility: 1, growth: {} }
+        ? { attack: 2, defense: 1, agility: 1, growth: {}, tags: [], unarmed: { enabled: true, power: 1, range: 1.1, cooldown: 0.85 } }
         : { attack: 0, defense: 0, agility: 1, growth: {} },
       wallet: { starting: 0 },
-      inventory: { slots: enableInventory ? 12 : 0, maxStack: 99 },
+      inventory: { slots: enableInventory ? 12 : 0, maxStack: 99, starting: [] },
       equipment: { starting: {} },
+      resources: { mana: { max: 20, regenPerSecond: 1 } },
       progression: { enabled: false },
       render: { fallback: { shape: 'circle', color: '#38bdf8', size: Math.max(12, Math.round(tileSize * 0.625)) } },
     },
@@ -203,7 +219,7 @@ function createPackageFiles(config) {
         collision: { solid: false },
       },
     }] : [],
-    objects: { portals: [], shops: [], fountains: [], enemySpawns: [], battleTriggers: [] },
+    objects: { portals: [], shops: [], fountains: [], enemySpawns: [], battleTriggers: [], rewardPickups: [] },
     randomEncounters: { enabled: false, minSeconds: 10, maxSeconds: 60, tableId: null },
     spawn: { x: 1, y: 1 },
   };
@@ -227,7 +243,7 @@ function createPackageFiles(config) {
       height: Math.max(5, Math.min(mapHeight, 8)),
       tiles: createMap(Math.max(5, Math.min(mapWidth, 10)), Math.max(5, Math.min(mapHeight, 8))),
       entities: [],
-      objects: { portals: [], shops: [], fountains: [], enemySpawns: [], battleTriggers: [] },
+      objects: { portals: [], shops: [], fountains: [], enemySpawns: [], battleTriggers: [], rewardPickups: [] },
       randomEncounters: { enabled: false, minSeconds: 10, maxSeconds: 60, tableId: null },
       spawn: { x: 1, y: 1 },
     }),
@@ -255,7 +271,9 @@ function createPackageFiles(config) {
     }),
     makeFile(`${root}/data/items/items.json`, 'items', { items: [] }),
     makeFile(`${root}/data/enemies/enemies.json`, 'enemies', { enemies: [] }),
-    makeFile(`${root}/data/shops/shops.json`, 'shops', { shops: [] }),
+    makeFile(`${root}/data/shops/shops.json`, 'shops', { catalogs: [], shops: [] }),
+    makeFile(`${root}/data/loot/loot-tables.json`, 'equal-chance loot tables', { lootTables: [] }),
+    makeFile(`${root}/data/rewards/rewards.json`, 'fixed and three-tier rewards', { rewardPackages: [], completionRewards: [] }),
     makeFile(`${root}/data/encounters/encounters.json`, 'encounters', { encounters: [] }),
     makeFile(`${root}/data/encounters/tables.json`, 'encounter tables', { tables: [] }),
     makeFile(`${root}/data/dialogue/dialogue.json`, 'dialogue', { enabled: enableDialogue, entries: [] }),

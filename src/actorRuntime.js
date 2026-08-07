@@ -41,7 +41,13 @@ export function actorFromLegacyClass(classDef) {
         growth: classDef?.growth || {},
       },
       wallet: { starting: null },
-      inventory: { slots: classDef?.bagSlots, maxStack: 99 },
+      inventory: { slots: classDef?.bagSlots, maxStack: 99, starting: classDef?.startingItems || [] },
+      resources: {
+        mana: {
+          max: classDef?.resources?.mana?.max,
+          regenPerSecond: classDef?.resources?.mana?.regenPerSecond,
+        },
+      },
       equipment: {
         starting: {
           weapon: startingGear.weapon ?? null,
@@ -56,6 +62,7 @@ export function actorFromLegacyClass(classDef) {
         sprite: DEFAULT_LEGACY_SPRITE,
         fallback: { shape: 'square', color: '#7af0a0', size: 20 },
       },
+      tags: Array.isArray(classDef?.tags) ? [...classDef.tags] : [],
     },
   });
 }
@@ -72,6 +79,7 @@ export function normalizeActorDefinition(actor) {
   const inventory = components.inventory || {};
   const equipment = components.equipment || {};
   const progression = components.progression || {};
+  const resources = components.resources || {};
   const render = components.render || {};
 
   return {
@@ -98,12 +106,22 @@ export function normalizeActorDefinition(actor) {
         ...inventory,
         slots: positiveInteger(inventory.slots, 0),
         maxStack: positiveInteger(inventory.maxStack, 99) || 99,
+        starting: Array.isArray(inventory.starting) ? clone(inventory.starting) : [],
       },
       equipment: {
         ...equipment,
         starting: clone(equipment.starting) || {},
       },
       progression: { ...progression, enabled: progression.enabled !== false },
+      resources: {
+        ...resources,
+        mana: {
+          ...(resources.mana || {}),
+          max: Math.max(0, finite(resources.mana?.max, 20)),
+          regenPerSecond: Math.max(0, finite(resources.mana?.regenPerSecond, 1)),
+        },
+      },
+      tags: Array.isArray(components.tags) ? clone(components.tags) : [],
       render: {
         ...render,
         sprite: render.sprite && typeof render.sprite === 'object' ? clone(render.sprite) : null,

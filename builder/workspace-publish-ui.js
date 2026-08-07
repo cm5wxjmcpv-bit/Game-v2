@@ -11,7 +11,7 @@ const DRAFT_PREFIX = 'pixel_engine_builder_workspace_';
 const REPOSITORY_ROOT_URL = new URL('../', window.location.href);
 
 const dom = Object.fromEntries([
-  'projectSelect', 'sceneSelect', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn',
+  'projectSelect', 'sceneSelect', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn', 'workspaceWeaponTabBtn',
   'workspacePublishTabBtn', 'workspaceSceneTab', 'workspaceActorTab', 'workspacePublishTab',
   'refreshPublishPlanBtn', 'publishPlanSummary', 'publishFileList', 'publishForm',
   'publishTitleInput', 'publishCommitInput', 'publishTokenInput', 'publishConfirmInput',
@@ -27,6 +27,7 @@ function bindEvents() {
   dom.workspacePublishTabBtn.addEventListener('click', openPublishTab);
   dom.workspaceSceneTabBtn.addEventListener('click', closePublishTab);
   dom.workspaceActorTabBtn.addEventListener('click', closePublishTab);
+  dom.workspaceWeaponTabBtn.addEventListener('click', closePublishTab);
   dom.refreshPublishPlanBtn.addEventListener('click', refreshPublishPlan);
   dom.publishForm.addEventListener('submit', publishDraftPullRequest);
   dom.clearPublishTokenBtn.addEventListener('click', () => {
@@ -109,12 +110,17 @@ async function loadRepositoryBaseline(projectId) {
     fileContents[repoPathFromUrl(actorsUrl, REPOSITORY_ROOT_URL)] = rawJsonText(actorsPayload);
   }
   const actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []);
-  const [towns, levels, scenes, tilesSource, texturesSource] = await Promise.all([
+  const [towns, levels, scenes, tilesSource, texturesSource, itemsSource, shopsSource, lootSource, rewardsSource, settingsSource] = await Promise.all([
     loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl, fileContents),
     loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl, fileContents),
     loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl, fileContents),
     loadManifestDataSource(data.tiles, contentRootUrl, fileContents, dataCache),
     loadManifestDataSource(data.texturePack, contentRootUrl, fileContents, dataCache),
+    loadManifestDataSource(data.items, contentRootUrl, fileContents, dataCache),
+    loadManifestDataSource(data.shops, contentRootUrl, fileContents, dataCache),
+    loadManifestDataSource(data.lootTables, contentRootUrl, fileContents, dataCache),
+    loadManifestDataSource(data.rewards, contentRootUrl, fileContents, dataCache),
+    loadManifestDataSource(data.settings, contentRootUrl, fileContents, dataCache),
   ]);
   return {
     manifest,
@@ -124,6 +130,11 @@ async function loadRepositoryBaseline(projectId) {
     fileContents,
     tilesSource,
     texturesSource,
+    itemsSource,
+    shopsSource,
+    lootSource,
+    rewardsSource,
+    settingsSource,
   };
 }
 
@@ -144,7 +155,87 @@ function readCurrentDraft(projectId, baseline) {
     _workspaceKind: sourceById.get(scene.id)?._workspaceKind || 'scene',
     _workspacePath: sourceById.get(scene.id)?._workspacePath || '',
   }));
-  return { actors: draft.actors, scenes };
+  return {
+    actors: draft.actors,
+    scenes,
+    items: Array.isArray(draft.items) ? draft.items : baseline.itemsSource?.payload?.items || [],
+    shopPayload: draft.shopPayload && typeof draft.shopPayload === 'object' ? draft.shopPayload : baseline.shopsSource?.payload || { catalogs: [], shops: [] },
+    lootTables: Array.isArray(draft.lootTables) ? draft.lootTables : baseline.lootSource?.payload?.lootTables || [],
+    rewardPackages: Array.isArray(draft.rewardPackages) ? draft.rewardPackages : baseline.rewardsSource?.payload?.rewardPackages || [],
+    completionRewards: Array.isArray(draft.completionRewards) ? draft.completionRewards : baseline.rewardsSource?.payload?.completionRewards || [],
+    settings: draft.settings && typeof draft.settings === 'object' ? draft.settings : baseline.settingsSource?.payload || {},
+  };
+}
+
+function clone(value) {
+  return value === undefined ? undefined : structuredClone(value);
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+}
+
+function buildProjectContentFiles(baseline, current, assetFiles) {
+  const grouped = new Map();
+  const ensure = (source) => {
+    if (!source) return null;
+    if (!grouped.has(source.path)) grouped.set(source.path, {
+      path: source.path,
+      baselinePayload: clone(source.payload),
+      currentPayload: clone(source.payload),
+      kinds: new Set(),
+    });
+    return grouped.get(source.path);
+  };
+  const assign = (source, kind, callback) => {
+    const file = ensure(source);
+    if (!file) return;
+    callback(file.currentPayload);
+    file.kinds.add(kind);
+  };
+  assign(baseline.itemsSource, 'weapons/items', (payload) => { payload.items = clone(current.items); });
+  assign(baseline.shopsSource, 'shops/catalogs', (payload) => {
+    if (Object.hasOwn(baseline.shopsSource.payload, 'catalogs') || (current.shopPayload.catalogs || []).length) {
+      payload.catalogs = clone(current.shopPayload.catalogs || []);
+    } else {
+      delete payload.catalogs;
+    }
+    payload.shops = clone(current.shopPayload.shops || []);
+  });
+  assign(baseline.lootSource, 'loot tables', (payload) => { payload.lootTables = clone(current.lootTables); });
+  assign(baseline.rewardsSource, 'completion/reward packages', (payload) => {
+    payload.rewardPackages = clone(current.rewardPackages);
+    payload.completionRewards = clone(current.completionRewards);
+  });
+  assign(baseline.settingsSource, 'weapon settings', (payload) => {
+    for (const key of Object.keys(payload)) delete payload[key];
+    Object.assign(payload, clone(current.settings));
+  });
+
+  for (const asset of assetFiles || []) {
+    let file = grouped.get(asset.path);
+    if (!file) {
+      file = { path: asset.path, baselinePayload: clone(asset.baselinePayload), currentPayload: clone(asset.baselinePayload), kinds: new Set() };
+      grouped.set(asset.path, file);
+    }
+    for (const [key, value] of Object.entries(asset.currentPayload || {})) {
+      if (!sameJson(value, asset.baselinePayload?.[key])) file.currentPayload[key] = clone(value);
+    }
+    file.kinds.add('tiles/textures');
+  }
+  return [...grouped.values()].map((file) => ({
+    path: file.path,
+    baselinePayload: file.baselinePayload,
+    currentPayload: file.currentPayload,
+    kind: [...file.kinds].join(' + '),
+    id: 'project-content',
+  }));
 }
 
 async function refreshPublishPlan() {
@@ -167,6 +258,7 @@ async function refreshPublishPlan() {
         texturesSource: baseline.texturesSource,
       })
       : [];
+    const contentFiles = buildProjectContentFiles(baseline, current, assetFiles);
     state.plan = buildWorkspacePublishPlan({
       projectId,
       manifest: baseline.manifest,
@@ -176,7 +268,8 @@ async function refreshPublishPlan() {
       baselineActors: baseline.actors,
       scenes: current.scenes,
       baselineScenes: baseline.scenes,
-      assetFiles,
+      assetFiles: [],
+      contentFiles,
     });
     for (const file of state.plan.files) {
       if (baseline.fileContents[file.path]) file.baselineContent = baseline.fileContents[file.path];
@@ -185,7 +278,7 @@ async function refreshPublishPlan() {
     dom.publishCommitInput.value ||= `Update ${projectId} game content`;
     renderPublishPlan();
     if (state.plan.errors.length) setPublishStatus(state.plan.errors.join(' '), true);
-    else if (!state.plan.files.length) setPublishStatus('No changed level, actor, object, tile, or texture files are ready to publish.');
+    else if (!state.plan.files.length) setPublishStatus('No changed level, actor, weapon, reward, shop, tile, or texture files are ready to publish.');
     else setPublishStatus(`${state.plan.files.length} changed file(s) are ready for review and test publishing.`);
   } catch (error) {
     state.plan = null;

@@ -455,6 +455,15 @@
         "y": 17,
         "enemyId": "slime_green"
       }
+    ],
+    "rewardPickups": [
+      {
+        "id": "starter_field_cache",
+        "x": 4,
+        "y": 2,
+        "rewardPackageId": "starter_field_cache",
+        "respawnSeconds": 300
+      }
     ]
   },
   "spawn": {

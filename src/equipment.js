@@ -1,8 +1,25 @@
-export function equipItem(player, itemId, itemsById) {
+import { canEquipWeapon, isWeaponItem } from './weaponSystem.js';
+import { playerOwnsItem } from './inventory.js';
+
+export function equipItemDetailed(player, itemId, itemsById, options = {}) {
   const item = itemsById[itemId];
-  if (!item?.equipSlot) return false;
+  if (!item?.equipSlot) return { ok: false, reason: 'That item cannot be equipped.' };
+  if (options.requireOwned !== false && !playerOwnsItem(player, itemId) && player.equipment[item.equipSlot] !== itemId) {
+    return { ok: false, reason: 'That item is not in the inventory.' };
+  }
+  if (isWeaponItem(item)) {
+    const allowed = canEquipWeapon(player, item);
+    if (!allowed.ok) return allowed;
+  }
   player.equipment[item.equipSlot] = itemId;
-  return true;
+  if (options.instanceId) {
+    player.equipmentInstances = { ...(player.equipmentInstances || {}), [item.equipSlot]: options.instanceId };
+  }
+  return { ok: true };
+}
+
+export function equipItem(player, itemId, itemsById, options = {}) {
+  return equipItemDetailed(player, itemId, itemsById, options).ok;
 }
 
 export function getStatBlock(player, itemsById) {

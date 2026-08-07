@@ -36,6 +36,7 @@ export class PackageRenderer extends Renderer {
     if (!this.drawPlayerSprite(game, playerPos.x, playerPos.y)) {
       drawFallback(ctx, playerPos.x, playerPos.y, game.player.visual);
     }
+    this.drawEquippedWeapon(game, playerPos.x, playerPos.y);
 
     for (const enemy of game.currentEnemies) {
       if (enemy.dead) continue;

@@ -69,7 +69,7 @@ The application selects package actors rather than directly constructing a playe
 
 Scenes can also contain component entities alongside the existing object arrays. The current entity components support rendering, persistent message or scene interactions, and solid collision.
 
-The application uses `PackageGame` and `PackageRenderer` subclasses. The previously audited `Game` and `Renderer` classes remain unchanged as a compatibility and rollback layer.
+The application uses `PackageGame` and `PackageRenderer` subclasses while retaining the established `Game` and `Renderer` APIs as the compatibility layer.
 
 See `games/README.md` for the complete package, scene, actor, entity, and system contracts.
 
@@ -85,7 +85,10 @@ The current sample package resolves these existing data sources:
 - `data/towns/*.json` → town layouts, shops, portals, fountains
 - `data/items/items.json` → weapons, armor, consumables, materials, accessories, key items
 - `data/enemies/enemies.json` → enemy stats, AI behavior, aggro/leash/patrol ranges, drop tables
-- `data/shops/shops.json` → explicit stock, buy/sell prices, stock limits, shop type
+- `data/shops/shops.json` → reusable catalogs, per-shop overrides, prices, stock limits, and restocking
+- `data/loot/loot-tables.json` → reusable equal-chance enemy and pickup loot tables
+- `data/rewards/rewards.json` → fixed packages and first/second/third-plus completion rewards
+- `data/config/settings.json` → inventory, mana, rarity, pricing, damage-type, and combat defaults
 - `data/classes/classes.json` → legacy actor input during the compatibility transition
 - `data/tiles/tiles.json` + `data/tiles/effects.json` → tile definitions and tile effect rules
 - `data/texturepacks/*.json` → texture mapping per tile texture key
@@ -101,7 +104,7 @@ Core engine logic is split in `/src` so each system can evolve independently:
 - compatibility application runtime: `packageGame.js`, `packageRenderer.js`
 - loop/bootstrap: `main.js`, `game.js`, `dataLoader.js`
 - render/input/state: `renderer.js`, `camera.js`, `miniMap.js`, `input.js`, `stateManager.js`
-- gameplay systems: `combat.js`, `enemyAI.js`, `collision.js`, `drops.js`, `shops.js`
+- gameplay systems: `combat.js`, `battleSystem.js`, `weaponSystem.js`, `rewardSystem.js`, `enemyAI.js`, `collision.js`, `shops.js`
 - player compatibility systems: `inventory.js`, `equipment.js`, `progression.js`, `statusEffects.js`
 - world systems: `portalSystem.js`, `tileEffects.js`
 - support: `audio.js`, `saveSystem.js`, `debug.js`, `entityFactory.js`
@@ -148,6 +151,22 @@ The package-aware actor and entity workspace is available under:
 
 The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes and package tiles, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Actor JSON, scene JSON, and full workspace bundles can still be exported without GitHub authentication.
 
+### Weapon Maker
+
+Open the workspace and choose **Weapons** to create a weapon from a blank form, a melee/ranged/magic family preset, or a clone. The guided steps cover identity and rarity, normal and special attacks, costs and cooldowns, artwork, and game availability. Optional **Advanced** panels provide equip restrictions, custom animation sheets, damage types, and precise artwork transforms.
+
+The Weapon Maker supports:
+
+- swords, axes, spears, bows, firearms, staffs, and wands with shared subtype attack templates
+- separate normal and special cooldown/resource rules, including ammunition categories, mana, cooldown-only attacks, and optional reload times
+- built-in support, status, rapid-hit, piercing, area, and heavy special presets
+- one reusable image or separate inventory, equipped, attack, and projectile artwork with crop, scale, rotate, and flip controls
+- a live character preview and a test arena that switches between real-time and turn-based combat
+- automatic assignment to starting equipment, shop catalogs, enemy loot tables, completion rewards, and timed map pickups
+- autosaved drafts, **Save**, **Save & Test**, safe deletion checks, and complete weapon-pack import/export
+
+Runtime controls use `Q` for a ready real-time special attack and `I` for inventory/equipment. Normal real-time attacks automatically target the nearest enemy in the character's facing direction. Turn-based battles show **Standard Attack** and an available **Special Attack**. Equipment changes are blocked during active combat.
+
 ### Package tile library
 
 The **Map Editor Tiles** panel lists every tile registered by the selected package, including its color, walkability, and whether it is already used in the selected scene.
@@ -182,6 +201,7 @@ The workspace **Scene Objects** tab edits the object arrays retained for backwar
 - fountains
 - enemy spawns
 - battle triggers
+- reward pickups with either a fixed package or reusable loot table and an optional respawn timer
 
 Select a scene and object type, choose an existing object or create a new one, then click the scene preview to place it. Typed fields cover the known runtime properties, while **Additional JSON** preserves package-specific fields not represented by the form. The editor validates coordinates, required IDs or destinations, and battle-trigger bounds. It does not add synthetic IDs to existing object arrays.
 
@@ -189,7 +209,7 @@ Object changes are merged into the same package-specific browser draft used by c
 
 ### Controlled draft-PR publishing
 
-The workspace **Publish** tab can send reviewed level, actor, object, tile, and texture changes to GitHub without writing directly to `main`.
+The workspace **Publish** tab can send reviewed level, actor, object, tile, texture, weapon, shop, loot, reward, and settings changes to GitHub without writing directly to `main`.
 
 1. Make and save workspace changes.
 2. Open **Publish** and review the exact manifest-resolved JSON file list.
@@ -200,7 +220,7 @@ The token is kept only in the page's memory and cleared after success. Before cr
 
 Current publishing limits:
 
-- only existing manifest-resolved actor, scene, tile, and texture JSON files
+- only existing manifest-resolved JSON files plus supported package content files created by the Weapon Maker
 - no actor publishing for packages without a direct `data.actors` file
 - no new scene files until package scaffolding is implemented
 - maximum 50 files per publish

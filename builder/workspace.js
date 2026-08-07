@@ -40,6 +40,12 @@ const state = {
   contentRootUrl: null,
   actors: [],
   scenes: [],
+  items: [],
+  shopPayload: { catalogs: [], shops: [] },
+  lootTables: [],
+  rewardPackages: [],
+  completionRewards: [],
+  settings: {},
   selectedActorId: '',
   selectedSceneId: '',
   selectedEntityId: '',
@@ -154,10 +160,15 @@ async function loadProjectRequest({ id, meta, requestId }) {
   const manifest = await fetchJson(manifestUrl);
   const contentRootUrl = new URL(manifest.contentRoot || './', manifestUrl);
   const data = manifest.data || {};
-  const [world, classesPayload, actorsPayload] = await Promise.all([
+  const [world, classesPayload, actorsPayload, itemsPayload, shopPayload, lootPayload, rewardsPayload, settings] = await Promise.all([
     fetchJson(resolveContentPath(data.world, contentRootUrl)),
     data.classes ? fetchJson(resolveContentPath(data.classes, contentRootUrl), { classes: [] }) : { classes: [] },
     data.actors ? fetchJson(resolveContentPath(data.actors, contentRootUrl), { actors: [] }) : { actors: [] },
+    data.items ? fetchJson(resolveContentPath(data.items, contentRootUrl), { items: [] }) : { items: [] },
+    data.shops ? fetchJson(resolveContentPath(data.shops, contentRootUrl), { catalogs: [], shops: [] }) : { catalogs: [], shops: [] },
+    data.lootTables ? fetchJson(resolveContentPath(data.lootTables, contentRootUrl), { lootTables: [] }) : { lootTables: [] },
+    data.rewards ? fetchJson(resolveContentPath(data.rewards, contentRootUrl), { rewardPackages: [], completionRewards: [] }) : { rewardPackages: [], completionRewards: [] },
+    data.settings ? fetchJson(resolveContentPath(data.settings, contentRootUrl), {}) : {},
   ]);
   const directIds = new Set((actorsPayload.actors || []).map((actor) => actor.id));
   const actors = mergeActors(classesPayload.classes || [], actorsPayload.actors || []).map((actor) => ({
@@ -180,6 +191,16 @@ async function loadProjectRequest({ id, meta, requestId }) {
   state.contentRootUrl = contentRootUrl;
   state.actors = actors;
   state.scenes = [...towns, ...levels, ...scenes];
+  state.items = Array.isArray(itemsPayload.items) ? itemsPayload.items : [];
+  state.shopPayload = {
+    ...shopPayload,
+    catalogs: Array.isArray(shopPayload.catalogs) ? shopPayload.catalogs : [],
+    shops: Array.isArray(shopPayload.shops) ? shopPayload.shops : [],
+  };
+  state.lootTables = Array.isArray(lootPayload.lootTables) ? lootPayload.lootTables : [];
+  state.rewardPackages = Array.isArray(rewardsPayload.rewardPackages) ? rewardsPayload.rewardPackages : [];
+  state.completionRewards = Array.isArray(rewardsPayload.completionRewards) ? rewardsPayload.completionRewards : [];
+  state.settings = settings && typeof settings === 'object' ? settings : {};
   state.tileColors = tileColors;
   restoreDraft();
 
@@ -190,10 +211,12 @@ async function loadProjectRequest({ id, meta, requestId }) {
   state.selectedEntityId = '';
   state.dirty = false;
   renderAll();
+  exposeWorkspaceApi();
   const playUrl = new URL('../', window.location.href);
   playUrl.searchParams.set('game', id);
   dom.workspacePlayGameLink.href = playUrl.href;
   setMessage(`${meta.name || id} loaded. Changes stay local until exported.`);
+  window.dispatchEvent(new CustomEvent('pixel-engine-workspace-loaded', { detail: { projectId: id } }));
 }
 
 async function loadSceneGroup(ids, directory, kind, contentRootUrl) {
@@ -234,7 +257,8 @@ function renderProjectOptions() {
 
 function renderAll() {
   dom.projectSelect.value = state.projectId;
-  dom.projectSummary.textContent = `${state.manifest?.name || state.projectId} • engine ${state.manifest?.engineVersion || 'unknown'} • ${state.actors.length} actor(s) • ${state.scenes.length} scene(s)`;
+  const weaponCount = state.items.filter((item) => item.category === 'weapons' || item.equipSlot === 'weapon' || item.weapon).length;
+  dom.projectSummary.textContent = `${state.manifest?.name || state.projectId} • engine ${state.manifest?.engineVersion || 'unknown'} • ${state.actors.length} actor(s) • ${state.scenes.length} scene(s) • ${weaponCount} weapon(s)`;
   renderSceneOptions();
   renderActorList();
   renderActorForm();
@@ -608,10 +632,16 @@ function saveDraft(event) {
   dom.saveDraftBtn.dataset.saveStatus = 'pending';
   try {
     localStorage.setItem(draftKey(), JSON.stringify({
-      version: 1,
+      version: 2,
       projectId: state.projectId,
       actors: cleanJson(state.actors),
       scenes: cleanJson(state.scenes),
+      items: cleanJson(state.items),
+      shopPayload: cleanJson(state.shopPayload),
+      lootTables: cleanJson(state.lootTables),
+      rewardPackages: cleanJson(state.rewardPackages),
+      completionRewards: cleanJson(state.completionRewards),
+      settings: cleanJson(state.settings),
       savedAt: new Date().toISOString(),
     }));
     dom.saveDraftBtn.dataset.saveStatus = 'success';
@@ -640,6 +670,12 @@ function restoreDraft() {
         _workspacePath: sourceById[scene.id]?._workspacePath || '',
       }));
     }
+    if (Array.isArray(draft.items)) state.items = draft.items;
+    if (draft.shopPayload && typeof draft.shopPayload === 'object') state.shopPayload = draft.shopPayload;
+    if (Array.isArray(draft.lootTables)) state.lootTables = draft.lootTables;
+    if (Array.isArray(draft.rewardPackages)) state.rewardPackages = draft.rewardPackages;
+    if (Array.isArray(draft.completionRewards)) state.completionRewards = draft.completionRewards;
+    if (draft.settings && typeof draft.settings === 'object') state.settings = draft.settings;
     setMessage('A local draft was restored for this project.');
   } catch {
     localStorage.removeItem(draftKey());
@@ -677,6 +713,14 @@ function exportBundle() {
     manifest: cleanJson(state.manifest),
     actors: { actors: cleanJson(state.actors) },
     scenes: cleanJson(state.scenes),
+    items: { items: cleanJson(state.items) },
+    shops: cleanJson(state.shopPayload),
+    lootTables: { lootTables: cleanJson(state.lootTables) },
+    rewards: {
+      rewardPackages: cleanJson(state.rewardPackages),
+      completionRewards: cleanJson(state.completionRewards),
+    },
+    settings: cleanJson(state.settings),
   });
   setMessage('Workspace bundle exported.');
 }
@@ -704,6 +748,19 @@ function downloadJson(filename, payload) {
 function markDirty(message) {
   state.dirty = true;
   setMessage(message);
+}
+
+function exposeWorkspaceApi() {
+  window.pixelEngineWorkspace = {
+    getState: () => state,
+    cleanJson,
+    markDirty: (message) => {
+      markDirty(message);
+      renderAll();
+      window.dispatchEvent(new CustomEvent('pixel-engine-workspace-content-changed', { detail: { projectId: state.projectId } }));
+    },
+    saveDraft: () => dom.saveDraftBtn.click(),
+  };
 }
 
 function setMessage(message, isError = false) {

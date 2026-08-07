@@ -2,13 +2,29 @@ import { StateManager, GAME_STATES } from './stateManager.js';
 import { canWalkTo, distance, isInsideMapBounds } from './collision.js';
 import { createEnemy, createPlayer } from './entityFactory.js';
 import { updateEnemies } from './enemyAI.js';
-import { updateAutoAttack } from './combat.js';
-import { rollDrops } from './drops.js';
+import { getEquippedWeapon, tryUseSpecialAttack, updateAutoAttack } from './combat.js';
 import { applyTileEffect } from './tileEffects.js';
 import { getNearbyPortal, getUnlockedPortalLevels } from './portalSystem.js';
-import { buyFromShop, sellToShop } from './shops.js';
+import { buyFromShop, getShopInventory, sellToShop } from './shops.js';
 import { saveGame, loadGame } from './saveSystem.js';
 import { updateStatusEffects } from './statusEffects.js';
+import { equipItemDetailed } from './equipment.js';
+import {
+  ensureInventoryInstances,
+  removeBagSlotAt,
+  toggleBagFavorite,
+} from './inventory.js';
+import {
+  canFitRewardPackage,
+  completionRewardKey,
+  grantRewardPackage,
+  normalizeRewardPackage,
+  rewardPackageLabels,
+  rollEnemyReward,
+  rollLootTable,
+  selectCompletionReward,
+} from './rewardSystem.js';
+import { ensurePlayerWeaponState, updateWeaponTimers } from './weaponSystem.js';
 import { loadDatabase } from './dataLoader.js';
 import { Camera } from './camera.js';
 import { BattleSystem } from './battleSystem.js';
@@ -46,7 +62,11 @@ export class Game {
     this.camera = new Camera(this.renderer.canvas.width, this.renderer.canvas.height);
     this.showMiniMap = false;
 
-    this.fx = { hitMarkers: [] };
+    this.fx = { hitMarkers: [], weaponAttacks: [] };
+    this.groundLoot = [];
+    this.timeSeconds = 0;
+    this.combatActiveRemaining = 0;
+    this.sceneCompletionAwarded = false;
     this.battleSystem = new BattleSystem(this);
     this.randomEncounter = {
       elapsedSeconds: 0,
@@ -74,6 +94,7 @@ export class Game {
 
     this.player = createPlayer(classData, this.db.itemsById, this.db.world.start);
     this.ensureBattleProgressState();
+    this.ensurePlayerRuntimeState();
     this.ensurePlayerAnimationState();
 
     const startSceneId = this.db.game?.startScene?.id || this.currentTownId;
@@ -90,6 +111,7 @@ export class Game {
 
     this.player = save.player;
     this.ensureBattleProgressState();
+    this.ensurePlayerRuntimeState();
     this.ensurePlayerAnimationState();
     this.currentTownId = save.currentTownId || this.db.world.start.townId || null;
     this.lastSafeSceneId = save.lastSafeSceneId || this.currentTownId;
@@ -133,6 +155,10 @@ export class Game {
     }
 
     this.currentEnemies = [];
+    this.groundLoot = [];
+    this.fx.weaponAttacks = [];
+    this.combatActiveRemaining = 0;
+    this.sceneCompletionAwarded = false;
     if (sceneIsAdventure(this.currentMap) && this.isSystemEnabled('combat')) {
       if (!this.currentMap.objects.battleTriggers?.length) {
         this.currentEnemies = (this.currentMap.objects.enemySpawns || [])
@@ -192,8 +218,15 @@ export class Game {
     this.dt = dt;
     if (!this.player || !this.currentMap) return;
 
+    this.timeSeconds += dt;
+    this.combatActiveRemaining = Math.max(0, this.combatActiveRemaining - dt);
+    updateWeaponTimers(this.player, dt, this.db.settings, { safeScene: sceneIsSafe(this.currentMap) });
+
     if (this.input.wasActionPressed('debug')) this.debug.toggle();
     if (this.input.wasActionPressed('pause')) this.togglePause();
+    if (this.input.wasActionPressed('inventory') && this.isGameplayState() && !this.ui.isOverlayOpen()) {
+      this.openInventory();
+    }
 
     const hasOverlay = this.ui.isOverlayOpen();
     const canSimulate = this.isGameplayState() && !this.state.is(GAME_STATES.PAUSE) && !hasOverlay;
@@ -225,12 +258,16 @@ export class Game {
         }
         if (!this.usesTriggerBattles()) {
           updateEnemies(this, dt, now / 1000);
-          updateAutoAttack(this, dt);
+          updateAutoAttack(this);
+          if (this.input.wasActionPressed('special')) tryUseSpecialAttack(this);
+          this.updateEnemyStatusEffects(dt);
         }
       }
 
       updateStatusEffects(this.player, dt);
       this.applyCurrentTileEffect();
+      this.updateRewardPickups();
+      this.updateGroundLoot();
     }
 
     this.ui.renderHud(this);
@@ -257,6 +294,116 @@ export class Game {
     if (!Array.isArray(this.player.completedBattleTriggers)) {
       this.player.completedBattleTriggers = [];
     }
+  }
+
+  ensurePlayerRuntimeState() {
+    if (!this.player) return;
+    ensureInventoryInstances(this.player, this.db?.itemsById || {});
+    ensurePlayerWeaponState(this.player, this.db?.settings || {});
+    this.player.completionCounts = this.player.completionCounts && typeof this.player.completionCounts === 'object'
+      ? this.player.completionCounts
+      : {};
+    this.player.pickupState = this.player.pickupState && typeof this.player.pickupState === 'object'
+      ? this.player.pickupState
+      : {};
+    this.player.shopState = this.player.shopState && typeof this.player.shopState === 'object'
+      ? this.player.shopState
+      : {};
+    this.player.equipmentInstances = this.player.equipmentInstances && typeof this.player.equipmentInstances === 'object'
+      ? this.player.equipmentInstances
+      : {};
+
+    for (const [slotName, itemId] of Object.entries(this.player.equipment || {})) {
+      if (!itemId || this.player.equipmentInstances[slotName]) continue;
+      const owned = this.player.bag.items.find((slot) => slot.itemId === itemId && slot.instanceId);
+      if (owned) this.player.equipmentInstances[slotName] = owned.instanceId;
+    }
+  }
+
+  markCombatActive(seconds = 3) {
+    this.combatActiveRemaining = Math.max(this.combatActiveRemaining, seconds);
+  }
+
+  activateSpecialAttack() {
+    if (!this.isGameplayState() || this.ui.isOverlayOpen()) return false;
+    return tryUseSpecialAttack(this);
+  }
+
+  isCombatActive() {
+    return this.state.is(GAME_STATES.BATTLE) || this.combatActiveRemaining > 0;
+  }
+
+  updateEnemyStatusEffects(dt) {
+    for (const enemy of this.currentEnemies) {
+      if (enemy.dead) continue;
+      updateStatusEffects(enemy, dt);
+      if (enemy.hp <= 0) {
+        enemy.hp = 0;
+        enemy.dead = true;
+        this.onEnemyDefeated(enemy);
+      }
+    }
+  }
+
+  openInventory() {
+    if (!this.ui.showInventory) return;
+    this.ui.showInventory(this.player, this.db, {
+      canEquip: () => !this.isCombatActive(),
+      onEquip: (slotIndex) => this.equipInventorySlot(slotIndex),
+      onFavorite: (slotIndex) => this.favoriteInventorySlot(slotIndex),
+      onDrop: (slotIndex, confirmed = false) => this.dropInventorySlot(slotIndex, confirmed),
+      onClose: () => {
+        this.ui.hideOverlay();
+        this.saveCheckpoint();
+      },
+    });
+  }
+
+  equipInventorySlot(slotIndex) {
+    if (this.isCombatActive()) return { ok: false, reason: 'Weapons can only be changed outside active combat.' };
+    const slot = this.player.bag.items[slotIndex];
+    if (!slot) return { ok: false, reason: 'Inventory item not found.' };
+    const result = equipItemDetailed(this.player, slot.itemId, this.db.itemsById, { instanceId: slot.instanceId });
+    if (result.ok) this.saveCheckpoint();
+    return result;
+  }
+
+  favoriteInventorySlot(slotIndex) {
+    const slot = this.player.bag.items[slotIndex];
+    if (!slot?.instanceId) return { ok: false, reason: 'Only individual weapons can be favorited.' };
+    const favorite = toggleBagFavorite(this.player, slot.instanceId);
+    this.saveCheckpoint();
+    return { ok: true, favorite };
+  }
+
+  inventoryActionNeedsConfirmation(slot) {
+    if (!slot) return false;
+    const item = this.db.itemsById[slot.itemId];
+    const equippedInstance = Object.values(this.player.equipmentInstances || {}).includes(slot.instanceId);
+    const equippedLegacy = !slot.instanceId && Object.values(this.player.equipment || {}).includes(slot.itemId);
+    return equippedInstance || equippedLegacy || slot.favorite || ['epic', 'legendary'].includes(item?.rarity);
+  }
+
+  dropInventorySlot(slotIndex, confirmed = false) {
+    const slot = this.player.bag.items[slotIndex];
+    if (!slot) return { ok: false, reason: 'Inventory item not found.' };
+    if (this.inventoryActionNeedsConfirmation(slot) && !confirmed) {
+      return {
+        ok: false,
+        requiresConfirmation: true,
+        reason: 'This item is equipped, favorited, Epic, or Legendary. Drop it anyway?',
+      };
+    }
+
+    for (const [equipmentSlot, instanceId] of Object.entries(this.player.equipmentInstances || {})) {
+      if (instanceId !== slot.instanceId) continue;
+      this.player.equipment[equipmentSlot] = null;
+      delete this.player.equipmentInstances[equipmentSlot];
+    }
+    const removed = removeBagSlotAt(this.player, slotIndex);
+    if (!removed) return { ok: false, reason: 'Inventory item could not be removed.' };
+    this.saveCheckpoint();
+    return { ok: true, removed };
   }
 
   hasCompletedBattleTrigger(mapId, triggerId) {
@@ -427,11 +574,31 @@ export class Game {
           this.ui.flash(`Shop not found: ${shop.shopId}`);
           return;
         }
-        const shopData = structuredClone(sourceShop);
         this.state.set(GAME_STATES.SHOP);
-        this.ui.showShop(shopData, this.player, this.db, {
-          onBuy: (offer) => buyFromShop(this.player, shopData, offer, this.db),
-          onSell: (itemId) => sellToShop(this.player, itemId, shopData, this.db),
+        this.ui.showShop(sourceShop, this.player, this.db, {
+          getInventory: () => getShopInventory(sourceShop, this.player, this.db),
+          onBuy: (offer) => buyFromShop(this.player, sourceShop, offer, this.db),
+          onSell: (itemId, instanceId, confirmed = false) => {
+            const slot = this.player.bag.items.find((entry) =>
+              entry.itemId === itemId && (!instanceId || entry.instanceId === instanceId)
+            );
+            if (this.inventoryActionNeedsConfirmation(slot) && !confirmed) {
+              return {
+                ok: false,
+                requiresConfirmation: true,
+                reason: 'This item is equipped, favorited, Epic, or Legendary. Sell it anyway?',
+              };
+            }
+            const result = sellToShop(this.player, itemId, sourceShop, this.db, instanceId);
+            if (result.ok && slot?.instanceId) {
+              for (const [equipmentSlot, equippedId] of Object.entries(this.player.equipmentInstances || {})) {
+                if (equippedId !== slot.instanceId) continue;
+                this.player.equipment[equipmentSlot] = null;
+                delete this.player.equipmentInstances[equipmentSlot];
+              }
+            }
+            return result;
+          },
           onClose: () => {
             this.state.set(this.getCurrentSceneState());
             this.saveCheckpoint();
@@ -444,25 +611,213 @@ export class Game {
     const fountain = (this.currentMap.objects.fountains || []).find((entry) => distance(entry, this.player) <= 1.1);
     if (fountain) {
       this.player.stats.hp = this.player.stats.maxHp;
+      ensurePlayerWeaponState(this.player, this.db.settings);
+      this.player.resources.mana.current = this.player.resources.mana.max;
       this.audio.play('heal');
-      this.ui.flash('Health restored at the fountain.');
+      this.ui.flash('Health and mana restored at the fountain.');
     }
   }
 
   onEnemyDefeated(enemy) {
-    const result = rollDrops(enemy.template, this.player, this.db.itemsById);
-    this.ui.flash(`Defeated ${enemy.template.name}: +${result.gold} gold`);
+    const rewardPackage = rollEnemyReward(enemy.template, this.db.lootTablesById);
+    this.spawnGroundReward(rewardPackage, enemy.x, enemy.y, {
+      title: `${enemy.template.name} Loot`,
+    });
+    const labels = rewardPackageLabels(rewardPackage, this.db.itemsById).join(', ');
+    this.ui.flash(`Defeated ${enemy.template.name}. Dropped: ${labels}`);
 
     const allDead = this.currentEnemies.every((entry) => entry.dead);
-    if (allDead && this.isAdventureScene()) {
-      const sceneId = this.currentMap.id;
-      if (!this.player.completedLevels.includes(sceneId)) {
-        this.player.completedLevels.push(sceneId);
-        if (this.isSystemEnabled('progression')) this.unlockNextLevels(sceneId);
-      }
-      this.ui.flash(`Scene complete: ${this.currentMap.name}`);
-      this.saveCheckpoint();
+    if (allDead && this.isAdventureScene()) this.completeCurrentScene();
+  }
+
+  spawnGroundReward(rewardPackage, x, y, options = {}) {
+    const normalized = normalizeRewardPackage(rewardPackage, `ground_reward_${Date.now()}`);
+    const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random()}`;
+    this.groundLoot.push({
+      id,
+      x,
+      y,
+      title: options.title || normalized.name || 'Loot',
+      rewardPackage: normalized,
+      pickupKey: options.pickupKey || null,
+      dismissedWhileNear: false,
+    });
+    return id;
+  }
+
+  updateRewardPickups() {
+    const now = Date.now();
+    for (const pickup of this.currentMap.objects.rewardPickups || []) {
+      const pickupKey = `${this.currentMap.id}:${pickup.id}`;
+      if (this.groundLoot.some((loot) => loot.pickupKey === pickupKey)) continue;
+      const collectedAt = Number(this.player.pickupState[pickupKey]) || 0;
+      const respawnMs = Math.max(0, Number(pickup.respawnSeconds) || 0) * 1000;
+      if (collectedAt && (!respawnMs || now - collectedAt < respawnMs)) continue;
+
+      const fixed = this.db.rewardPackagesById[pickup.rewardPackageId];
+      const table = this.db.lootTablesById[pickup.lootTableId];
+      const rewardPackage = fixed || (table ? rollLootTable(table) : null);
+      if (!rewardPackage) continue;
+      this.spawnGroundReward(rewardPackage, pickup.x, pickup.y, {
+        title: pickup.name || rewardPackage.name || 'Map Reward',
+        pickupKey,
+      });
     }
+  }
+
+  updateGroundLoot() {
+    for (const loot of [...this.groundLoot]) {
+      const nearby = distance(this.player, loot) <= 0.8;
+      if (!nearby) {
+        loot.dismissedWhileNear = false;
+        continue;
+      }
+      if (loot.dismissedWhileNear || this.ui.isOverlayOpen()) continue;
+      if (canFitRewardPackage(this.player, loot.rewardPackage, this.db.itemsById)) {
+        this.claimGroundReward(loot.id);
+      } else {
+        this.presentGroundReward(loot);
+      }
+    }
+  }
+
+  claimGroundReward(lootId) {
+    const loot = this.groundLoot.find((entry) => entry.id === lootId);
+    if (!loot) return { ok: false, reason: 'That reward is no longer available.' };
+    if (!canFitRewardPackage(this.player, loot.rewardPackage, this.db.itemsById)) {
+      return { ok: false, reason: 'Inventory is full.' };
+    }
+    const result = grantRewardPackage(this.player, loot.rewardPackage, this.db.itemsById);
+    if (!result.ok) return { ok: false, reason: 'Inventory is full.' };
+    this.groundLoot = this.groundLoot.filter((entry) => entry.id !== lootId);
+    if (loot.pickupKey) this.player.pickupState[loot.pickupKey] = Date.now();
+    this.ui.flash(`Collected ${rewardPackageLabels(loot.rewardPackage, this.db.itemsById).join(', ')}.`);
+    this.saveCheckpoint();
+    return { ok: true };
+  }
+
+  presentGroundReward(loot) {
+    if (!this.ui.showRewardOverflow) {
+      loot.dismissedWhileNear = true;
+      this.ui.flash('Inventory is full. Drop an item or leave this loot on the map.');
+      return;
+    }
+    const render = () => this.ui.showRewardOverflow(loot.title, loot.rewardPackage, this.player, this.db, {
+      onDrop: (slotIndex, confirmed = false) => {
+        const dropped = this.dropInventorySlot(slotIndex, confirmed);
+        if (!dropped.ok) return dropped;
+        const claimed = this.claimGroundReward(loot.id);
+        if (claimed.ok) this.ui.hideOverlay();
+        else render();
+        return claimed;
+      },
+      onLeave: () => {
+        loot.dismissedWhileNear = true;
+        this.ui.hideOverlay();
+      },
+    });
+    render();
+  }
+
+  presentRewardPackage(rewardPackage, options = {}) {
+    const normalized = normalizeRewardPackage(rewardPackage);
+    const finish = (claimed) => {
+      this.ui.hideOverlay();
+      options.onComplete?.(claimed);
+      if (claimed) this.saveCheckpoint();
+    };
+    const claim = () => {
+      if (!canFitRewardPackage(this.player, normalized, this.db.itemsById)) {
+        this.presentRewardOverflow(normalized, options, finish);
+        return { ok: false, reason: 'Inventory is full.' };
+      }
+      grantRewardPackage(this.player, normalized, this.db.itemsById);
+      this.ui.flash(`Received ${rewardPackageLabels(normalized, this.db.itemsById).join(', ')}.`);
+      finish(true);
+      return { ok: true };
+    };
+
+    if (!this.ui.showRewardPackage) {
+      claim();
+      return;
+    }
+    this.ui.showRewardPackage(options.title || normalized.name || 'Rewards', normalized, this.db, {
+      onClaim: claim,
+      onLeave: () => finish(false),
+      allowLeave: options.allowLeave !== false,
+    });
+  }
+
+  presentRewardOverflow(rewardPackage, options, finish) {
+    if (!this.ui.showRewardOverflow) return finish(false);
+    const render = () => this.ui.showRewardOverflow(
+      options.title || rewardPackage.name || 'Rewards',
+      rewardPackage,
+      this.player,
+      this.db,
+      {
+        onDrop: (slotIndex, confirmed = false) => {
+          const dropped = this.dropInventorySlot(slotIndex, confirmed);
+          if (!dropped.ok) return dropped;
+          if (!canFitRewardPackage(this.player, rewardPackage, this.db.itemsById)) {
+            render();
+            return { ok: false, reason: 'More inventory space is needed.' };
+          }
+          grantRewardPackage(this.player, rewardPackage, this.db.itemsById);
+          this.ui.flash(`Received ${rewardPackageLabels(rewardPackage, this.db.itemsById).join(', ')}.`);
+          finish(true);
+          return { ok: true };
+        },
+        onLeave: () => finish(false),
+      },
+    );
+    render();
+  }
+
+  presentBattleRewards(rewardPackage, onComplete) {
+    this.presentRewardPackage(rewardPackage, {
+      title: 'Battle Rewards',
+      allowLeave: true,
+      onComplete,
+    });
+  }
+
+  completeCurrentScene() {
+    if (this.sceneCompletionAwarded) return;
+    this.sceneCompletionAwarded = true;
+    const sceneId = this.currentMap.id;
+    if (!this.player.completedLevels.includes(sceneId)) {
+      this.player.completedLevels.push(sceneId);
+      if (this.isSystemEnabled('progression')) this.unlockNextLevels(sceneId);
+    }
+
+    const key = completionRewardKey('level', sceneId);
+    const completedCount = Math.max(0, Number(this.player.completionCounts[key]) || 0);
+    this.player.completionCounts[key] = completedCount + 1;
+    const schedule = this.db.completionRewardsBySource[key];
+    if (schedule) {
+      const selected = selectCompletionReward(schedule, completedCount);
+      this.presentRewardPackage(selected.package, {
+        title: `${this.currentMap.name} — Tier ${selected.tier} Reward`,
+        allowLeave: true,
+      });
+    }
+    this.ui.flash(`Scene complete: ${this.currentMap.name}`);
+    this.saveCheckpoint();
+  }
+
+  awardQuestCompletion(questId) {
+    const key = completionRewardKey('quest', questId);
+    const schedule = this.db.completionRewardsBySource[key];
+    if (!schedule) return false;
+    const completedCount = Math.max(0, Number(this.player.completionCounts[key]) || 0);
+    this.player.completionCounts[key] = completedCount + 1;
+    const selected = selectCompletionReward(schedule, completedCount);
+    this.presentRewardPackage(selected.package, {
+      title: `${schedule.name} — Tier ${selected.tier}`,
+      allowLeave: true,
+    });
+    return true;
   }
 
   unlockNextLevels(levelId) {

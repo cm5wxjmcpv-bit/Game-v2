@@ -1,14 +1,148 @@
 {
   "items": [
-    { "id": "weapon_wood_sword", "name": "Wood Sword", "category": "weapons", "equipSlot": "weapon", "power": 2, "attackRange": 1.3, "cooldown": 0.8, "mods": { "attack": 1 }, "baseValue": 20 },
-    { "id": "weapon_hunter_bow", "name": "Hunter Bow", "category": "weapons", "equipSlot": "weapon", "power": 1, "attackRange": 2.2, "cooldown": 0.9, "mods": { "agility": 1 }, "baseValue": 24 },
-    { "id": "weapon_focus_rod", "name": "Focus Rod", "category": "weapons", "equipSlot": "weapon", "power": 3, "attackRange": 1.8, "cooldown": 1.0, "mods": { "attack": 2 }, "baseValue": 26 },
-    { "id": "armor_cloth", "name": "Cloth Armor", "category": "armor", "equipSlot": "armor", "mods": { "defense": 1 }, "baseValue": 14 },
-    { "id": "armor_chain", "name": "Chain Armor", "category": "armor", "equipSlot": "armor", "mods": { "defense": 3, "agility": -1 }, "baseValue": 55 },
-    { "id": "acc_lucky_charm", "name": "Lucky Charm", "category": "accessories", "equipSlot": "accessory1", "mods": { "agility": 2 }, "baseValue": 70 },
-    { "id": "potion_small", "name": "Small Potion", "category": "consumables", "stackable": true, "baseValue": 8 },
-    { "id": "ore_iron", "name": "Iron Ore", "category": "materials", "stackable": true, "baseValue": 4 },
-    { "id": "gem_amber", "name": "Amber Gem", "category": "materials", "stackable": true, "baseValue": 25 },
-    { "id": "key_ruins", "name": "Ruins Key", "category": "key_items", "stackable": false, "baseValue": 0 }
+    {
+      "id": "weapon_wood_sword",
+      "name": "Wood Sword",
+      "category": "weapons",
+      "equipSlot": "weapon",
+      "rarity": "common",
+      "baseValue": 20,
+      "mods": { "attack": 1 },
+      "weapon": {
+        "schemaVersion": 1,
+        "family": "melee",
+        "subtype": "sword",
+        "damageType": "physical",
+        "animationTemplate": "sword-slash",
+        "restrictions": { "mode": "none", "tags": [], "actorIds": [] },
+        "normalAttack": {
+          "power": 2,
+          "multiplier": 1,
+          "range": 1.3,
+          "cooldown": 0.8,
+          "requiresReload": false,
+          "reloadTime": 0,
+          "resource": { "type": "none", "itemId": "", "cost": 0 }
+        },
+        "specialAttack": {
+          "enabled": true,
+          "preset": "heavy",
+          "power": 3,
+          "multiplier": 1.8,
+          "range": 1.4,
+          "cooldown": 5,
+          "requiresReload": false,
+          "reloadTime": 0,
+          "resource": { "type": "none", "itemId": "", "cost": 0 }
+        },
+        "art": {
+          "icon": { "src": "", "scale": 1, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } },
+          "equipped": { "src": "", "scale": 1, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } },
+          "projectile": { "src": "", "scale": 1, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } }
+        },
+        "futureProgression": { "enabled": false, "schemaVersion": 1 }
+      }
+    },
+    {
+      "id": "weapon_hunter_bow",
+      "name": "Hunter Bow",
+      "category": "weapons",
+      "equipSlot": "weapon",
+      "rarity": "uncommon",
+      "baseValue": 24,
+      "mods": { "agility": 1 },
+      "weapon": {
+        "schemaVersion": 1,
+        "family": "ranged",
+        "subtype": "bow",
+        "damageType": "physical",
+        "animationTemplate": "bow-shot",
+        "restrictions": { "mode": "none", "tags": [], "actorIds": [] },
+        "normalAttack": {
+          "power": 1,
+          "multiplier": 1,
+          "range": 4.5,
+          "cooldown": 0.9,
+          "requiresReload": true,
+          "reloadTime": 2,
+          "projectileSpeed": 10,
+          "resource": { "type": "ammo", "itemId": "ammo_arrow", "cost": 1 }
+        },
+        "specialAttack": {
+          "enabled": true,
+          "preset": "piercing",
+          "power": 2,
+          "multiplier": 0.9,
+          "range": 5,
+          "cooldown": 6,
+          "requiresReload": true,
+          "reloadTime": 2,
+          "projectileSpeed": 12,
+          "maxTargets": 3,
+          "resource": { "type": "ammo", "itemId": "ammo_arrow", "cost": 2 }
+        },
+        "art": {
+          "icon": { "src": "", "scale": 1, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } },
+          "equipped": { "src": "", "scale": 1, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } },
+          "projectile": { "src": "", "scale": 0.7, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } }
+        },
+        "futureProgression": { "enabled": false, "schemaVersion": 1 }
+      }
+    },
+    {
+      "id": "weapon_focus_rod",
+      "name": "Focus Rod",
+      "category": "weapons",
+      "equipSlot": "weapon",
+      "rarity": "rare",
+      "baseValue": 26,
+      "mods": { "attack": 2 },
+      "weapon": {
+        "schemaVersion": 1,
+        "family": "magic",
+        "subtype": "staff",
+        "damageType": "magic",
+        "animationTemplate": "staff-cast",
+        "restrictions": { "mode": "none", "tags": [], "actorIds": [] },
+        "normalAttack": {
+          "power": 3,
+          "multiplier": 1,
+          "range": 4,
+          "cooldown": 1,
+          "requiresReload": false,
+          "reloadTime": 0,
+          "projectileSpeed": 8,
+          "resource": { "type": "mana", "itemId": "", "cost": 2 }
+        },
+        "specialAttack": {
+          "enabled": true,
+          "preset": "area",
+          "power": 4,
+          "multiplier": 1.05,
+          "range": 4.5,
+          "cooldown": 7,
+          "requiresReload": false,
+          "reloadTime": 0,
+          "projectileSpeed": 7,
+          "radius": 2,
+          "resource": { "type": "mana", "itemId": "", "cost": 6 }
+        },
+        "art": {
+          "icon": { "src": "", "scale": 1, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } },
+          "equipped": { "src": "", "scale": 1, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } },
+          "projectile": { "src": "", "scale": 0.85, "rotation": 0, "flipX": false, "crop": { "top": 0, "right": 0, "bottom": 0, "left": 0 } }
+        },
+        "futureProgression": { "enabled": false, "schemaVersion": 1 }
+      }
+    },
+    { "id": "ammo_arrow", "name": "Arrows", "category": "ammunition", "stackable": true, "rarity": "common", "baseValue": 1 },
+    { "id": "ammo_bullet", "name": "Bullets", "category": "ammunition", "stackable": true, "rarity": "common", "baseValue": 2 },
+    { "id": "armor_cloth", "name": "Cloth Armor", "category": "armor", "equipSlot": "armor", "rarity": "common", "mods": { "defense": 1 }, "baseValue": 14 },
+    { "id": "armor_chain", "name": "Chain Armor", "category": "armor", "equipSlot": "armor", "rarity": "uncommon", "mods": { "defense": 3, "agility": -1 }, "baseValue": 55 },
+    { "id": "acc_lucky_charm", "name": "Lucky Charm", "category": "accessories", "equipSlot": "accessory1", "rarity": "rare", "mods": { "agility": 2 }, "baseValue": 70 },
+    { "id": "potion_small", "name": "Small Potion", "category": "consumables", "stackable": true, "rarity": "common", "baseValue": 8 },
+    { "id": "ore_iron", "name": "Iron Ore", "category": "materials", "stackable": true, "rarity": "common", "baseValue": 4 },
+    { "id": "gem_amber", "name": "Amber Gem", "category": "materials", "stackable": true, "rarity": "rare", "baseValue": 25 },
+    { "id": "key_ruins", "name": "Ruins Key", "category": "key_items", "stackable": true, "rarity": "common", "baseValue": 0 }
   ]
 }

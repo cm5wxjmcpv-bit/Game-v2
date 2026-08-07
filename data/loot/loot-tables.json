@@ -1,0 +1,31 @@
+{
+  "lootTables": [
+    {
+      "id": "loot_slime_common",
+      "name": "Common Slime Loot",
+      "entries": [
+        { "id": "slime_coins", "name": "A Few Coins", "rewards": [{ "type": "currency", "currency": "gold", "amount": 4 }] },
+        { "id": "slime_ore", "name": "Iron Ore", "rewards": [{ "type": "item", "itemId": "ore_iron", "count": 1 }] },
+        { "id": "slime_empty", "name": "No Reward", "rewards": [] }
+      ]
+    },
+    {
+      "id": "loot_wolf_field",
+      "name": "Field Predator Loot",
+      "entries": [
+        { "id": "wolf_coins", "name": "Hunt Coins", "rewards": [{ "type": "currency", "currency": "gold", "amount": 8 }] },
+        { "id": "wolf_supplies", "name": "Arrows and Coins", "rewards": [{ "type": "currency", "currency": "gold", "amount": 4 }, { "type": "item", "itemId": "ammo_arrow", "count": 5 }] },
+        { "id": "wolf_potion", "name": "Small Potion", "rewards": [{ "type": "item", "itemId": "potion_small", "count": 1 }] }
+      ]
+    },
+    {
+      "id": "loot_guardian_elite",
+      "name": "Elite Guardian Loot",
+      "entries": [
+        { "id": "guardian_coins", "name": "Guardian Cache", "rewards": [{ "type": "currency", "currency": "gold", "amount": 20 }, { "type": "item", "itemId": "ore_iron", "count": 3 }] },
+        { "id": "guardian_charm", "name": "Lucky Charm", "rewards": [{ "type": "item", "itemId": "acc_lucky_charm", "count": 1 }] },
+        { "id": "guardian_rod", "name": "Focus Rod and Coins", "rewards": [{ "type": "currency", "currency": "gold", "amount": 12 }, { "type": "item", "itemId": "weapon_focus_rod", "count": 1 }] }
+      ]
+    }
+  ]
+}

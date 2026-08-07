@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
 const warnings = [];
+const ignoredAuditDirectories = new Set(['.git', 'node_modules', 'test-results', 'playwright-report', 'blob-report']);
 
 function fail(message) {
   failures.push(message);
@@ -33,7 +34,9 @@ function walk(directory, predicate = () => true) {
   const output = [];
   for (const entry of readdirSync(directory)) {
     const full = path.join(directory, entry);
-    if (statSync(full).isDirectory()) output.push(...walk(full, predicate));
+    if (statSync(full).isDirectory()) {
+      if (!ignoredAuditDirectories.has(entry)) output.push(...walk(full, predicate));
+    }
     else if (predicate(full)) output.push(full);
   }
   return output;

@@ -6,6 +6,9 @@
       "stats": { "maxHp": 32, "attack": 4, "defense": 3, "agility": 2 },
       "growth": { "maxHp": 4, "attack": 1, "defense": 1, "agility": 1 },
       "startingGear": { "weapon": "weapon_wood_sword", "armor": "armor_cloth" },
+      "startingItems": [],
+      "tags": ["melee"],
+      "resources": { "mana": { "max": 10, "regenPerSecond": 0.5 } },
       "movement": { "base": 3.4 },
       "bagSlots": 14
     },
@@ -15,6 +18,9 @@
       "stats": { "maxHp": 24, "attack": 5, "defense": 2, "agility": 4 },
       "growth": { "maxHp": 3, "attack": 2, "defense": 1, "agility": 1 },
       "startingGear": { "weapon": "weapon_hunter_bow", "armor": "armor_cloth" },
+      "startingItems": [{ "itemId": "ammo_arrow", "count": 30 }],
+      "tags": ["ranged"],
+      "resources": { "mana": { "max": 10, "regenPerSecond": 0.5 } },
       "movement": { "base": 3.9 },
       "bagSlots": 16
     },
@@ -24,6 +30,9 @@
       "stats": { "maxHp": 20, "attack": 6, "defense": 1, "agility": 3 },
       "growth": { "maxHp": 3, "attack": 2, "defense": 1, "agility": 1 },
       "startingGear": { "weapon": "weapon_focus_rod", "armor": "armor_cloth" },
+      "startingItems": [],
+      "tags": ["magic"],
+      "resources": { "mana": { "max": 30, "regenPerSecond": 1.5 } },
       "movement": { "base": 3.5 },
       "bagSlots": 15
     }

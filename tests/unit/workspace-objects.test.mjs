@@ -22,7 +22,7 @@ const scene = {
 
 test('legacy object collections include all supported arrays without dropping unknown object groups', () => {
   const normalized = ensureLegacyObjectCollections({ ...scene, objects: { ...scene.objects, signs: [{ x: 3, y: 4 }] } });
-  assert.deepEqual(LEGACY_OBJECT_TYPES, ['portals', 'shops', 'fountains', 'enemySpawns', 'battleTriggers']);
+  assert.deepEqual(LEGACY_OBJECT_TYPES, ['portals', 'shops', 'fountains', 'enemySpawns', 'battleTriggers', 'rewardPickups']);
   for (const type of LEGACY_OBJECT_TYPES) assert.ok(Array.isArray(normalized.objects[type]));
   assert.deepEqual(normalized.objects.signs, [{ x: 3, y: 4 }]);
 });
@@ -47,6 +47,8 @@ test('legacy object validation enforces coordinates and type-specific requiremen
   assert.deepEqual(validateLegacyObject('portals', { x: 1, y: 1 }, scene), ['A portal requires a target town, scene, level, or level list.']);
   assert.deepEqual(validateLegacyObject('battleTriggers', { x: 8, y: 6, width: 3, height: 3, encounterId: 'ambush' }, scene), ['The battle trigger area must remain inside the selected scene.']);
   assert.deepEqual(validateLegacyObject('battleTriggers', { x: 2, y: 2, width: 2, height: 2, enemies: ['slime'] }, scene), []);
+  assert.deepEqual(validateLegacyObject('rewardPickups', { id: 'chest_1', x: 2, y: 2, rewardPackageId: 'starter_reward', respawnSeconds: 60 }, scene), []);
+  assert.deepEqual(validateLegacyObject('rewardPickups', { id: '', x: 2, y: 2 }, scene), ['A reward pickup requires a unique ID.', 'A reward pickup requires a fixed reward package or reusable loot table.']);
 });
 
 test('legacy objects can be added, edited, and removed without mutating the source scene', () => {

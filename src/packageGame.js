@@ -32,6 +32,7 @@ export class PackageGame extends Game {
 
     this.player = createPlayer(actorData, this.db.itemsById, this.db.world.start);
     this.ensureBattleProgressState();
+    this.ensurePlayerRuntimeState();
     this.ensurePlayerAnimationState();
 
     const startSceneId = this.db.game?.startScene?.id || this.currentTownId;

@@ -1,0 +1,45 @@
+{
+  "rewardPackages": [
+    {
+      "id": "starter_field_cache",
+      "name": "Starter Field Cache",
+      "rewards": [
+        { "type": "currency", "currency": "gold", "amount": 12 },
+        { "type": "item", "itemId": "ammo_arrow", "count": 8 }
+      ]
+    }
+  ],
+  "completionRewards": [
+    {
+      "id": "level_fields_completion",
+      "name": "Starter Level Completion",
+      "source": { "type": "level", "id": "level_fields" },
+      "reveal": true,
+      "tiers": [
+        {
+          "id": "level_fields_tier_1",
+          "name": "First Completion",
+          "rewards": [
+            { "type": "currency", "currency": "gold", "amount": 25 },
+            { "type": "item", "itemId": "weapon_hunter_bow", "count": 1 }
+          ]
+        },
+        {
+          "id": "level_fields_tier_2",
+          "name": "Second Completion",
+          "rewards": [
+            { "type": "currency", "currency": "gold", "amount": 12 },
+            { "type": "item", "itemId": "potion_small", "count": 1 }
+          ]
+        },
+        {
+          "id": "level_fields_tier_3",
+          "name": "Third and Later Completions",
+          "rewards": [
+            { "type": "currency", "currency": "gold", "amount": 5 }
+          ]
+        }
+      ]
+    }
+  ]
+}
