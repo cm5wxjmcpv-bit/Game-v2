@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Testing Space & Level Library</title>
+  <title>Testing Space & Map Library</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="testing-space.css" />
 </head>
@@ -11,24 +11,24 @@
   <header class="site-header testing-header">
     <div>
       <p class="testing-kicker">PIXEL ENGINE</p>
-      <h1>Testing Space & Level Library</h1>
-      <p>Build levels outside a game, keep multiple drafts, reopen them later, and preview them before assigning them to a game project.</p>
+      <h1>Testing Space & Map Library</h1>
+      <p>Build towns, levels, and buildings outside a game, keep multiple drafts, reopen them later, and preview them before assigning them to a game project.</p>
     </div>
     <div class="testing-header-actions">
       <a class="file-label" href="../">Main Hub</a>
-      <a class="file-label" href="testing-editor.html?testing=new">New Testing Level</a>
+      <a class="file-label" href="testing-editor.html?testing=new">New Testing Map</a>
     </div>
   </header>
 
   <main class="testing-shell">
     <section class="panel testing-summary-panel">
       <div>
-        <h2>Saved Testing Levels</h2>
+        <h2>Saved Testing Maps</h2>
         <p id="testingSummary">Loading testing library…</p>
       </div>
       <div class="testing-summary-actions">
-        <a class="testing-primary-link" href="testing-editor.html?testing=new">Build New Level</a>
-        <label for="testingImportInput" class="file-label">Import Level JSON</label>
+        <a class="testing-primary-link" href="testing-editor.html?testing=new">Build New Map</a>
+        <label for="testingImportInput" class="file-label">Import Map JSON</label>
         <input id="testingImportInput" type="file" accept="application/json" />
       </div>
       <p id="testingMessage" class="message" role="status" aria-live="polite"></p>
@@ -46,12 +46,12 @@
     <form id="testingAddForm" class="testing-add-form">
       <div>
         <p class="testing-kicker">COPY TO GAME WORKSPACE</p>
-        <h2 id="testingAddHeading">Add Testing Level to Game</h2>
+        <h2 id="testingAddHeading">Add Testing Map to Game</h2>
         <p id="testingAddLevelLabel" class="testing-add-level-label"></p>
       </div>
       <label class="field-label" for="testingAddGameSelect">Game Project</label>
       <select id="testingAddGameSelect" class="text-input" required></select>
-      <p class="small">This creates a separate game copy and stages its world registration and used custom textures. Your Testing Space level remains independent.</p>
+      <p class="small">This creates a separate game copy and stages its world registration and used custom textures. Your Testing Space map remains independent.</p>
       <p id="testingAddStatus" class="message" role="status" aria-live="polite"></p>
       <div class="testing-add-actions">
         <button id="testingAddCancelBtn" type="button" class="secondary-btn">Cancel</button>
