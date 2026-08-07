@@ -176,9 +176,10 @@ async function loadProjectRequest({ id, meta, requestId }) {
     _workspaceSource: directIds.has(actor.id) ? 'direct actor' : 'legacy class',
   }));
 
-  const [towns, levels, scenes, tileColors] = await Promise.all([
+  const [towns, levels, buildings, scenes, tileColors] = await Promise.all([
     loadSceneGroup(world.towns || [], data.townsDirectory, 'town', contentRootUrl),
     loadSceneGroup(world.levels || [], data.levelsDirectory, 'level', contentRootUrl),
+    loadSceneGroup(world.buildings || [], data.buildingsDirectory, 'building', contentRootUrl),
     loadSceneGroup(world.scenes || [], data.scenesDirectory, 'scene', contentRootUrl),
     loadTileColors(data, contentRootUrl),
   ]);
@@ -190,7 +191,7 @@ async function loadProjectRequest({ id, meta, requestId }) {
   state.manifestUrl = manifestUrl;
   state.contentRootUrl = contentRootUrl;
   state.actors = actors;
-  state.scenes = [...towns, ...levels, ...scenes];
+  state.scenes = [...towns, ...levels, ...buildings, ...scenes];
   state.items = Array.isArray(itemsPayload.items) ? itemsPayload.items : [];
   state.shopPayload = {
     ...shopPayload,
@@ -666,8 +667,10 @@ function restoreDraft() {
       const sourceById = Object.fromEntries(state.scenes.map((scene) => [scene.id, scene]));
       state.scenes = draft.scenes.map((scene) => ({
         ...normalizeScene(scene),
-        _workspaceKind: sourceById[scene.id]?._workspaceKind || 'scene',
-        _workspacePath: sourceById[scene.id]?._workspacePath || '',
+        _workspaceKind: sourceById[scene.id]?._workspaceKind || (scene.mapType === 'building' ? 'building' : 'scene'),
+        _workspacePath: sourceById[scene.id]?._workspacePath || (scene.mapType === 'building' && state.manifest?.data?.buildingsDirectory
+          ? fileIn(state.manifest.data.buildingsDirectory, scene.id)
+          : ''),
       }));
     }
     if (Array.isArray(draft.items)) state.items = draft.items;
