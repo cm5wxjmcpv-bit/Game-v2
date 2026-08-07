@@ -33,6 +33,7 @@
     "encounters": "data/core.json",
     "encounterTables": "data/core.json",
     "townsDirectory": "data/towns",
-    "levelsDirectory": "data/levels"
+    "levelsDirectory": "data/levels",
+    "buildingsDirectory": "data/buildings"
   }
 }
