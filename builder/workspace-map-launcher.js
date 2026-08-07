@@ -118,11 +118,11 @@ function consumeReturnedMap() {
     const textureText = transaction.incomingTextures.length
       ? ` ${transaction.incomingTextures.length} used custom texture(s) were registered for publishing.`
       : '';
-    writeNotice(`Map returned for “${result.sceneId}”. Tiles, size, name, and spawn were updated; existing objects, entities, and tile permissions were preserved.${textureText} Add enemies in Scene Objects and NPCs or text boxes in Scene & Entities, then publish for testing.`);
+    writeNotice(`Level returned for “${result.sceneId}”. Tiles, size, name, and spawn were updated; existing objects, entities, and tile permissions were preserved.${textureText} Add enemies in Scene Objects and NPCs or text boxes in Scene & Entities, then publish for testing.`);
     localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
     localStorage.removeItem(MAP_BRIDGE_HANDOFF_KEY);
   } catch (error) {
-    writeNotice(`Map return was not saved: ${error.message} The previous map and texture drafts were restored, and the returned data was kept. Free browser storage if needed, then reload this workspace to retry.`, true);
+    writeNotice(`Level return was not saved: ${error.message} The previous map and texture drafts were restored, and the returned data was kept. Free browser storage if needed, then reload this workspace to retry.`, true);
   }
 }
 
@@ -133,7 +133,7 @@ function installMapEditorButton() {
   button.id = 'openMapEditorBtn';
   button.type = 'button';
   button.className = 'secondary-btn';
-  button.textContent = 'Build Map & Textures';
+  button.textContent = 'Build Level & Textures';
   button.addEventListener('click', openSelectedSceneInMapEditor);
   exportButton.parentElement?.prepend(button);
 }
