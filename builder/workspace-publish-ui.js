@@ -227,7 +227,7 @@ function buildProjectContentFiles(baseline, current, assetFiles) {
     for (const [key, value] of Object.entries(asset.currentPayload || {})) {
       if (!sameJson(value, asset.baselinePayload?.[key])) file.currentPayload[key] = clone(value);
     }
-    file.kinds.add('tiles/textures');
+    file.kinds.add(asset.kind || 'tiles/textures');
   }
   return [...grouped.values()].map((file) => ({
     path: file.path,
@@ -251,7 +251,7 @@ async function refreshPublishPlan() {
     const baseline = await loadRepositoryBaseline(projectId);
     const current = readCurrentDraft(projectId, baseline);
     const assetDraft = readWorkspaceAssetDraft(projectId);
-    const assetFiles = assetDraft.textures.length
+    const assetFiles = assetDraft.textures.length || assetDraft.files?.length
       ? buildWorkspaceAssetFileChanges({
         assetDraft,
         tilesSource: baseline.tilesSource,
