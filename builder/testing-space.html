@@ -38,9 +38,27 @@
 
     <section class="panel testing-next-panel">
       <h2>Game Assignment</h2>
-      <p>Testing levels stay separate from every game until you intentionally add one to a game project. The saved library created here is the foundation for that next connection, so experimental maps cannot accidentally overwrite a published game level.</p>
+      <p><strong>Add to Game</strong> makes an independent copy in the selected game workspace. It does not change or delete the Testing Space original, does not overwrite an existing scene with the same ID, and does not publish automatically. Review the copied scene in the game workspace, then use its normal Publish tab when it is ready.</p>
     </section>
   </main>
+
+  <dialog id="testingAddDialog" class="testing-add-dialog" aria-labelledby="testingAddHeading">
+    <form id="testingAddForm" class="testing-add-form">
+      <div>
+        <p class="testing-kicker">COPY TO GAME WORKSPACE</p>
+        <h2 id="testingAddHeading">Add Testing Level to Game</h2>
+        <p id="testingAddLevelLabel" class="testing-add-level-label"></p>
+      </div>
+      <label class="field-label" for="testingAddGameSelect">Game Project</label>
+      <select id="testingAddGameSelect" class="text-input" required></select>
+      <p class="small">This creates a separate game copy and stages its world registration and used custom textures. Your Testing Space level remains independent.</p>
+      <p id="testingAddStatus" class="message" role="status" aria-live="polite"></p>
+      <div class="testing-add-actions">
+        <button id="testingAddCancelBtn" type="button" class="secondary-btn">Cancel</button>
+        <button id="testingAddConfirmBtn" type="submit">Add to Game Workspace</button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="testing-space.js"></script>
 </body>
