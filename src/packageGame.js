@@ -19,6 +19,7 @@ export class PackageGame extends Game {
       this.startNew.bind(this),
       this.tryLoadSave.bind(this),
       this.db.actors,
+      { saveEnabled: this.db.game.saveEnabled !== false },
     );
   }
 

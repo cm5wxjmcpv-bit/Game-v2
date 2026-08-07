@@ -6,8 +6,8 @@ const PR_PATTERN = /^\d+$/;
 const LEGACY_SAVE_KEYS = new Set(['pixel_engine_save_v2', 'pixel_engine_save_v1']);
 
 const params = new URL(window.location.href).searchParams;
-const gameId = String(params.get('game') || '').trim();
-const sceneId = String(params.get('scene') || '').trim();
+const gameId = String(params.get('game') || '').trim().toLowerCase();
+const sceneId = String(params.get('scene') || '').trim().toLowerCase();
 const commitSha = String(params.get('previewCommit') || '').trim().toLowerCase();
 const pullRequestNumber = String(params.get('previewPr') || '').trim();
 const dom = {

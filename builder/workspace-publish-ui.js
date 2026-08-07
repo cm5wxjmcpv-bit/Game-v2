@@ -19,7 +19,7 @@ const dom = Object.fromEntries([
   'publishPreviewLink',
 ].map((id) => [id, document.getElementById(id)]));
 
-const state = { plan: null, loading: false, publishing: false };
+const state = { plan: null, loading: false, submitting: false, publishing: false };
 
 bindEvents();
 
@@ -129,6 +129,9 @@ async function loadRepositoryBaseline(projectId) {
 
 function readCurrentDraft(projectId, baseline) {
   dom.saveDraftBtn.click();
+  if (dom.saveDraftBtn.dataset.saveStatus === 'error') {
+    throw new Error('The current workspace draft could not be saved in browser storage. Free storage and try again.');
+  }
   const raw = localStorage.getItem(`${DRAFT_PREFIX}${projectId}`);
   if (!raw) throw new Error('The workspace draft could not be saved.');
   const draft = JSON.parse(raw);
@@ -229,26 +232,34 @@ function renderPublishPlan() {
 function updatePublishButton() {
   const usablePlan = state.plan && !state.plan.errors.length && state.plan.files.length > 0;
   dom.publishDraftPrBtn.disabled = Boolean(
-    state.loading || state.publishing || !usablePlan ||
+    state.loading || state.submitting || state.publishing || !usablePlan ||
     !dom.publishConfirmInput.checked || !dom.publishTokenInput.value.trim()
   );
 }
 
 async function publishDraftPullRequest(event) {
   event.preventDefault();
-  if (state.publishing) return;
-  await refreshPublishPlan();
-  if (!state.plan || state.plan.errors.length || !state.plan.files.length) return;
-  if (!dom.publishConfirmInput.checked) return setPublishStatus('Review and confirm the file list before publishing.', true);
-  const token = dom.publishTokenInput.value.trim();
-  if (!token) return setPublishStatus('A fine-grained GitHub token is required.', true);
-
-  state.publishing = true;
+  if (state.submitting || state.publishing) return;
+  state.submitting = true;
   dom.publishPrLink.hidden = true;
   dom.publishPreviewLink.hidden = true;
   updatePublishButton();
-  setPublishStatus('Comparing all planned files with current main and creating a testing branch…');
   try {
+    await refreshPublishPlan();
+    if (!state.plan || state.plan.errors.length || !state.plan.files.length) return;
+    if (!dom.publishConfirmInput.checked) {
+      setPublishStatus('Review and confirm the file list before publishing.', true);
+      return;
+    }
+    const token = dom.publishTokenInput.value.trim();
+    if (!token) {
+      setPublishStatus('A fine-grained GitHub token is required.', true);
+      return;
+    }
+
+    state.publishing = true;
+    updatePublishButton();
+    setPublishStatus('Comparing all planned files with current main and creating a testing branch…');
     const result = await publishWorkspacePlan({
       token,
       plan: state.plan,
@@ -272,6 +283,7 @@ async function publishDraftPullRequest(event) {
   } catch (error) {
     setPublishStatus(`Publish failed: ${error.message}`, true);
   } finally {
+    state.submitting = false;
     state.publishing = false;
     updatePublishButton();
   }

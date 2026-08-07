@@ -74,24 +74,43 @@ export function normalizeActor(actor = {}) {
     name: String(actor.name || id),
     components: {
       ...components,
-      movement: { speed: finiteNumber(components.movement?.speed, 3, 0) },
-      health: { max: finiteNumber(components.health?.max, 10, 1) },
+      movement: {
+        ...(components.movement || {}),
+        speed: finiteNumber(components.movement?.speed, 3, 0),
+      },
+      health: {
+        ...(components.health || {}),
+        max: finiteNumber(components.health?.max, 10, 1),
+      },
       combat: {
+        ...(components.combat || {}),
         attack: finiteNumber(components.combat?.attack, 0),
         defense: finiteNumber(components.combat?.defense, 0),
         agility: finiteNumber(components.combat?.agility, 0),
         growth: { ...(components.combat?.growth || {}) },
       },
-      wallet: { starting: finiteNumber(components.wallet?.starting, 0) },
+      wallet: {
+        ...(components.wallet || {}),
+        starting: finiteNumber(components.wallet?.starting, 0),
+      },
       inventory: {
+        ...(components.inventory || {}),
         slots: integer(components.inventory?.slots, 0, 0),
         maxStack: integer(components.inventory?.maxStack, 99, 1),
       },
-      equipment: { starting: { ...(components.equipment?.starting || {}) } },
-      progression: { enabled: components.progression?.enabled !== false },
+      equipment: {
+        ...(components.equipment || {}),
+        starting: { ...(components.equipment?.starting || {}) },
+      },
+      progression: {
+        ...(components.progression || {}),
+        enabled: components.progression?.enabled !== false,
+      },
       render: {
+        ...(components.render || {}),
         sprite: sprite && sprite.imagePath ? { ...sprite } : null,
         fallback: {
+          ...fallback,
           shape: ['square', 'circle', 'diamond'].includes(fallback.shape) ? fallback.shape : DEFAULT_FALLBACK.shape,
           color: /^#[0-9a-f]{6}$/i.test(String(fallback.color || '')) ? String(fallback.color).toLowerCase() : DEFAULT_FALLBACK.color,
           size: finiteNumber(fallback.size, DEFAULT_FALLBACK.size, 4),
@@ -131,18 +150,21 @@ export function normalizeEntity(entity = {}, index = 0) {
     components: {
       ...components,
       render: {
+        ...render,
         shape: ['square', 'circle', 'diamond'].includes(render.shape) ? render.shape : 'square',
         color: /^#[0-9a-f]{6}$/i.test(String(render.color || '')) ? String(render.color).toLowerCase() : '#facc15',
         size: finiteNumber(render.size, 16, 4),
         imagePath: String(render.imagePath || ''),
       },
       interaction: {
+        ...interaction,
         action: ['none', 'message', 'scene'].includes(interaction.action) ? interaction.action : 'none',
         message: String(interaction.message || ''),
         targetScene: normalizeId(interaction.targetScene, ''),
         range: finiteNumber(interaction.range, 1.1, 0.1),
       },
       collision: {
+        ...collision,
         solid: Boolean(collision.solid),
         radius: finiteNumber(collision.radius, 0.42, 0.05),
       },
@@ -153,6 +175,8 @@ export function normalizeEntity(entity = {}, index = 0) {
 export function normalizeScene(scene = {}) {
   const width = integer(scene.width, 1, 1);
   const height = integer(scene.height, 1, 1);
+  const spawn = scene.spawn && typeof scene.spawn === 'object' ? scene.spawn : {};
+  const objects = scene.objects && typeof scene.objects === 'object' ? scene.objects : {};
   const tiles = Array.from({ length: height }, (_, row) => {
     const source = Array.isArray(scene.tiles?.[row]) ? scene.tiles[row] : [];
     return Array.from({ length: width }, (_, col) => String(source[col] || 'empty'));
@@ -165,15 +189,17 @@ export function normalizeScene(scene = {}) {
     height,
     tiles,
     spawn: {
-      x: finiteNumber(scene.spawn?.x, 0, 0),
-      y: finiteNumber(scene.spawn?.y, 0, 0),
+      ...spawn,
+      x: finiteNumber(spawn.x, 0, 0),
+      y: finiteNumber(spawn.y, 0, 0),
     },
     objects: {
-      portals: [...(scene.objects?.portals || [])],
-      shops: [...(scene.objects?.shops || [])],
-      fountains: [...(scene.objects?.fountains || [])],
-      enemySpawns: [...(scene.objects?.enemySpawns || [])],
-      battleTriggers: [...(scene.objects?.battleTriggers || [])],
+      ...objects,
+      portals: [...(objects.portals || [])],
+      shops: [...(objects.shops || [])],
+      fountains: [...(objects.fountains || [])],
+      enemySpawns: [...(objects.enemySpawns || [])],
+      battleTriggers: [...(objects.battleTriggers || [])],
     },
     entities: (scene.entities || []).map(normalizeEntity),
   };

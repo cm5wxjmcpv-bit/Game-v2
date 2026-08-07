@@ -90,3 +90,102 @@ test('workspace publish plan reports no changes without requesting a token', asy
   await expect(page.locator('#publishPlanSummary')).toContainText('no changed game files');
   await expect(page.locator('#publishDraftPrBtn')).toBeDisabled();
 });
+
+test('workspace publish refuses a stale draft when the current save fails', async ({ page }) => {
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await page.locator('#saveDraftBtn').click();
+  await expect(page.locator('#workspaceMessage')).toContainText('saved');
+  await page.locator('#workspaceActorTabBtn').click();
+  await page.locator('#actorList [data-actor-id="scene_actor"]').click();
+  await page.locator('#actorNameInput').fill('Unsaved Publish Actor');
+  await page.locator('#saveActorBtn').click();
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function failCurrentPublishDraft(key, value) {
+      if (String(key) === 'pixel_engine_builder_workspace_scene-demo') {
+        throw new DOMException('Audit quota reached', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await page.locator('#workspacePublishTabBtn').click();
+
+  await expect(page.locator('#publishStatus')).toContainText(/current workspace draft could not be saved/i);
+  await expect(page.locator('#publishStatus')).toHaveClass(/error/);
+  await expect(page.locator('#publishPlanSummary')).toContainText('No publish plan');
+  await expect(page.locator('#publishDraftPrBtn')).toBeDisabled();
+  const storedActorName = await page.evaluate(() => {
+    const draft = JSON.parse(localStorage.getItem('pixel_engine_builder_workspace_scene-demo'));
+    return draft.actors.find((actor) => actor.id === 'scene_actor').name;
+  });
+  expect(storedActorName).toBe('Scene Explorer');
+});
+
+test('rapid publish submission creates only one draft pull request', async ({ page }) => {
+  const actorFile = await fs.readFile('games/scene-demo/data/actors.json', 'utf8');
+  let delayBaseline = false;
+  let delayedRequests = 0;
+  let releaseBaseline;
+  const baselineGate = new Promise((resolve) => { releaseBaseline = resolve; });
+  let pullRequestCalls = 0;
+  let lastApiCallAt = 0;
+
+  await page.route('**/games/scene-demo/data/actors.json', async (route) => {
+    if (delayBaseline) {
+      delayedRequests += 1;
+      await baselineGate;
+    }
+    await route.continue();
+  });
+  await page.route('https://api.github.com/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method();
+    lastApiCallAt = Date.now();
+    if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: corsHeaders, body: '' });
+    const body = request.postDataJSON?.() || null;
+    if (url.pathname === '/repos/cm5wxjmcpv-bit/Game-v2') return json(route, { full_name: 'cm5wxjmcpv-bit/Game-v2' });
+    if (url.pathname.endsWith('/git/ref/heads/main')) return json(route, { object: { sha: 'base-sha' } });
+    if (url.pathname.includes('/contents/games/scene-demo/data/actors.json')) {
+      return json(route, { type: 'file', encoding: 'base64', content: Buffer.from(actorFile).toString('base64') });
+    }
+    if (url.pathname.endsWith('/git/commits/base-sha')) return json(route, { tree: { sha: 'base-tree' } });
+    if (url.pathname.endsWith('/git/blobs')) return json(route, { sha: 'actor-blob' }, 201);
+    if (url.pathname.endsWith('/git/trees')) return json(route, { sha: 'publish-tree' }, 201);
+    if (url.pathname.endsWith('/git/commits')) return json(route, { sha: publishCommitSha }, 201);
+    if (url.pathname.endsWith('/git/refs')) return json(route, { ref: body.ref }, 201);
+    if (url.pathname.endsWith('/pulls')) {
+      pullRequestCalls += 1;
+      lastApiCallAt = Date.now();
+      return json(route, {
+        number: 30 + pullRequestCalls,
+        html_url: `https://github.com/cm5wxjmcpv-bit/Game-v2/pull/${30 + pullRequestCalls}`,
+      }, 201);
+    }
+    return json(route, { message: `Unexpected ${method} ${url.pathname}` }, 404);
+  });
+
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await page.locator('#workspaceActorTabBtn').click();
+  await page.locator('#actorList [data-actor-id="scene_actor"]').click();
+  await page.locator('#actorNameInput').fill('Single Publish Explorer');
+  await page.locator('#saveActorBtn').click();
+  await page.locator('#workspacePublishTabBtn').click();
+  await expect(page.locator('#publishPlanSummary')).toContainText('draft pull request');
+  await page.locator('#publishTokenInput').fill('github_pat_single_submit_test');
+  await page.locator('#publishConfirmInput').check();
+  await expect(page.locator('#publishDraftPrBtn')).toBeEnabled();
+
+  delayBaseline = true;
+  await page.locator('#publishDraftPrBtn').dblclick({ delay: 20 });
+  await expect.poll(() => delayedRequests).toBe(1);
+  releaseBaseline();
+
+  await expect.poll(() => pullRequestCalls, { timeout: 5_000 }).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => Date.now() - lastApiCallAt, { timeout: 5_000 }).toBeGreaterThan(500);
+  expect(pullRequestCalls).toBe(1);
+  await expect(page.locator('#publishStatus')).toContainText('Draft pull request');
+});

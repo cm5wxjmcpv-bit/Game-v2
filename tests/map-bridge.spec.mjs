@@ -190,3 +190,48 @@ test('map bridge without a workspace handoff fails safely', async ({ page }) => 
   await expect(page.locator('#cancelBridgeBtn')).toContainText('Back to Workspace');
   monitor.assertClean('missing map bridge handoff');
 });
+
+test('map bridge keeps return available after a correctable validation error', async ({ page }) => {
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await page.locator('#openMapEditorBtn').click();
+  await expect(page).toHaveURL(/\/builder\/map-bridge\.html$/);
+
+  const builder = page.frameLocator('#builderFrame');
+  await expect(page.locator('#returnBridgeBtn')).toBeEnabled();
+  await builder.locator('#layerObjectBtn').click();
+  await builder.locator('#eraserBtn').click();
+  await builder.locator('.cell[data-row="1"][data-col="1"]').click();
+
+  await page.locator('#returnBridgeBtn').click();
+  await expect(page.locator('#bridgeStatus')).toContainText(/Place one Player Start/i);
+  await expect(page.locator('#returnBridgeBtn')).toBeEnabled();
+
+  await builder.locator('.tile-btn[data-tile-id="player_start"]').click();
+  await builder.locator('.cell[data-row="1"][data-col="1"]').click();
+  await page.locator('#returnBridgeBtn').click();
+  await expect(page).toHaveURL(/\/builder\/workspace\.html\?game=scene-demo$/);
+  await expect(page.locator('#workspaceMessage')).toContainText('Level returned');
+});
+
+test('map bridge rejects a tampered external return URL', async ({ page, context }) => {
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await page.locator('#openMapEditorBtn').click();
+  await expect(page).toHaveURL(/\/builder\/map-bridge\.html$/);
+  await expect(page.locator('#returnBridgeBtn')).toBeEnabled();
+  await page.evaluate(() => {
+    const key = 'pixel_engine_builder_map_bridge_handoff_v1';
+    const handoff = JSON.parse(localStorage.getItem(key));
+    handoff.returnUrl = 'javascript:window.__unsafeBridgeReturnExecuted=true';
+    localStorage.setItem(key, JSON.stringify(handoff));
+  });
+
+  const tamperedPage = await context.newPage();
+  await tamperedPage.goto('/builder/map-bridge.html');
+  await expect(tamperedPage.locator('#returnBridgeBtn')).toBeEnabled();
+  tamperedPage.once('dialog', (dialog) => dialog.accept());
+  await tamperedPage.locator('#cancelBridgeBtn').click();
+  await expect(tamperedPage).toHaveURL(/\/builder\/workspace\.html\?game=scene-demo$/);
+  expect(await tamperedPage.evaluate(() => window.__unsafeBridgeReturnExecuted || false)).toBe(false);
+});

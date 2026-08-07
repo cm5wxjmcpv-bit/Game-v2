@@ -5,7 +5,7 @@ const overlay = document.getElementById('overlay');
 function syncLoadButton() {
   const button = document.getElementById('load-game');
   if (!button) return;
-  const hasValidSave = Boolean(loadGame());
+  const hasValidSave = button.dataset.saveEnabled !== 'false' && Boolean(loadGame());
   button.hidden = !hasValidSave;
   button.disabled = !hasValidSave;
   button.setAttribute('aria-hidden', String(!hasValidSave));

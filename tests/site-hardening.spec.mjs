@@ -109,12 +109,33 @@ test('rapid package switching finishes on the final requested project', async ({
   monitor.assertClean('rapid package switching');
 });
 
+test('a failed stale project request cannot surface after a newer project loads', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.route('**/games/sample-rpg/game.json', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"expected audit failure"}' });
+  });
+
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  const staleRequest = page.waitForRequest(/\/games\/sample-rpg\/game\.json$/);
+  await page.locator('#projectSelect').selectOption('sample-rpg');
+  await staleRequest;
+  await page.locator('#projectSelect').selectOption('scene-demo');
+
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await expect(page.locator('#sceneSelect')).toHaveValue('scene_lab');
+  await page.waitForTimeout(350);
+  expect(pageErrors).toEqual([]);
+});
+
 test('workspace primary controls are keyboard reachable', async ({ page }) => {
   await page.goto('/builder/workspace.html?game=scene-demo');
   await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
 
   const reached = await page.evaluate(async () => {
-    const targets = new Set(['projectSelect', 'loadProjectBtn', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn']);
+    const targets = new Set(['projectSelect', 'loadProjectBtn', 'saveDraftBtn', 'workspaceSceneTabBtn']);
     const visited = [];
     for (let index = 0; index < 40; index += 1) {
       document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
@@ -132,7 +153,7 @@ test('workspace primary controls are keyboard reachable', async ({ page }) => {
     await page.keyboard.press('Tab');
     realVisited.push(await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName || ''));
   }
-  for (const id of ['projectSelect', 'loadProjectBtn', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn']) {
+  for (const id of ['projectSelect', 'loadProjectBtn', 'saveDraftBtn', 'workspaceSceneTabBtn']) {
     expect.soft(realVisited, `keyboard focus should reach ${id}; diagnostic=${reached.join(',')}`).toContain(id);
   }
 });
@@ -150,4 +171,63 @@ test('builder tab controls remain operable with keyboard activation', async ({ p
   await page.keyboard.press('Space');
   await expect(page.locator('#textureBuilderTab')).toHaveClass(/active/);
   monitor.assertClean('builder keyboard tabs');
+});
+
+test('builder tabs expose synchronized accessible tab semantics', async ({ page }) => {
+  await page.goto('/builder/');
+  const tabs = [
+    ['tabMapEditorBtn', 'mapEditorTab'],
+    ['tabViewerBtn', 'viewerTab'],
+    ['tabItemEditorBtn', 'itemEditorTab'],
+    ['tabTextureBuilderBtn', 'textureBuilderTab'],
+  ];
+  await expect(page.locator('.tab-bar').first()).toHaveAttribute('role', 'tablist');
+
+  for (const [buttonId, panelId] of tabs) {
+    const button = page.locator(`#${buttonId}`);
+    const panel = page.locator(`#${panelId}`);
+    await expect(button).toHaveAttribute('role', 'tab');
+    await expect(button).toHaveAttribute('aria-controls', panelId);
+    await expect(panel).toHaveAttribute('role', 'tabpanel');
+    await expect(panel).toHaveAttribute('aria-labelledby', buttonId);
+    await button.click();
+    await expect(button).toHaveAttribute('aria-selected', 'true');
+    await expect(panel).toBeVisible();
+    await expectNoHorizontalOverflow(page, `builder tab ${buttonId}`);
+  }
+});
+
+test('every workspace workflow panel remains contained after activation', async ({ page }) => {
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await expect(page.locator('#workspaceObjectsTabBtn')).toBeVisible();
+  const tabs = [
+    ['workspaceSceneTabBtn', 'workspaceSceneTab'],
+    ['workspaceActorTabBtn', 'workspaceActorTab'],
+    ['workspaceObjectsTabBtn', 'workspaceObjectsTab'],
+    ['workspaceNewGameTabBtn', 'workspaceNewGameTab'],
+    ['workspacePublishTabBtn', 'workspacePublishTab'],
+  ];
+
+  for (const [buttonId, panelId] of tabs) {
+    const button = page.locator(`#${buttonId}`);
+    const panel = page.locator(`#${panelId}`);
+    await expect(button).toHaveAttribute('role', 'tab');
+    await expect(button).toHaveAttribute('aria-controls', panelId);
+    await expect(panel).toHaveAttribute('role', 'tabpanel');
+    await expect(panel).toHaveAttribute('aria-labelledby', buttonId);
+    await button.click();
+    await expect(button).toHaveAttribute('aria-selected', 'true');
+    await expect(button).toHaveAttribute('tabindex', '0');
+    await expect(panel).toHaveAttribute('aria-hidden', 'false');
+    await expect(panel).toBeVisible();
+    await expectNoHorizontalOverflow(page, `workspace tab ${buttonId}`);
+  }
+
+  await page.locator('#workspaceSceneTabBtn').click();
+  await page.locator('#workspaceSceneTabBtn').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#workspaceActorTabBtn')).toBeFocused();
+  await expect(page.locator('#workspaceActorTabBtn')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#workspaceActorTab')).toBeVisible();
 });

@@ -16,7 +16,7 @@ export function getActiveGameId() {
 
   const params = new URL(currentPageUrl()).searchParams;
   const requested = String(params.get('game') || DEFAULT_GAME_ID).trim();
-  activeGameId = GAME_ID_PATTERN.test(requested) ? requested : DEFAULT_GAME_ID;
+  activeGameId = GAME_ID_PATTERN.test(requested) ? requested.toLowerCase() : DEFAULT_GAME_ID;
   return activeGameId;
 }
 

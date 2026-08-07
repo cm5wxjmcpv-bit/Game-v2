@@ -758,11 +758,7 @@
   }
 
   function saveCustomTextureLibraryToStorage(library) {
-    try {
-      window.localStorage.setItem(CUSTOM_TEXTURE_LIBRARY_STORAGE_KEY, JSON.stringify(library));
-    } catch (error) {
-      // Ignore storage failures and keep app usable.
-    }
+    window.localStorage.setItem(CUSTOM_TEXTURE_LIBRARY_STORAGE_KEY, JSON.stringify(library));
   }
 
   function buildCustomTexturePreviewData(pixels) {
@@ -976,9 +972,16 @@
   }
 
   function renderGrid() {
+    const activeCell = document.activeElement?.closest?.('.cell');
+    const focusedRow = Number(activeCell?.dataset.row);
+    const focusedCol = Number(activeCell?.dataset.col);
+    const restoreFocus = Number.isInteger(focusedRow) && Number.isInteger(focusedCol);
+    let focusTarget = null;
     dom.gridContainer.innerHTML = '';
     dom.gridContainer.style.setProperty('--grid-width', String(state.width));
     dom.gridContainer.style.setProperty('--grid-height', String(state.height));
+    dom.gridContainer.setAttribute('aria-rowcount', String(state.height));
+    dom.gridContainer.setAttribute('aria-colcount', String(state.width));
 
     for (let row = 0; row < state.height; row += 1) {
       for (let col = 0; col < state.width; col += 1) {
@@ -988,7 +991,16 @@
         cell.className = 'cell';
         cell.dataset.row = String(row);
         cell.dataset.col = String(col);
+        cell.setAttribute('role', 'gridcell');
+        cell.setAttribute('aria-rowindex', String(row + 1));
+        cell.setAttribute('aria-colindex', String(col + 1));
+        const isFocusTarget = restoreFocus
+          ? row === Math.min(focusedRow, state.height - 1) && col === Math.min(focusedCol, state.width - 1)
+          : row === 0 && col === 0;
+        cell.tabIndex = isFocusTarget ? 0 : -1;
+        if (isFocusTarget) focusTarget = cell;
         applyCellVisual(cell, marker, state.tileLayer[row][col], state.objectLayer[row][col]);
+        cell.setAttribute('aria-label', `Row ${row + 1}, column ${col + 1}: tile ${state.tileLayer[row][col]}, object ${state.objectLayer[row][col]}`);
         cell.appendChild(marker);
         dom.gridContainer.appendChild(cell);
       }
@@ -997,6 +1009,7 @@
     dom.gridSizeLabel.textContent = String(state.width);
     dom.gridSizeLabel2.textContent = String(state.height);
     renderGameSyncPreview();
+    if (restoreFocus) focusTarget?.focus();
   }
 
   function applyCellVisual(cell, markerEl, tileId, objectId) {
@@ -1017,13 +1030,13 @@
       if (!cell) {
         return;
       }
-      event.preventDefault();
-      if (state.activeTool === 'paint') {
-        beginMapStrokeHistoryIfNeeded();
-        state.isPainting = true;
-      } else {
+      if (state.activeTool !== 'paint') {
         state.isPainting = false;
+        return;
       }
+      event.preventDefault();
+      beginMapStrokeHistoryIfNeeded();
+      state.isPainting = true;
       state.lastPaintedCellKey = '';
       paintCellFromElement(cell);
     });
@@ -1050,10 +1063,29 @@
 
     dom.gridContainer.addEventListener('click', function (event) {
       const cell = getCellFromEventTarget(event.target);
-      if (!cell) {
+      if (!cell || state.activeTool === 'paint') {
         return;
       }
       paintCellFromElement(cell);
+    });
+
+    dom.gridContainer.addEventListener('keydown', function (event) {
+      const cell = getCellFromEventTarget(event.target);
+      if (!cell) return;
+      if (moveGridFocus(dom.gridContainer, '.cell', state.width, state.height, cell, event)) return;
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      if (state.activeTool !== 'paint') {
+        paintCellFromElement(cell);
+        return;
+      }
+      beginMapStrokeHistoryIfNeeded();
+      state.isPainting = true;
+      state.lastPaintedCellKey = '';
+      paintCellFromElement(cell);
+      state.isPainting = false;
+      state.lastPaintedCellKey = '';
+      finalizeMapStrokeHistory();
     });
 
     dom.layerTileBtn.addEventListener('click', function () {
@@ -1242,6 +1274,26 @@
       setActiveTab('textureBuilder');
     });
 
+    const builderTabs = [
+      { name: 'mapEditor', button: dom.tabMapEditorBtn },
+      { name: 'viewer', button: dom.tabViewerBtn },
+      { name: 'itemEditor', button: dom.tabItemEditorBtn },
+      { name: 'textureBuilder', button: dom.tabTextureBuilderBtn }
+    ];
+    builderTabs.forEach(function (tab, index) {
+      tab.button.addEventListener('keydown', function (event) {
+        let nextIndex = index;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % builderTabs.length;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + builderTabs.length) % builderTabs.length;
+        else if (event.key === 'Home') nextIndex = 0;
+        else if (event.key === 'End') nextIndex = builderTabs.length - 1;
+        else return;
+        event.preventDefault();
+        setActiveTab(builderTabs[nextIndex].name);
+        builderTabs[nextIndex].button.focus();
+      });
+    });
+
     dom.itemCategorySelect.addEventListener('change', updateItemConditionalFields);
     dom.itemNewBtn.addEventListener('click', onNewItem);
     dom.itemSaveBtn.addEventListener('click', onSaveItem);
@@ -1285,6 +1337,26 @@
       if (!isTextureDragPaintTool(state.textureBuilder.activeTool)) {
         paintTextureCellFromElement(cell);
       }
+    });
+
+    dom.textureGridContainer.addEventListener('keydown', function (event) {
+      const cell = getTextureCellFromEventTarget(event.target);
+      if (!cell) return;
+      const size = state.textureBuilder.size;
+      if (moveGridFocus(dom.textureGridContainer, '.texture-cell', size, size, cell, event)) return;
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      if (!isTextureDragPaintTool(state.textureBuilder.activeTool)) {
+        paintTextureCellFromElement(cell);
+        return;
+      }
+      if (canEditActiveTextureLayer()) beginTextureStrokeHistoryIfNeeded();
+      state.textureBuilder.isPainting = true;
+      state.textureBuilder.lastPaintedCellKey = '';
+      paintTextureCellFromElement(cell);
+      state.textureBuilder.isPainting = false;
+      state.textureBuilder.lastPaintedCellKey = '';
+      finalizeTextureStrokeHistory();
     });
 
     dom.textureGridContainer.addEventListener('mouseleave', function () {
@@ -1839,9 +1911,16 @@
 
   function renderTextureGrid() {
     const size = state.textureBuilder.size;
+    const activeCell = document.activeElement?.closest?.('.texture-cell');
+    const focusedRow = Number(activeCell?.dataset.row);
+    const focusedCol = Number(activeCell?.dataset.col);
+    const restoreFocus = Number.isInteger(focusedRow) && Number.isInteger(focusedCol);
+    let focusTarget = null;
     dom.textureGridContainer.innerHTML = '';
     dom.textureGridContainer.style.setProperty('--texture-grid-width', String(size));
     dom.textureGridContainer.style.setProperty('--texture-grid-height', String(size));
+    dom.textureGridContainer.setAttribute('aria-rowcount', String(size));
+    dom.textureGridContainer.setAttribute('aria-colcount', String(size));
 
     for (let row = 0; row < size; row += 1) {
       for (let col = 0; col < size; col += 1) {
@@ -1849,7 +1928,17 @@
         cell.className = 'texture-cell';
         cell.dataset.row = String(row);
         cell.dataset.col = String(col);
+        cell.setAttribute('role', 'gridcell');
+        cell.setAttribute('aria-rowindex', String(row + 1));
+        cell.setAttribute('aria-colindex', String(col + 1));
+        const isFocusTarget = restoreFocus
+          ? row === Math.min(focusedRow, size - 1) && col === Math.min(focusedCol, size - 1)
+          : row === 0 && col === 0;
+        cell.tabIndex = isFocusTarget ? 0 : -1;
+        if (isFocusTarget) focusTarget = cell;
         applyTextureCellVisual(cell, getCompositeTexturePixel(row, col));
+        const pixel = getCompositeTexturePixel(row, col);
+        cell.setAttribute('aria-label', `Row ${row + 1}, column ${col + 1}: ${pixel ? `${pixel.color} at ${Math.round(pixel.alpha * 100)}% opacity` : 'transparent'}`);
         dom.textureGridContainer.appendChild(cell);
       }
     }
@@ -1857,6 +1946,7 @@
     dom.textureSizeLabel.textContent = String(size);
     dom.textureSizeLabel2.textContent = String(size);
     applyTexturePreviewOverlay();
+    if (restoreFocus) focusTarget?.focus();
   }
 
   function applyTextureCellVisual(cell, color) {
@@ -2319,8 +2409,8 @@
         beginTextureStrokeHistoryIfNeeded();
       }
       state.textureBuilder.isPainting = true;
+      paintTextureCellFromElement(cell);
     }
-    paintTextureCellFromElement(cell);
   }
 
   function clearTexturePreview() {
@@ -2749,8 +2839,17 @@
       return entry.id !== id;
     });
     withoutId.unshift(textureEntry);
-    state.customTextureLibrary.textures = withoutId;
-    saveCustomTextureLibraryToStorage(state.customTextureLibrary);
+    const nextLibrary = {
+      version: state.customTextureLibrary.version,
+      textures: withoutId
+    };
+    try {
+      saveCustomTextureLibraryToStorage(nextLibrary);
+    } catch (error) {
+      updateTextureStatus('Custom texture could not be saved in browser storage: ' + error.message, true);
+      return null;
+    }
+    state.customTextureLibrary = nextLibrary;
     syncCustomTextureDefinitionsFromLibrary();
     renderCustomTextureLibraryList();
     renderPalette();
@@ -2805,10 +2904,19 @@
     if (!window.confirm('Delete custom texture "' + target.name + '"?')) {
       return;
     }
-    state.customTextureLibrary.textures = state.customTextureLibrary.textures.filter(function (entry) {
-      return entry.id !== textureId;
-    });
-    saveCustomTextureLibraryToStorage(state.customTextureLibrary);
+    const nextLibrary = {
+      version: state.customTextureLibrary.version,
+      textures: state.customTextureLibrary.textures.filter(function (entry) {
+        return entry.id !== textureId;
+      })
+    };
+    try {
+      saveCustomTextureLibraryToStorage(nextLibrary);
+    } catch (error) {
+      updateTextureStatus('Custom texture was not deleted because browser storage failed: ' + error.message, true);
+      return;
+    }
+    state.customTextureLibrary = nextLibrary;
     syncCustomTextureDefinitionsFromLibrary();
     renderCustomTextureLibraryList();
     renderPalette();
@@ -2877,8 +2985,9 @@
           existingIds.add(next.id);
           merged.unshift(next);
         });
-        state.customTextureLibrary.textures = merged;
-        saveCustomTextureLibraryToStorage(state.customTextureLibrary);
+        const nextLibrary = { version: 1, textures: merged };
+        saveCustomTextureLibraryToStorage(nextLibrary);
+        state.customTextureLibrary = nextLibrary;
         syncCustomTextureDefinitionsFromLibrary();
         renderCustomTextureLibraryList();
         renderPalette();
@@ -3289,8 +3398,8 @@
         beginTextureStrokeHistoryIfNeeded();
       }
       state.textureBuilder.isPainting = true;
+      paintTextureCellFromElement(cell);
     }
-    paintTextureCellFromElement(cell);
   }
 
   function clearTexturePreview() {
@@ -3846,6 +3955,30 @@
     }
     const cell = target.closest('.cell');
     return cell;
+  }
+
+  function moveGridFocus(container, selector, width, height, cell, event) {
+    const row = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+    if (!Number.isInteger(row) || !Number.isInteger(col)) return false;
+    let nextRow = row;
+    let nextCol = col;
+    if (event.key === 'ArrowUp') nextRow -= 1;
+    else if (event.key === 'ArrowDown') nextRow += 1;
+    else if (event.key === 'ArrowLeft') nextCol -= 1;
+    else if (event.key === 'ArrowRight') nextCol += 1;
+    else if (event.key === 'Home') nextCol = 0;
+    else if (event.key === 'End') nextCol = width - 1;
+    else return false;
+    event.preventDefault();
+    nextRow = Math.max(0, Math.min(height - 1, nextRow));
+    nextCol = Math.max(0, Math.min(width - 1, nextCol));
+    const next = container.querySelector(`${selector}[data-row="${nextRow}"][data-col="${nextCol}"]`);
+    if (!next) return true;
+    cell.tabIndex = -1;
+    next.tabIndex = 0;
+    next.focus();
+    return true;
   }
 
   function resolveTileIdForPaint() {
@@ -4896,6 +5029,9 @@
     if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
       throw new Error('Map width and height must be positive integers.');
     }
+    if (width > MAX_MAP_SIDE || height > MAX_MAP_SIDE) {
+      throw new Error('Map size limit is ' + MAX_MAP_SIDE + ' x ' + MAX_MAP_SIDE + '.');
+    }
 
     const tileSource = Array.isArray(mapData.tileLayer) ? mapData.tileLayer : mapData.tiles;
     if (!Array.isArray(tileSource) || tileSource.length !== height) {
@@ -5067,14 +5203,20 @@
 
   function setActiveTab(tabName) {
     state.activeTab = tabName;
-    dom.mapEditorTab.classList.toggle('active', tabName === 'mapEditor');
-    dom.viewerTab.classList.toggle('active', tabName === 'viewer');
-    dom.itemEditorTab.classList.toggle('active', tabName === 'itemEditor');
-    dom.textureBuilderTab.classList.toggle('active', tabName === 'textureBuilder');
-    dom.tabMapEditorBtn.classList.toggle('active', tabName === 'mapEditor');
-    dom.tabViewerBtn.classList.toggle('active', tabName === 'viewer');
-    dom.tabItemEditorBtn.classList.toggle('active', tabName === 'itemEditor');
-    dom.tabTextureBuilderBtn.classList.toggle('active', tabName === 'textureBuilder');
+    const tabs = [
+      { name: 'mapEditor', panel: dom.mapEditorTab, button: dom.tabMapEditorBtn },
+      { name: 'viewer', panel: dom.viewerTab, button: dom.tabViewerBtn },
+      { name: 'itemEditor', panel: dom.itemEditorTab, button: dom.tabItemEditorBtn },
+      { name: 'textureBuilder', panel: dom.textureBuilderTab, button: dom.tabTextureBuilderBtn }
+    ];
+    tabs.forEach(function (tab) {
+      const active = tab.name === tabName;
+      tab.panel.classList.toggle('active', active);
+      tab.panel.setAttribute('aria-hidden', String(!active));
+      tab.button.classList.toggle('active', active);
+      tab.button.setAttribute('aria-selected', String(active));
+      tab.button.tabIndex = active ? 0 : -1;
+    });
   }
 
   function getDefaultItem() {
@@ -5320,9 +5462,14 @@
   function mergeItemWithUnknownFields(original, updated) {
     const preserved = shallowClone(original);
     const merged = {};
+    const editorFields = new Set([
+      'id', 'name', 'category', 'baseValue', 'stackable', 'rarity',
+      'equipSlot', 'mods', 'power', 'attackRange', 'cooldown',
+      'effectType', 'effectValue', 'effectDuration'
+    ]);
 
     Object.keys(preserved).forEach(function (key) {
-      merged[key] = preserved[key];
+      if (!editorFields.has(key)) merged[key] = preserved[key];
     });
 
     Object.keys(updated).forEach(function (key) {

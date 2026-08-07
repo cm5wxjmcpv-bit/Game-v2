@@ -13,14 +13,14 @@
     <a class="file-label" href="workspace.html" style="display: inline-block; margin-top: 0.75rem; text-decoration: none;">← Back to Game Workspace</a>
   </header>
 
-  <nav class="tab-bar" aria-label="Builder tabs">
-    <button id="tabMapEditorBtn" type="button" class="tab-btn active">Map Editor</button>
-    <button id="tabViewerBtn" type="button" class="tab-btn">Viewer</button>
-    <button id="tabItemEditorBtn" type="button" class="tab-btn">Item Editor</button>
-    <button id="tabTextureBuilderBtn" type="button" class="tab-btn">Texture Builder</button>
+  <nav class="tab-bar" aria-label="Builder tabs" role="tablist">
+    <button id="tabMapEditorBtn" type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="mapEditorTab" tabindex="0">Map Editor</button>
+    <button id="tabViewerBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="viewerTab" tabindex="-1">Viewer</button>
+    <button id="tabItemEditorBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="itemEditorTab" tabindex="-1">Item Editor</button>
+    <button id="tabTextureBuilderBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="textureBuilderTab" tabindex="-1">Texture Builder</button>
   </nav>
 
-  <main id="mapEditorTab" class="layout tab-panel active" data-tab-panel="mapEditor">
+  <main id="mapEditorTab" class="layout tab-panel active" data-tab-panel="mapEditor" role="tabpanel" aria-labelledby="tabMapEditorBtn" aria-hidden="false">
     <aside class="panel controls-panel">
       <h2>Map Setup</h2>
       <div class="actions">
@@ -141,11 +141,11 @@
 
     <section class="panel editor-panel">
       <h2>Editor Grid</h2>
-      <div id="gridContainer" class="grid-container" aria-label="Level editor grid"></div>
+      <div id="gridContainer" class="grid-container" role="grid" aria-label="Level editor grid. Use arrow keys to move and Enter or Space to apply the active tool."></div>
     </section>
   </main>
 
-  <main id="viewerTab" class="layout tab-panel" data-tab-panel="viewer">
+  <main id="viewerTab" class="layout tab-panel" data-tab-panel="viewer" role="tabpanel" aria-labelledby="tabViewerBtn" aria-hidden="true">
     <section class="panel viewer-tab-panel">
       <h2>Viewer</h2>
       <p>Open the standalone map viewer to preview the current map data.</p>
@@ -153,7 +153,7 @@
     </section>
   </main>
 
-  <main id="itemEditorTab" class="layout tab-panel" data-tab-panel="itemEditor">
+  <main id="itemEditorTab" class="layout tab-panel" data-tab-panel="itemEditor" role="tabpanel" aria-labelledby="tabItemEditorBtn" aria-hidden="true">
     <section class="panel item-editor-panel">
       <h2>Item Editor</h2>
       <div class="item-editor-actions">
@@ -244,7 +244,7 @@
     </section>
   </main>
 
-  <main id="textureBuilderTab" class="layout tab-panel" data-tab-panel="textureBuilder">
+  <main id="textureBuilderTab" class="layout tab-panel" data-tab-panel="textureBuilder" role="tabpanel" aria-labelledby="tabTextureBuilderBtn" aria-hidden="true">
     <aside class="panel controls-panel">
       <h2>Texture Setup</h2>
       <div class="actions">
@@ -344,7 +344,7 @@
 
     <section class="panel editor-panel">
       <h2>Texture Grid</h2>
-      <div id="textureGridContainer" class="texture-grid-container" aria-label="Texture editor grid"></div>
+      <div id="textureGridContainer" class="texture-grid-container" role="grid" aria-label="Texture editor grid. Use arrow keys to move and Enter or Space to apply the active tool."></div>
     </section>
   </main>
 

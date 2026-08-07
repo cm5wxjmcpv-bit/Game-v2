@@ -57,6 +57,7 @@ function install() {
   section.className = 'workspace-object-grid workspace-tab';
   section.setAttribute('role', 'tabpanel');
   section.setAttribute('aria-labelledby', 'workspaceObjectsTabBtn');
+  section.setAttribute('aria-hidden', 'true');
   section.innerHTML = objectEditorMarkup();
   publishTab.parentElement.insertBefore(section, publishTab);
 
@@ -250,17 +251,27 @@ function mergeObjectCollections(freshDraft, objectDraft) {
   };
 }
 
-function mergeObjectsAfterWorkspaceSave() {
+function mergeObjectsAfterWorkspaceSave(event) {
   const projectId = currentProjectId();
   if (!state.draft || state.projectId !== projectId) return;
   const fresh = readDraft(projectId);
   if (!fresh) return;
   const merged = mergeObjectCollections(fresh, state.draft);
-  localStorage.setItem(draftKey(projectId), JSON.stringify(merged));
+  try {
+    localStorage.setItem(draftKey(projectId), JSON.stringify(merged));
+  } catch (error) {
+    dom.saveDraftBtn.dataset.saveStatus = 'error';
+    event?.preventDefault();
+    event?.stopImmediatePropagation();
+    setStatus(`Scene objects were not saved in browser storage: ${error.message}`, true);
+  }
 }
 
 function refreshFromWorkspaceDraft() {
   dom.saveDraftBtn.click();
+  if (dom.saveDraftBtn.dataset.saveStatus === 'error') {
+    return setStatus('The current workspace draft could not be saved before loading scene objects.', true);
+  }
   const projectId = currentProjectId();
   const draft = readDraft(projectId);
   if (!draft) return setStatus('The current workspace draft could not be loaded.', true);
@@ -406,11 +417,23 @@ function saveObject(event) {
   const errors = validateLegacyObject(state.type, object, scene);
   if (errors.length) return setStatus(errors.join(' '), true);
 
-  const wasNew = state.selectedIndex < 0;
+  const previousDraft = state.draft;
+  const previousIndex = state.selectedIndex;
+  const wasNew = previousIndex < 0;
   const nextScene = applyLegacyObject(scene, state.type, state.selectedIndex, object);
-  state.draft.scenes = state.draft.scenes.map((entry) => entry.id === scene.id ? nextScene : entry);
+  state.draft = {
+    ...state.draft,
+    scenes: state.draft.scenes.map((entry) => entry.id === scene.id ? nextScene : entry),
+  };
   if (wasNew) state.selectedIndex = nextScene.objects[state.type].length - 1;
-  persistObjectDraft();
+  try {
+    persistObjectDraft();
+  } catch (error) {
+    state.draft = previousDraft;
+    state.selectedIndex = previousIndex;
+    renderAll();
+    return setStatus(`Scene object was not saved: ${error.message}`, true);
+  }
   renderAll();
   setStatus(`${legacyObjectConfig(state.type).singular} saved in ${scene.name || scene.id}.`);
 }
@@ -420,17 +443,33 @@ function deleteObject() {
   if (!scene || state.selectedIndex < 0) return;
   const label = legacyObjectLabel(state.type, selectedObject(), state.selectedIndex);
   if (!window.confirm(`Delete ${label}?`)) return;
+  const previousDraft = state.draft;
+  const previousIndex = state.selectedIndex;
   const nextScene = removeLegacyObject(scene, state.type, state.selectedIndex);
-  state.draft.scenes = state.draft.scenes.map((entry) => entry.id === scene.id ? nextScene : entry);
+  state.draft = {
+    ...state.draft,
+    scenes: state.draft.scenes.map((entry) => entry.id === scene.id ? nextScene : entry),
+  };
   state.selectedIndex = -1;
-  persistObjectDraft();
+  try {
+    persistObjectDraft();
+  } catch (error) {
+    state.draft = previousDraft;
+    state.selectedIndex = previousIndex;
+    renderAll();
+    return setStatus(`Scene object was not deleted: ${error.message}`, true);
+  }
   renderAll();
   setStatus(`${legacyObjectConfig(state.type).singular} deleted.`);
 }
 
 function persistObjectDraft() {
   dom.saveDraftBtn.click();
+  if (dom.saveDraftBtn.dataset.saveStatus === 'error') {
+    throw new Error('browser storage rejected the workspace draft');
+  }
   const fresh = readDraft(state.projectId);
+  if (!fresh) throw new Error('the current workspace draft could not be loaded');
   const merged = mergeObjectCollections(fresh, state.draft);
   merged.savedAt = new Date().toISOString();
   localStorage.setItem(draftKey(state.projectId), JSON.stringify(merged));
@@ -515,6 +554,9 @@ function exportSceneFromMergedDraft(event) {
   event.preventDefault();
   event.stopImmediatePropagation();
   dom.saveDraftBtn.click();
+  if (dom.saveDraftBtn.dataset.saveStatus === 'error') {
+    return setStatus('The scene could not be exported because the current draft was not saved.', true);
+  }
   const draft = readDraft(state.projectId);
   const sceneId = dom.sceneSelect.value;
   const scene = draft?.scenes?.find((entry) => entry.id === sceneId);
@@ -528,6 +570,9 @@ async function exportBundleFromMergedDraft(event) {
   event.preventDefault();
   event.stopImmediatePropagation();
   dom.saveDraftBtn.click();
+  if (dom.saveDraftBtn.dataset.saveStatus === 'error') {
+    return setStatus('The workspace bundle could not be exported because the current draft was not saved.', true);
+  }
   const draft = readDraft(state.projectId);
   try {
     const response = await fetch(new URL(`../games/${state.projectId}/game.json`, window.location.href), { cache: 'no-store' });
