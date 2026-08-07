@@ -1,6 +1,5 @@
 import {
   TESTING_LEVEL_LIBRARY_KEY,
-  TESTING_LEVEL_PREVIEW_KEY,
   createTestingLevelEntry,
   deleteTestingLevel,
   findTestingLevel,
@@ -50,17 +49,12 @@ dom.list.addEventListener('click', (event) => {
   }
 
   if (action === 'edit') {
-    window.location.href = `index.html?testing=${encodeURIComponent(entry.libraryId)}`;
+    window.location.href = `testing-editor.html?testing=${encodeURIComponent(entry.libraryId)}`;
     return;
   }
 
   if (action === 'test') {
-    try {
-      localStorage.setItem(TESTING_LEVEL_PREVIEW_KEY, JSON.stringify(entry.map));
-      window.location.href = `viewer.html?autoload=1&from=testing&testing=${encodeURIComponent(entry.libraryId)}`;
-    } catch (error) {
-      setMessage(`Could not prepare the level preview: ${error.message}`, true);
-    }
+    window.location.href = `testing-viewer.html?testing=${encodeURIComponent(entry.libraryId)}`;
     return;
   }
 
