@@ -36,6 +36,7 @@
     "lootTables": "data/loot/loot-tables.json",
     "rewards": "data/rewards/rewards.json",
     "townsDirectory": "data/towns",
-    "levelsDirectory": "data/levels"
+    "levelsDirectory": "data/levels",
+    "buildingsDirectory": "data/buildings"
   }
 }
