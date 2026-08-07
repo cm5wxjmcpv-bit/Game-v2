@@ -256,6 +256,20 @@
         </select>
       </div>
 
+      <h2>Import Custom Texture</h2>
+      <p class="small">Upload a PNG, JPG, or WebP image. It will be converted to the selected texture size, saved in the Custom Texture Library, registered as a map tile, and selected for painting.</p>
+      <div class="actions texture-image-import-actions">
+        <label class="field-label" for="textureImageImportMode">Image Placement</label>
+        <select id="textureImageImportMode" class="text-input">
+          <option value="crop">Crop to Fill</option>
+          <option value="fit">Fit with Transparent Padding</option>
+          <option value="stretch">Stretch to Fill</option>
+        </select>
+        <label for="textureImageImportInput" class="file-label">Upload, Save &amp; Use in Map Editor</label>
+        <input id="textureImageImportInput" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" />
+        <small>Maximum file size: 10 MB. Maximum image dimensions: 4096 x 4096.</small>
+      </div>
+
       <h2>Texture Colors & Tools</h2>
       <label class="field-label" for="textureColorPicker">Custom Color</label>
       <input id="textureColorPicker" class="text-input" type="color" value="#000000" />
@@ -304,6 +318,7 @@
         <label class="field-label" for="textureFilenameInput">Texture Filename</label>
         <input id="textureFilenameInput" class="text-input" type="text" value="texture_16x16" />
         <button id="textureSaveToLibraryBtn" type="button" class="secondary-btn">Save to Custom Texture Library</button>
+        <button id="textureSaveAndUseBtn" type="button">Save & Use in Map Editor</button>
         <button id="textureExportBtn" type="button">Export Texture JSON</button>
         <button id="textureExportPngBtn" type="button" class="secondary-btn">Export Texture PNG</button>
         <button id="textureExportEngineEntryBtn" type="button" class="secondary-btn">Export Engine Texture Entry</button>

@@ -1,5 +1,6 @@
 import { buildNewGamePlan, gameIdFromName } from './new-game-wizard-model.js';
 import { publishWorkspacePlan } from './workspace-publisher.js';
+import { activateWorkspaceTab, deactivateWorkspaceTab } from './workspace-tabs.js';
 
 const CATALOG_URL = new URL('../games/catalog.json', window.location.href);
 const dom = Object.fromEntries([
@@ -73,16 +74,12 @@ async function loadCatalog() {
 }
 
 function openWizard() {
-  for (const tab of [dom.workspaceSceneTab, dom.workspaceActorTab, dom.workspacePublishTab]) tab.classList.remove('active');
-  for (const button of [dom.workspaceSceneTabBtn, dom.workspaceActorTabBtn, dom.workspacePublishTabBtn]) button.classList.remove('active');
-  dom.workspaceNewGameTab.classList.add('active');
-  dom.workspaceNewGameTabBtn.classList.add('active');
+  activateWorkspaceTab(dom.workspaceNewGameTab, dom.workspaceNewGameTabBtn);
   rebuildPlan();
 }
 
 function closeWizard() {
-  dom.workspaceNewGameTab.classList.remove('active');
-  dom.workspaceNewGameTabBtn.classList.remove('active');
+  deactivateWorkspaceTab(dom.workspaceNewGameTab, dom.workspaceNewGameTabBtn);
 }
 
 function readForm() {

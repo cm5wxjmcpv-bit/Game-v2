@@ -12,9 +12,12 @@
   <header class="site-header workspace-header">
     <div>
       <h1>Pixel Engine Project Workspace</h1>
-      <p>Select a game package, edit actors, place component entities, create new packages, and publish reviewed changes through a draft pull request.</p>
+      <p>Build a connected level, add game content, and publish a reviewable test version without manually mapping its textures.</p>
     </div>
-    <a class="workspace-link" href="./">Open Map / Texture Builder</a>
+    <div class="workspace-header-actions">
+      <a id="workspacePlayGameLink" class="workspace-link" href="../?game=sample-rpg" target="_blank" rel="noopener noreferrer">Play Published Game</a>
+      <a class="workspace-link workspace-link-secondary" href="./" title="Open the standalone builder without a selected game or level">Standalone Builder</a>
+    </div>
   </header>
 
   <main class="workspace-shell">
@@ -33,14 +36,26 @@
       <div id="workspaceMessage" class="message" role="status" aria-live="polite"></div>
     </section>
 
-    <nav class="tab-bar workspace-tabs" aria-label="Project workspace tabs">
-      <button id="workspaceSceneTabBtn" type="button" class="tab-btn active">Scene & Entities</button>
-      <button id="workspaceActorTabBtn" type="button" class="tab-btn">Actors</button>
-      <button id="workspaceNewGameTabBtn" type="button" class="tab-btn">New Game</button>
-      <button id="workspacePublishTabBtn" type="button" class="tab-btn">Publish</button>
+    <section class="panel workspace-flow-panel" aria-labelledby="workspaceFlowHeading">
+      <div>
+        <h2 id="workspaceFlowHeading">Build & Test Workflow</h2>
+        <p>Choose a scene below and use <strong>Build Level & Textures</strong>. The connected builder carries every texture used by the level back to this project automatically.</p>
+      </div>
+      <ol class="workspace-flow-steps">
+        <li><span>1</span><div><strong>Build</strong><small>Create or import textures, save them, then paint the level.</small></div></li>
+        <li><span>2</span><div><strong>Add content & save</strong><small>Add objects or entities and save the local draft.</small></div></li>
+        <li><span>3</span><div><strong>Publish & test</strong><small>Review the automatic file plan, publish a draft PR, and test its exact commit.</small></div></li>
+      </ol>
+    </section>
+
+    <nav class="tab-bar workspace-tabs" role="tablist" aria-label="Project workspace tabs">
+      <button id="workspaceSceneTabBtn" type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="workspaceSceneTab">Scene & Entities</button>
+      <button id="workspaceActorTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceActorTab">Actors</button>
+      <button id="workspaceNewGameTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspaceNewGameTab">New Game</button>
+      <button id="workspacePublishTabBtn" type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="workspacePublishTab">Publish</button>
     </nav>
 
-    <section id="workspaceSceneTab" class="workspace-grid workspace-tab active">
+    <section id="workspaceSceneTab" class="workspace-grid workspace-tab active" role="tabpanel" aria-labelledby="workspaceSceneTabBtn">
       <aside class="panel workspace-list-panel">
         <h2>Scenes</h2>
         <label class="field-label" for="sceneSelect">Selected Scene</label>
@@ -60,7 +75,7 @@
         <div class="workspace-preview-heading">
           <div>
             <h2 id="sceneHeading">Scene Preview</h2>
-            <p class="small">Click a cell to place the selected entity. Use Edit Tiles & Spawn for full layout changes.</p>
+            <p class="small">Click a cell to place the selected entity. Use Build Level & Textures for tiles, textures, map size, and Player Start.</p>
           </div>
           <span id="sceneDimensions" class="workspace-chip"></span>
         </div>
@@ -109,7 +124,7 @@
       </section>
     </section>
 
-    <section id="workspaceActorTab" class="workspace-grid workspace-tab">
+    <section id="workspaceActorTab" class="workspace-grid workspace-tab" role="tabpanel" aria-labelledby="workspaceActorTabBtn">
       <aside class="panel workspace-list-panel">
         <h2>Actors</h2>
         <div class="workspace-inline-actions">
@@ -160,7 +175,7 @@
       </section>
     </section>
 
-    <section id="workspaceNewGameTab" class="panel workspace-tab new-game-wizard-panel">
+    <section id="workspaceNewGameTab" class="panel workspace-tab new-game-wizard-panel" role="tabpanel" aria-labelledby="workspaceNewGameTabBtn">
       <div class="new-game-wizard-heading">
         <div>
           <h2>New Game Wizard</h2>
@@ -236,11 +251,11 @@
       </section>
     </section>
 
-    <section id="workspacePublishTab" class="panel workspace-tab workspace-publish-panel">
+    <section id="workspacePublishTab" class="panel workspace-tab workspace-publish-panel" role="tabpanel" aria-labelledby="workspacePublishTabBtn">
       <div class="workspace-publish-heading">
         <div>
           <h2>Publish a Draft Pull Request</h2>
-          <p>Only changed manifest-resolved actor and scene JSON files are included. Publishing creates a new branch and a draft pull request; it never merges or writes directly to <code>main</code>.</p>
+          <p>The file plan includes every changed manifest-resolved level, actor, object, tile, and texture JSON file. Publishing creates a new branch and draft pull request; it never merges or writes directly to <code>main</code>.</p>
         </div>
         <button id="refreshPublishPlanBtn" type="button" class="secondary-btn">Refresh File Plan</button>
       </div>
@@ -269,7 +284,10 @@
         </div>
       </form>
       <div id="publishStatus" class="message" role="status" aria-live="polite"></div>
-      <a id="publishPrLink" class="workspace-link workspace-publish-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Draft Pull Request</a>
+      <div class="workspace-publish-result-actions">
+        <a id="publishPreviewLink" class="workspace-link workspace-preview-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Test Draft in Game</a>
+        <a id="publishPrLink" class="workspace-link workspace-publish-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Draft Pull Request</a>
+      </div>
     </section>
   </main>
 

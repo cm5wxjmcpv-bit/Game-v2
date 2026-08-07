@@ -9,6 +9,7 @@ import {
   validateActor,
   validateEntity,
 } from './workspace-model.js';
+import { activateWorkspaceTab } from './workspace-tabs.js';
 
 const CATALOG_URL = new URL('../games/catalog.json', window.location.href);
 const DRAFT_PREFIX = 'pixel_engine_builder_workspace_';
@@ -27,6 +28,7 @@ const dom = Object.fromEntries([
   'actorSlotsInput', 'actorMaxStackInput', 'actorProgressionInput', 'actorShapeSelect',
   'actorColorInput', 'actorSizeInput', 'actorSpritePathInput', 'actorFrameWidthInput',
   'actorFrameHeightInput',
+  'workspacePlayGameLink',
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = {
@@ -55,7 +57,7 @@ async function init() {
   const requested = normalizeId(new URL(window.location.href).searchParams.get('game'));
   const preferred = state.catalog.some((entry) => entry.id === requested)
     ? requested
-    : state.catalog.some((entry) => entry.id === 'scene-demo') ? 'scene-demo' : state.catalog[0]?.id;
+    : state.catalog[0]?.id;
   if (!preferred) throw new Error('No game packages were found in games/catalog.json.');
   dom.projectSelect.value = preferred;
   await loadProject(preferred);
@@ -150,6 +152,9 @@ async function loadProject(projectId) {
   state.selectedEntityId = '';
   state.dirty = false;
   renderAll();
+  const playUrl = new URL('../', window.location.href);
+  playUrl.searchParams.set('game', id);
+  dom.workspacePlayGameLink.href = playUrl.href;
   setMessage(`${meta.name || id} loaded. Changes stay local until exported.`);
 }
 
@@ -202,10 +207,10 @@ function renderAll() {
 
 function setActiveTab(tab) {
   const actor = tab === 'actor';
-  dom.workspaceSceneTab.classList.toggle('active', !actor);
-  dom.workspaceActorTab.classList.toggle('active', actor);
-  dom.workspaceSceneTabBtn.classList.toggle('active', !actor);
-  dom.workspaceActorTabBtn.classList.toggle('active', actor);
+  activateWorkspaceTab(
+    actor ? dom.workspaceActorTab : dom.workspaceSceneTab,
+    actor ? dom.workspaceActorTabBtn : dom.workspaceSceneTabBtn,
+  );
 }
 
 function selectedScene() {
@@ -571,10 +576,16 @@ function restoreDraft() {
   }
 }
 
-function clearDraft() {
+function clearDraft(event) {
   if (!state.projectId) return;
+  if (!window.confirm(`Clear the saved local draft and staged custom textures for “${state.projectMeta?.name || state.projectId}”? Repository files will not be changed.`)) {
+    event?.preventDefault();
+    event?.stopImmediatePropagation();
+    return;
+  }
   localStorage.removeItem(draftKey());
-  setMessage('Local draft cleared. Reload the project to restore repository data.');
+  state.dirty = false;
+  setMessage('Local draft cleared. Choose Load Project to restore the current repository version.');
 }
 
 function exportActors() {

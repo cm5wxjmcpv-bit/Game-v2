@@ -162,14 +162,16 @@ Unknown selections are discarded. Workspace-only tile permissions are preserved 
 
 ### Visual scene-layout bridge
 
-From the workspace, select a scene and choose **Edit Tiles & Spawn**. A focused wrapper opens the established map-grid editor and supports:
+From the workspace, select a scene and choose **Build Level & Textures**. A focused wrapper opens the established map-grid and texture editor and supports:
 
 - changing the scene name and dimensions
 - painting used tiles and unused package tiles enabled from **Map Editor Tiles**
+- creating a custom texture and choosing **Save & Use in Map Editor** to select it immediately
+- importing a PNG, JPG, or WebP with crop, fit, or stretch placement; the imported image is resized, saved, registered, and selected automatically
 - moving the single Player Start marker
-- returning the edited layout to the package-specific local workspace draft
+- returning the edited layout and every used custom texture to the package-specific local workspace draft
 
-Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. The returned map is rejected if it contains a tile tool that was not enabled for the scene. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, unknown metadata, and local tile permissions are preserved. A resize is rejected when preserved content would fall outside the new bounds.
+Package-specific tile IDs are represented by temporary reversible aliases inside the map editor and restored before the scene returns. Used custom textures are registered automatically as matching package tiles and texture entries, so no manual ID or file mapping is required. The returned map is rejected if it contains a tile tool that was not enabled for the scene. Existing portals, shops, fountains, enemy spawns, battle triggers, component entities, scene systems, unknown metadata, and local tile permissions are preserved. A resize is rejected when preserved content would fall outside the new bounds.
 
 ### Visual legacy scene objects
 
@@ -187,18 +189,18 @@ Object changes are merged into the same package-specific browser draft used by c
 
 ### Controlled draft-PR publishing
 
-The workspace **Publish** tab can send reviewed actor and scene changes to GitHub without writing directly to `main`.
+The workspace **Publish** tab can send reviewed level, actor, object, tile, and texture changes to GitHub without writing directly to `main`.
 
 1. Make and save workspace changes.
 2. Open **Publish** and review the exact manifest-resolved JSON file list.
 3. Use a fine-grained token scoped only to `cm5wxjmcpv-bit/Game-v2` with **Contents: write** and **Pull requests: write**.
 4. Confirm the file plan and choose **Publish Draft PR**.
 
-The token is kept only in the page's memory and cleared after success. Before creating anything, the workspace compares each target file with the current `main` version. Any stale file stops the whole operation. A successful publish creates one `workspace/...` branch, one commit, and one draft pull request. The workspace never merges the pull request.
+The token is kept only in the page's memory and cleared after success. Before creating anything, the workspace compares each target file with the current `main` version. Any stale file stops the whole operation. A successful publish creates one `workspace/...` branch, one commit, and one draft pull request. The workspace never merges the pull request. After publishing, **Test Draft in Game** loads the selected scene and all manifest-resolved JSON from that exact draft commit. Preview saves use a commit-specific key and do not overwrite published-game saves.
 
 Current publishing limits:
 
-- only existing manifest-resolved actor and scene JSON files
+- only existing manifest-resolved actor, scene, tile, and texture JSON files
 - no actor publishing for packages without a direct `data.actors` file
 - no new scene files until package scaffolding is implemented
 - maximum 50 files per publish

@@ -5,16 +5,18 @@ import {
   buildWorkspaceAssetFileChanges,
   readWorkspaceAssetDraft,
 } from './workspace-asset-model.js';
+import { activateWorkspaceTab, deactivateWorkspaceTab } from './workspace-tabs.js';
 
 const DRAFT_PREFIX = 'pixel_engine_builder_workspace_';
 const REPOSITORY_ROOT_URL = new URL('../', window.location.href);
 
 const dom = Object.fromEntries([
-  'projectSelect', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn',
+  'projectSelect', 'sceneSelect', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn',
   'workspacePublishTabBtn', 'workspaceSceneTab', 'workspaceActorTab', 'workspacePublishTab',
   'refreshPublishPlanBtn', 'publishPlanSummary', 'publishFileList', 'publishForm',
   'publishTitleInput', 'publishCommitInput', 'publishTokenInput', 'publishConfirmInput',
   'publishDraftPrBtn', 'clearPublishTokenBtn', 'publishStatus', 'publishPrLink',
+  'publishPreviewLink',
 ].map((id) => [id, document.getElementById(id)]));
 
 const state = { plan: null, loading: false, publishing: false };
@@ -41,18 +43,12 @@ function bindEvents() {
 }
 
 function openPublishTab() {
-  dom.workspaceSceneTab.classList.remove('active');
-  dom.workspaceActorTab.classList.remove('active');
-  dom.workspacePublishTab.classList.add('active');
-  dom.workspaceSceneTabBtn.classList.remove('active');
-  dom.workspaceActorTabBtn.classList.remove('active');
-  dom.workspacePublishTabBtn.classList.add('active');
+  activateWorkspaceTab(dom.workspacePublishTab, dom.workspacePublishTabBtn);
   refreshPublishPlan();
 }
 
 function closePublishTab() {
-  dom.workspacePublishTab.classList.remove('active');
-  dom.workspacePublishTabBtn.classList.remove('active');
+  deactivateWorkspaceTab(dom.workspacePublishTab, dom.workspacePublishTabBtn);
 }
 
 async function fetchJson(url, fallback) {
@@ -151,6 +147,8 @@ function readCurrentDraft(projectId, baseline) {
 async function refreshPublishPlan() {
   if (state.loading || state.publishing) return;
   state.loading = true;
+  dom.publishPrLink.hidden = true;
+  dom.publishPreviewLink.hidden = true;
   dom.refreshPublishPlanBtn.disabled = true;
   setPublishStatus('Building the complete file plan from the current workspace…');
   try {
@@ -247,6 +245,7 @@ async function publishDraftPullRequest(event) {
 
   state.publishing = true;
   dom.publishPrLink.hidden = true;
+  dom.publishPreviewLink.hidden = true;
   updatePublishButton();
   setPublishStatus('Comparing all planned files with current main and creating a testing branch…');
   try {
@@ -261,7 +260,15 @@ async function publishDraftPullRequest(event) {
     dom.publishPrLink.href = result.pullRequestUrl;
     dom.publishPrLink.textContent = `Open Draft Pull Request #${result.pullRequestNumber}`;
     dom.publishPrLink.hidden = false;
-    setPublishStatus(`Draft pull request #${result.pullRequestNumber} created on branch ${result.branch}. Use its preview for testing after Engine Audit passes. The token was cleared.`);
+    const previewUrl = new URL('../preview.html', window.location.href);
+    previewUrl.searchParams.set('game', state.plan.projectId);
+    previewUrl.searchParams.set('previewCommit', result.commitSha);
+    previewUrl.searchParams.set('previewPr', String(result.pullRequestNumber));
+    if (dom.sceneSelect?.value) previewUrl.searchParams.set('scene', dom.sceneSelect.value);
+    dom.publishPreviewLink.href = previewUrl.href;
+    dom.publishPreviewLink.textContent = `Test Draft PR #${result.pullRequestNumber} in Game`;
+    dom.publishPreviewLink.hidden = false;
+    setPublishStatus(`Draft pull request #${result.pullRequestNumber} created on branch ${result.branch}. After Engine Audit passes, use Test Draft in Game to open this exact commit. The token was cleared.`);
   } catch (error) {
     setPublishStatus(`Publish failed: ${error.message}`, true);
   } finally {

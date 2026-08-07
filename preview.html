@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Draft Game Preview • Pixel Engine</title>
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./preview.css">
+  </head>
+  <body>
+    <aside id="workspacePreviewBanner" class="preview-banner" aria-label="Draft game preview">
+      <div class="preview-summary">
+        <strong>Draft Game Preview</strong>
+        <span id="previewDetails">Preparing exact draft content…</span>
+        <small>Preview saves are isolated from the published game.</small>
+      </div>
+      <nav class="preview-actions" aria-label="Preview actions">
+        <a id="previewBackLink" href="./builder/workspace.html">Back to Workspace</a>
+        <a id="previewPrLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Draft PR</a>
+      </nav>
+    </aside>
+    <div id="app">
+      <canvas id="game-canvas" width="960" height="640"></canvas>
+      <aside id="hud">
+        <section id="player-panel"></section>
+        <section id="context-panel"></section>
+      </aside>
+      <div id="overlay" class="hidden"></div>
+    </div>
+    <script type="module" src="./preview.js"></script>
+  </body>
+</html>

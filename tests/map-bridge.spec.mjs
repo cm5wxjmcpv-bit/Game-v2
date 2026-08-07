@@ -46,7 +46,12 @@ test('workspace builds a custom texture into a level and stages both for publish
   await expect(builder.locator('#mapIdInput')).toHaveValue('scene_lab');
   await expect(builder.locator('#mapIdInput')).toBeDisabled();
   await expect(builder.locator('#gridContainer .cell')).toHaveCount(30);
-  await expect(builder.locator('#tabItemEditorBtn')).toBeDisabled();
+  await expect(builder.locator('.site-header')).toBeHidden();
+  await expect(builder.locator('#tabViewerBtn')).toBeHidden();
+  await expect(builder.locator('#tabItemEditorBtn')).toBeHidden();
+  await expect(builder.locator('.game-texture-pack-panel')).toBeHidden();
+  await expect(builder.locator('.game-sync-preview-panel')).toBeHidden();
+  await expect(builder.locator('#openViewerBtn')).toBeHidden();
   await expect(builder.locator('#tabTextureBuilderBtn')).toBeEnabled();
 
   await builder.locator('#tabTextureBuilderBtn').click();
@@ -55,10 +60,11 @@ test('workspace builds a custom texture into a level and stages both for publish
   await builder.locator('#textureColorPicker').fill('#aa1122');
   await builder.locator('.texture-cell[data-row="0"][data-col="0"]').click();
   await builder.locator('.texture-cell[data-row="0"][data-col="1"]').click();
-  await builder.locator('#textureSaveToLibraryBtn').click();
-  await expect(builder.locator('#textureMessage')).toContainText('custom_texture_crimson_floor');
+  await builder.locator('#textureSaveAndUseBtn').click();
+  await expect(builder.locator('#mapEditorTab')).toHaveClass(/active/);
+  await expect(builder.locator('#selectedToolLabel')).toContainText('custom_texture_crimson_floor');
+  await expect(builder.locator('#message')).toContainText('ready to paint');
 
-  await builder.locator('#tabMapEditorBtn').click();
   await builder.locator('#mapNameInput').fill('Edited Generic Scene Lab');
   await builder.locator('#layerTileBtn').click();
   const customTile = builder.locator('.tile-btn[data-tile-id="custom_texture_crimson_floor"]');
@@ -104,6 +110,74 @@ test('workspace builds a custom texture into a level and stages both for publish
   await expect(page.locator('#publishFileList')).toContainText('games/scene-demo/data/core.json');
   await expect(page.locator('#publishFileList')).toContainText('tiles/textures');
   monitor.assertClean('workspace custom texture level workflow');
+});
+
+test('image import saves, maps, and stages a custom texture without manual mapping', async ({ page }) => {
+  const monitor = monitorPage(page);
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await page.locator('#openMapEditorBtn').click();
+  await expect(page).toHaveURL(/\/builder\/map-bridge\.html$/);
+
+  const builder = page.frameLocator('#builderFrame');
+  await builder.locator('#tabTextureBuilderBtn').click();
+  await expect(builder.locator('#textureBuilderTab')).toHaveClass(/active/);
+  await expect(builder.locator('#textureImageImportInput')).toHaveAttribute('accept', /image\/png/);
+  await builder.locator('#textureSizeSelect').selectOption('32');
+  await builder.locator('#textureImageImportMode').selectOption('fit');
+
+  const imageBase64 = await builder.locator('body').evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 2;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#cc3311';
+    context.fillRect(0, 0, 2, 2);
+    context.fillStyle = '#2255dd';
+    context.fillRect(2, 0, 2, 2);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+
+  await builder.locator('#textureImageImportInput').setInputFiles({
+    name: 'Castle Brick.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(imageBase64, 'base64'),
+  });
+
+  await expect(builder.locator('#mapEditorTab')).toHaveClass(/active/);
+  await expect(builder.locator('#selectedToolLabel')).toContainText('custom_texture_castle_brick');
+  await expect(builder.locator('#message')).toContainText('saved, mapped, and ready to paint');
+  const importedTile = builder.locator('.tile-btn[data-tile-id="custom_texture_castle_brick"]');
+  await expect(importedTile).toBeVisible();
+  await expect(importedTile).toBeEnabled();
+  await builder.locator('.cell[data-row="2"][data-col="2"]').click();
+
+  const importedLibraryEntry = await builder.locator('body').evaluate(() => {
+    const library = JSON.parse(localStorage.getItem('levelBuilderCustomTextureLibrary'));
+    return library.textures.find((entry) => entry.id === 'custom_texture_castle_brick');
+  });
+  expect(importedLibraryEntry.size).toBe(32);
+  expect(importedLibraryEntry.pixels).toHaveLength(32);
+  expect(importedLibraryEntry.pixels[0][0]).toBeNull();
+  expect(importedLibraryEntry.pixels[8][0].color).toBe('#cc3311');
+  expect(importedLibraryEntry.pixels[8][31].color).toBe('#2255dd');
+
+  await page.locator('#returnBridgeBtn').click();
+  await expect(page).toHaveURL(/\/builder\/workspace\.html\?game=scene-demo$/);
+  await expect(page.locator('#workspaceMessage')).toContainText('1 used custom texture');
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_builder_workspace_scene-demo')));
+  const scene = saved.scenes.find((entry) => entry.id === 'scene_lab');
+  expect(scene.tiles[2][2]).toBe('custom_texture_castle_brick');
+
+  const assets = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_builder_assets_scene-demo')));
+  expect(assets.textures).toHaveLength(1);
+  expect(assets.textures[0].id).toBe('custom_texture_castle_brick');
+  expect(assets.textures[0].image).toMatch(/^data:image\/png;base64,/);
+
+  await page.locator('#workspacePublishTabBtn').click();
+  await expect(page.locator('#publishStatus')).toContainText('ready for review');
+  await expect(page.locator('#publishFileList')).toContainText('tiles/textures');
+  monitor.assertClean('image import texture workflow');
 });
 
 test('map bridge without a workspace handoff fails safely', async ({ page }) => {

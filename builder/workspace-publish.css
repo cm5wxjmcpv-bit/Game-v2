@@ -67,6 +67,11 @@
   background: #166534;
 }
 
+.workspace-preview-link {
+  width: fit-content;
+  background: #1d4ed8;
+}
+
 .workspace-publish-error {
   border-color: #dc2626;
   background: #fef2f2;
