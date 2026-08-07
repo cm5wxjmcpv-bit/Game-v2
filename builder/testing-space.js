@@ -218,7 +218,7 @@ function persistLibrary(nextLibrary) {
 function render() {
   library = normalizeTestingLibrary(library);
   dom.summary.textContent = library.levels.length
-    ? `${library.levels.length} saved testing map${library.levels.length === 1 ? '' : 's'}. These maps are not attached to a game until you use Add to Game.`
+    ? `${library.levels.length} saved testing level${library.levels.length === 1 ? '' : 's'}. These maps are not attached to a game until you use Add to Game.`
     : 'No testing maps saved yet. Start a new map or import a JSON map.';
   dom.list.replaceChildren();
 
