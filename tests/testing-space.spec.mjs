@@ -5,7 +5,9 @@ const LIBRARY_KEY = 'pixel_engine_testing_level_library_v1';
 test('Main Hub exposes the project-neutral Testing Space', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'Open Testing Space' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Testing Space', exact: true }).first()).toHaveAttribute('href', './builder/testing-space.html');
+  const testingShortcut = page.locator('.hub-shortcut[href="./builder/testing-space.html"]');
+  await expect(testingShortcut).toBeVisible();
+  await expect(testingShortcut).toContainText('Testing Space');
 });
 
 test('testing level can be built, saved, managed, previewed, and reopened', async ({ page }) => {
