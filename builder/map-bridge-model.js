@@ -136,6 +136,11 @@ function normalizedSpawn(scene, width, height) {
   return { x, y };
 }
 
+function normalizedSceneKind(sceneKind) {
+  if (sceneKind === 'town' || sceneKind === 'level' || sceneKind === 'building') return sceneKind;
+  return 'scene';
+}
+
 export function createMapBridgeHandoff({
   projectId,
   scene,
@@ -159,12 +164,13 @@ export function createMapBridgeHandoff({
   objectLayer[spawn.y][spawn.x] = 'player_start';
   const originalScene = clone(scene);
   originalScene._workspaceEditorTileIds = editorTileSelection(scene, packageTiles);
+  const kind = normalizedSceneKind(sceneKind);
 
   return {
     schemaVersion: MAP_BRIDGE_SCHEMA_VERSION,
     projectId: normalizedProjectId,
     sceneId,
-    sceneKind: sceneKind === 'town' ? 'town' : sceneKind === 'level' ? 'level' : 'scene',
+    sceneKind: kind,
     scenePath: String(scene._workspacePath || ''),
     returnUrl: String(returnUrl || ''),
     createdAt: new Date().toISOString(),
@@ -176,7 +182,7 @@ export function createMapBridgeHandoff({
     editorMap: {
       width,
       height,
-      mapType: sceneKind === 'town' ? 'town' : 'level',
+      mapType: kind === 'building' ? 'building' : kind === 'town' ? 'town' : 'level',
       mapId: sceneId,
       mapName: String(scene.name || sceneId),
       tileLayer: aliases.editorTiles,
