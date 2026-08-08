@@ -1,7 +1,7 @@
 import { getActiveGameId } from './gameManifest.js';
 import { getSaveStorageKey } from './saveNamespace.js';
 
-export const INCREMENTAL_SAVE_VERSION = 1;
+export const INCREMENTAL_SAVE_VERSION = 2;
 const DEFAULT_SLOT = 1;
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -44,6 +44,10 @@ function resourceMap(config, initial = 0) {
   return Object.fromEntries(config.resources.map((resource) => [resource.id, initial]));
 }
 
+function skillMap(config) {
+  return Object.fromEntries(config.skills.map((skill) => [skill.id, 0]));
+}
+
 export function createInitialIncrementalSnapshot(config, options = {}) {
   const now = Number.isFinite(options.now) ? options.now : Date.now();
   const deposit = config.depositsById[config.start.depositId];
@@ -56,7 +60,7 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
       xp: config.start.xp,
       skillPoints: 0,
     },
-    skills: {},
+    skills: skillMap(config),
     materials: resourceMap(config),
     equipment: {},
     currentMine: config.start.mineId,
@@ -76,6 +80,9 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
     },
     employment: {
       companyId: config.employment.companyId,
+      active: config.start.storyStage === 'employee',
+      contractBuyoutPaid: 0,
+      endedAt: null,
       companyResources: resourceMap(config),
       companyValue: 0,
       totalWages: 0,
@@ -128,6 +135,15 @@ export function migrateIncrementalSnapshot(snapshot) {
       : { scratchTickets: [], drawingTickets: [] };
   }
 
+  if (migrated.saveVersion === 1) {
+    const employment = plainObject(migrated.employment) ? migrated.employment : {};
+    employment.active = migrated.storyStage === 'employee';
+    employment.contractBuyoutPaid = 0;
+    employment.endedAt = null;
+    migrated.employment = employment;
+    migrated.saveVersion = 2;
+  }
+
   return migrated;
 }
 
@@ -161,6 +177,9 @@ export function validateIncrementalSnapshot(snapshot) {
 
   const employment = snapshot.employment;
   if (!plainObject(employment) || !validId(employment.companyId)) return false;
+  if (typeof employment.active !== 'boolean') return false;
+  if (!nonnegativeFinite(employment.contractBuyoutPaid)) return false;
+  if (employment.endedAt !== null && !nonnegativeFinite(employment.endedAt)) return false;
   if (!validNumberMap(employment.companyResources)) return false;
   if (!nonnegativeFinite(employment.companyValue) || !nonnegativeFinite(employment.totalWages)) return false;
 
@@ -201,6 +220,18 @@ export function makeIncrementalSaveEnvelope(snapshot, slot = DEFAULT_SLOT, optio
   };
 }
 
+export function normalizeIncrementalSaveEnvelope(envelope, options = {}) {
+  if (!plainObject(envelope) || envelope.gameType !== 'incremental') return null;
+  const expectedSlot = normalizedSlot(options.slot);
+  const expectedGameId = String(options.gameId || '').trim().toLowerCase();
+  if (!Number.isInteger(envelope.version) || envelope.version < 1 || envelope.version > INCREMENTAL_SAVE_VERSION) return null;
+  if (envelope.slot !== expectedSlot) return null;
+  if (expectedGameId && envelope.gameId !== expectedGameId) return null;
+  const migrated = migrateIncrementalSnapshot(envelope.payload);
+  if (!validateIncrementalSnapshot(migrated)) return null;
+  return { ...envelope, version: INCREMENTAL_SAVE_VERSION, payload: migrated };
+}
+
 export function saveIncrementalGame(snapshot, slot = DEFAULT_SLOT, options = {}) {
   const storage = options.storage || globalThis.localStorage;
   const migrated = migrateIncrementalSnapshot(snapshot);
@@ -223,12 +254,11 @@ export function loadIncrementalGame(slot = DEFAULT_SLOT, options = {}) {
     const safeSlot = normalizedSlot(slot);
     const raw = storage.getItem(getSaveStorageKey(safeSlot));
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed?.gameType !== 'incremental') return null;
-    if (parsed.version !== INCREMENTAL_SAVE_VERSION || parsed.slot !== safeSlot) return null;
-    if (parsed.gameId && parsed.gameId !== getActiveGameId()) return null;
-    const migrated = migrateIncrementalSnapshot(parsed.payload);
-    return validateIncrementalSnapshot(migrated) ? migrated : null;
+    const normalized = normalizeIncrementalSaveEnvelope(JSON.parse(raw), {
+      slot: safeSlot,
+      gameId: getActiveGameId(),
+    });
+    return normalized?.payload || null;
   } catch {
     return null;
   }

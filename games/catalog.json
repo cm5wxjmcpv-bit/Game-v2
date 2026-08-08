@@ -18,7 +18,7 @@
     {
       "id": "miner-incremental",
       "name": "Blackstone Breakaway",
-      "description": "Mining incremental runtime foundation",
+      "description": "Mine for Blackstone, level your character, and earn your independence",
       "gameType": "incremental",
       "builderSupport": false
     }

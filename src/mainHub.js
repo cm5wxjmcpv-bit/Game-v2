@@ -1,6 +1,5 @@
 import {
-  INCREMENTAL_SAVE_VERSION,
-  validateIncrementalSnapshot,
+  normalizeIncrementalSaveEnvelope,
 } from './incrementalSaveSystem.js';
 
 const CATALOG_URL = new URL('../games/catalog.json', import.meta.url);
@@ -43,11 +42,10 @@ function rawSaveIsValid(raw, expectedGameType = 'adventure', expectedGameId = ''
     const parsed = JSON.parse(raw);
     const payload = parsed?.payload ? parsed.payload : parsed;
     if (expectedGameType === 'incremental') {
-      return parsed?.version === INCREMENTAL_SAVE_VERSION
-        && parsed?.gameType === 'incremental'
-        && parsed?.gameId === expectedGameId
-        && parsed?.slot === 1
-        && validateIncrementalSnapshot(payload);
+      return Boolean(normalizeIncrementalSaveEnvelope(parsed, {
+        gameId: expectedGameId,
+        slot: 1,
+      }));
     }
     if (parsed?.gameType === 'incremental') return false;
     return savePayloadIsValid(payload);

@@ -132,10 +132,13 @@ body.incremental-game-mode #hud {
 
 .incremental-small-button {
   min-height: 58px;
+  padding: 9px 14px;
   border-color: #6d5948;
   border-radius: 8px;
   background: #342a24;
+  color: var(--mine-ink);
   font: inherit;
+  cursor: pointer;
 }
 
 .incremental-status-row {
@@ -160,6 +163,58 @@ body.incremental-game-mode #hud {
 
 #incremental-save-status.is-error::before {
   color: #ef6f6c;
+}
+
+.incremental-nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 7px;
+  border: 1px solid var(--mine-border);
+  border-radius: 10px;
+  background: rgba(27, 22, 20, 0.92);
+}
+
+.incremental-nav button {
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--mine-muted);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.incremental-nav button.is-active {
+  border-color: #76523d;
+  background: #3b2c25;
+  color: #fff0d6;
+}
+
+#incremental-nav-skill-points {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  min-height: 20px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: #4a3d35;
+  color: #d4c2a8;
+  font-size: 11px;
+}
+
+#incremental-nav-skill-points.has-points {
+  background: var(--mine-gold);
+  color: #20150c;
+}
+
+.incremental-view[hidden],
+.incremental-story-overlay[hidden],
+.incremental-primary-button[hidden],
+.incremental-contract-progress-wrap[hidden] {
+  display: none !important;
 }
 
 .incremental-layout {
@@ -467,6 +522,7 @@ body.incremental-game-mode #hud {
 .incremental-float-damage { color: #fff0dd; }
 .incremental-float-ore { color: #f0c987; margin-top: 24px; }
 .incremental-float-cash { color: #7fe0a6; margin-top: 48px; }
+.incremental-float-critical { color: #ffd45e; margin-top: -28px; font-size: 15px; }
 
 .incremental-deposit-readout {
   display: flex;
@@ -535,6 +591,11 @@ body.incremental-game-mode #hud {
   white-space: nowrap;
 }
 
+.incremental-badge.is-player-owned {
+  border-color: #3f7d5d;
+  color: #8ee3ad;
+}
+
 .incremental-resource-list {
   display: grid;
   gap: 8px;
@@ -594,10 +655,221 @@ body.incremental-game-mode #hud {
 }
 
 .incremental-ledger-panel p,
-.incremental-foundation-panel li {
+.incremental-foundation-panel li,
+.incremental-character-panel p {
   color: var(--mine-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.incremental-contract-progress-wrap {
+  margin: 14px 0;
+}
+
+.incremental-contract-progress-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--mine-muted);
+  font-size: 12px;
+}
+
+.incremental-contract-progress-copy strong {
+  color: var(--mine-gold);
+}
+
+.incremental-primary-button,
+.incremental-secondary-button {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 14px;
+  border: 1px solid #8d603d;
+  border-radius: 8px;
+  background: linear-gradient(#d88b45, #a45a2e);
+  color: #1b1009;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.incremental-secondary-button {
+  border-color: #705646;
+  background: #392d27;
+  color: #f6dfc2;
+}
+
+.incremental-primary-button:hover:not(:disabled),
+.incremental-secondary-button:hover:not(:disabled),
+.incremental-small-button:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.incremental-primary-button:focus-visible,
+.incremental-secondary-button:focus-visible,
+.incremental-small-button:focus-visible,
+.incremental-nav button:focus-visible {
+  outline: 3px solid var(--mine-gold);
+  outline-offset: 2px;
+}
+
+.incremental-primary-button:disabled,
+.incremental-secondary-button:disabled,
+.incremental-small-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.incremental-character-panel .incremental-secondary-button {
+  margin-top: 14px;
+}
+
+#incremental-skills-view {
+  margin-top: 16px;
+}
+
+.incremental-skills-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.incremental-skills-header h2 {
+  margin: 4px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+}
+
+.incremental-skills-header p {
+  max-width: 650px;
+  margin: 7px 0 0;
+  color: var(--mine-muted);
+  line-height: 1.5;
+}
+
+.incremental-skill-actions {
+  display: grid;
+  min-width: 230px;
+  gap: 7px;
+  text-align: right;
+}
+
+.incremental-skill-actions > strong {
+  color: #ffe2ad;
+}
+
+.incremental-skill-actions small {
+  color: var(--mine-muted);
+}
+
+.incremental-skill-status {
+  min-height: 22px;
+  margin: 12px 3px;
+  color: #d9c7ad;
+  font-size: 13px;
+}
+
+.incremental-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.incremental-skill-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 235px;
+  padding: 17px;
+  border: 1px solid var(--mine-border);
+  border-radius: 11px;
+  background:
+    linear-gradient(145deg, rgba(240, 185, 77, 0.07), transparent 48%),
+    var(--mine-panel);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.19);
+}
+
+.incremental-skill-card.is-locked {
+  background: rgba(26, 23, 22, 0.88);
+}
+
+.incremental-skill-card-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.incremental-skill-card h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+}
+
+.incremental-skill-card-header strong {
+  flex: none;
+  color: var(--mine-gold);
+  font-size: 11px;
+}
+
+.incremental-skill-card p {
+  margin: 0;
+  color: var(--mine-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.incremental-skill-card > small {
+  color: #e9c98f;
+  font-weight: 700;
+}
+
+.incremental-skill-card .incremental-secondary-button {
+  align-self: end;
+  margin-top: auto;
+}
+
+.incremental-skill-lock-note {
+  padding: 7px 8px;
+  border-left: 3px solid #6d5a4c;
+  color: #a99780;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.incremental-story-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 6, 5, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.incremental-story-dialog {
+  width: min(470px, 100%);
+  padding: 24px;
+  border: 1px solid #95643e;
+  border-radius: 13px;
+  background:
+    linear-gradient(140deg, rgba(196, 111, 60, 0.2), transparent 50%),
+    #211a17;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+}
+
+.incremental-story-dialog h2 {
+  margin: 5px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+}
+
+.incremental-story-dialog p {
+  margin: 14px 0 20px;
+  color: #ddc9ae;
+  font-size: 16px;
+  line-height: 1.55;
 }
 
 .incremental-foundation-panel ul {
@@ -646,6 +918,9 @@ body.incremental-game-mode #hud {
   .incremental-foundation-panel {
     grid-column: 1 / -1;
   }
+  .incremental-skills-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 620px) {
@@ -671,6 +946,14 @@ body.incremental-game-mode #hud {
     align-items: flex-start;
     flex-direction: column;
     gap: 3px;
+  }
+  .incremental-nav {
+    position: sticky;
+    top: 104px;
+    z-index: 20;
+  }
+  .incremental-nav button {
+    flex: 1;
   }
   .incremental-story-card {
     grid-template-columns: 1fr;
@@ -703,6 +986,23 @@ body.incremental-game-mode #hud {
     align-items: flex-start;
     flex-direction: column;
     gap: 5px;
+  }
+  .incremental-skills-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .incremental-skill-actions {
+    min-width: 0;
+    text-align: left;
+  }
+  .incremental-skills-grid {
+    grid-template-columns: 1fr;
+  }
+  .incremental-skill-card {
+    min-height: 0;
+  }
+  .incremental-story-dialog {
+    padding: 20px;
   }
 }
 

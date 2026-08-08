@@ -6,11 +6,16 @@
     "manualPower": 2,
     "autosaveSeconds": 5,
     "employeeWageShare": 0.08,
-    "minimumWage": 1
+    "minimumWage": 1,
+    "baseCriticalChance": 0,
+    "baseCriticalDamage": 2,
+    "baseOreYieldChance": 0
   },
   "progression": {
     "xpBase": 100,
-    "xpGrowth": 1.25
+    "xpGrowth": 1.25,
+    "skillPointsPerLevel": 1,
+    "skillResetCostPerPoint": 25
   },
   "start": {
     "cash": 0,
@@ -24,12 +29,157 @@
     "companyId": "blackstone-mining",
     "companyName": "Blackstone Mining Co.",
     "role": "Underpaid Mine Worker",
-    "foremanName": "Foreman Cole"
+    "foremanName": "Foreman Cole",
+    "contractBuyoutCost": 500
+  },
+  "independence": {
+    "role": "Independent Miner",
+    "operationName": "Freedom Claim",
+    "locationName": "Freedom Claim",
+    "subtitle": "The claim is small, but every resource you recover now belongs to you.",
+    "instruction": "This ore is yours. Break deposits to build a personal stockpile; direct ore sales arrive in Milestone 3."
   },
   "ui": {
     "title": "Blackstone Breakaway",
     "subtitle": "Every ton belongs to Blackstone. Every dollar toward freedom belongs to you.",
     "instruction": "Keep swinging. Blackstone owns the ore; you receive a small wage when the deposit breaks."
+  },
+  "skills": [
+    {
+      "id": "mining-power",
+      "name": "Mining Power",
+      "description": "Deal more damage to every deposit with each manual swing.",
+      "maxRank": 10,
+      "effect": {
+        "type": "manual-power-flat",
+        "amount": 1,
+        "label": "+1 manual mining power per rank"
+      }
+    },
+    {
+      "id": "mining-speed",
+      "name": "Mining Speed",
+      "description": "Improves future auto-swing speed without adding a click cooldown.",
+      "maxRank": 10,
+      "enabled": false,
+      "unlockNote": "Activates with the personal auto-swing system in a later milestone.",
+      "effect": {
+        "type": "mining-speed",
+        "amount": 0.05,
+        "label": "+5% mining speed per rank"
+      }
+    },
+    {
+      "id": "critical-chance",
+      "name": "Critical Chance",
+      "description": "Adds a chance for a manual swing to deal critical mining damage.",
+      "maxRank": 10,
+      "effect": {
+        "type": "critical-chance",
+        "amount": 0.03,
+        "label": "+3% critical chance per rank"
+      }
+    },
+    {
+      "id": "critical-damage",
+      "name": "Critical Damage",
+      "description": "Makes every critical mining hit strike harder.",
+      "maxRank": 10,
+      "effect": {
+        "type": "critical-damage",
+        "amount": 0.2,
+        "label": "+0.2x critical damage per rank"
+      }
+    },
+    {
+      "id": "ore-yield",
+      "name": "Ore Yield",
+      "description": "Adds a chance to recover one bonus resource when a deposit breaks.",
+      "maxRank": 10,
+      "effect": {
+        "type": "ore-yield-chance",
+        "amount": 0.08,
+        "label": "+8% bonus-ore chance per rank"
+      }
+    },
+    {
+      "id": "rare-find",
+      "name": "Rare Find Chance",
+      "description": "Improves future gemstone, treasure, and special-deposit rolls.",
+      "maxRank": 10,
+      "enabled": false,
+      "unlockNote": "Activates when rare finds arrive with mine progression.",
+      "effect": {
+        "type": "rare-find-chance",
+        "amount": 0.02,
+        "label": "+2% rare-find chance per rank"
+      }
+    },
+    {
+      "id": "automation-bonus",
+      "name": "Automation Bonus",
+      "description": "Improves future workers and automated mining equipment.",
+      "maxRank": 10,
+      "enabled": false,
+      "unlockNote": "Activates when company automation becomes available.",
+      "effect": {
+        "type": "automation-bonus",
+        "amount": 0.05,
+        "label": "+5% automated production per rank"
+      }
+    }
+  ],
+  "story": {
+    "milestones": [
+      {
+        "id": "blackstone-first-shift",
+        "title": "First Shift",
+        "speaker": "Foreman Cole",
+        "text": "Keep swinging. There are twenty men waiting for your job.",
+        "trigger": {
+          "type": "start"
+        }
+      },
+      {
+        "id": "blackstone-level-two",
+        "title": "A Stronger Swing",
+        "speaker": "Foreman Cole",
+        "text": "Getting faster, are you? Blackstone still owns every rock you break.",
+        "trigger": {
+          "type": "level",
+          "value": 2
+        }
+      },
+      {
+        "id": "blackstone-level-four",
+        "title": "Management Has Noticed",
+        "speaker": "Blackstone Notice",
+        "text": "Your shift output is above target. Your wage rate remains unchanged.",
+        "trigger": {
+          "type": "level",
+          "value": 4
+        }
+      },
+      {
+        "id": "contract-within-reach",
+        "title": "Freedom Is Affordable",
+        "speaker": "Contract Office",
+        "text": "You now have enough cash to buy out your employment contract.",
+        "trigger": {
+          "type": "contract-affordable"
+        }
+      },
+      {
+        "id": "contract-bought",
+        "title": "Independent Miner",
+        "speaker": "Foreman Cole",
+        "text": "You'll be back when that little claim dries up.",
+        "trigger": {
+          "type": "stage",
+          "value": "independent"
+        }
+      }
+    ]
   },
   "resources": [
     {

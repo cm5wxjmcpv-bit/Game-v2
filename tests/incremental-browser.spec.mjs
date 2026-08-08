@@ -14,6 +14,10 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-runtime')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blackstone Breakaway' })).toBeVisible();
   await expect(page.locator('#incremental-deposit-hp')).toHaveText('20 / 20 HP');
+  await expect(page.locator('#incremental-story-title')).toHaveText('First Shift');
+  await expect(page.locator('#incremental-story-text')).toContainText('twenty men waiting');
+  await page.locator('#incremental-story-continue').click();
+  await expect(page.locator('#incremental-buyout')).toBeDisabled();
 
   const target = page.locator('#incremental-mining-target');
   await target.click();
@@ -27,6 +31,7 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-cash')).not.toHaveText('$0');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
   expect(saved.gameType).toBe('incremental');
+  expect(saved.version).toBe(2);
   expect(saved.payload.statistics.totalManualSwings).toBe(10);
   expect(saved.payload.statistics.totalDepositsBroken).toBe(1);
   expect(saved.payload.statistics.totalOreMined).toBeGreaterThan(0);
@@ -50,11 +55,81 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   expect(pageErrors).toEqual([]);
 });
 
+test('leveling, skills, and the contract buyout persist the employee-to-independent transition', async ({ page }) => {
+  await page.goto('/?game=miner-incremental');
+  await page.locator('#incremental-story-continue').click();
+
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('milestone-two-seeded')) return;
+    const key = 'pixel_engine_save_miner-incremental_slot_1';
+    const save = JSON.parse(localStorage.getItem(key));
+    if (!save) return;
+    save.payload.cash = 500;
+    save.payload.character.xp = 99;
+    save.payload.currentDeposit.hp = 2;
+    localStorage.setItem(key, JSON.stringify(save));
+    sessionStorage.setItem('milestone-two-seeded', 'true');
+  });
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-story-title')).toHaveText('Freedom Is Affordable');
+  await page.locator('#incremental-story-continue').click();
+
+  await page.locator('#incremental-mining-target').click();
+  await expect(page.locator('#incremental-level')).toHaveText('2');
+  await expect(page.locator('#incremental-skill-points')).toHaveText('1');
+  await expect(page.locator('#incremental-story-title')).toHaveText('A Stronger Swing');
+  await page.locator('#incremental-story-continue').click();
+
+  await page.locator('#incremental-tab-mine').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('heading', { name: 'Miner Skills' })).toBeVisible();
+  const powerSkill = page.locator('.incremental-skill-card', { hasText: 'Mining Power' });
+  await powerSkill.getByRole('button', { name: 'Spend 1 Point' }).click();
+  await expect(powerSkill).toContainText('Rank 1 / 10');
+  await expect(page.locator('#incremental-skill-points')).toHaveText('0');
+
+  await page.locator('#incremental-tab-mine').click();
+  await expect(page.locator('#incremental-manual-power')).toHaveText('3');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.locator('#incremental-buyout').click();
+  await expect(page.locator('#incremental-story-title')).toHaveText('Independent Miner');
+  await page.locator('#incremental-story-continue').click();
+  await expect(page.locator('#incremental-role')).toHaveText('Independent Miner');
+  await expect(page.locator('#incremental-mine-name')).toHaveText('Freedom Claim');
+  await expect(page.locator('#incremental-subtitle')).toContainText('belongs to you');
+  await expect(page.locator('#incremental-resource-badge')).toHaveText('Player owned');
+  await expect(page.locator('#incremental-contract-title')).toHaveText('You Work for Yourself Now');
+  await expect(page.locator('#incremental-buyout')).toBeHidden();
+
+  const afterBuyout = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
+  const wagesBeforeIndependentMining = afterBuyout.payload.employment.totalWages;
+  expect(afterBuyout.payload.storyStage).toBe('independent');
+  expect(afterBuyout.payload.employment.active).toBe(false);
+  expect(afterBuyout.payload.employment.contractBuyoutPaid).toBe(500);
+  expect(afterBuyout.payload.cash).toBe(1);
+
+  const target = page.locator('#incremental-mining-target');
+  for (let index = 0; index < 15; index += 1) await target.click();
+  await expect.poll(async () => page.evaluate(() => {
+    const save = JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1'));
+    return Object.values(save.payload.materials).reduce((sum, quantity) => sum + quantity, 0);
+  })).toBeGreaterThan(0);
+  const independentSave = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
+  expect(independentSave.payload.employment.totalWages).toBe(wagesBeforeIndependentMining);
+
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-role')).toHaveText('Independent Miner');
+  await expect(page.locator('#incremental-resource-badge')).toHaveText('Player owned');
+});
+
 test.describe('touch viewport', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   test('miner target remains touch-sized and contained on a phone viewport', async ({ page }) => {
     await page.goto('/?game=miner-incremental');
+    await page.locator('#incremental-story-continue').click();
     const target = page.locator('#incremental-mining-target');
     await expect(target).toBeVisible();
     const box = await target.boundingBox();
