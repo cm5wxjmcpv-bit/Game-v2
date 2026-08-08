@@ -12,7 +12,7 @@ function validColor(value) {
   return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : '#8d7bff';
 }
 
-function appearanceFor(game, portal) {
+export function resolvePortalAppearance(game, portal) {
   const source = portal?.appearance && typeof portal.appearance === 'object' ? portal.appearance : {};
   const mode = ['style', 'texture', 'image'].includes(source.mode) ? source.mode : 'style';
   const shape = ['square', 'circle', 'diamond', 'ring'].includes(source.shape) ? source.shape : 'square';
@@ -28,7 +28,7 @@ function appearanceFor(game, portal) {
 
 function drawPortal(renderer, game, portal) {
   const { ctx } = renderer;
-  const appearance = appearanceFor(game, portal);
+  const appearance = resolvePortalAppearance(game, portal);
   const pos = game.camera.worldToScreen(portal.x, portal.y);
   const size = appearance.size;
   const x = pos.x + (TILE_SIZE - size) / 2;
