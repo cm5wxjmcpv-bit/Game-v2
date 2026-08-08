@@ -1,4 +1,5 @@
 import { distance } from './collision.js';
+import './portalRender.js';
 
 export function getPortalTrigger(portal) {
   return portal?.trigger === 'touch' ? 'touch' : 'interact';
