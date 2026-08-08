@@ -2,6 +2,10 @@ import { mergeActors, normalizeId, normalizeScene } from './workspace-model.js';
 import { buildWorkspacePublishPlan, repoPathFromUrl } from './workspace-publish-model.js';
 import { publishWorkspacePlan } from './workspace-publisher.js';
 import {
+  createLocalPublishSnapshot,
+  writeLocalPublishSnapshot,
+} from './local-publish-model.js';
+import {
   buildWorkspaceAssetFileChanges,
   readWorkspaceAssetDraft,
 } from './workspace-asset-model.js';
@@ -13,13 +17,13 @@ const REPOSITORY_ROOT_URL = new URL('../', window.location.href);
 const dom = Object.fromEntries([
   'projectSelect', 'sceneSelect', 'saveDraftBtn', 'workspaceSceneTabBtn', 'workspaceActorTabBtn', 'workspaceWeaponTabBtn',
   'workspacePublishTabBtn', 'workspaceSceneTab', 'workspaceActorTab', 'workspacePublishTab',
-  'refreshPublishPlanBtn', 'publishPlanSummary', 'publishFileList', 'publishForm',
+  'refreshPublishPlanBtn', 'publishAndPlayBtn', 'publishPlanSummary', 'publishFileList', 'publishForm',
   'publishTitleInput', 'publishCommitInput', 'publishTokenInput', 'publishConfirmInput',
   'publishDraftPrBtn', 'clearPublishTokenBtn', 'publishStatus', 'publishPrLink',
   'publishPreviewLink',
 ].map((id) => [id, document.getElementById(id)]));
 
-const state = { plan: null, loading: false, submitting: false, publishing: false };
+const state = { plan: null, loading: false, localSubmitting: false, submitting: false, publishing: false };
 
 bindEvents();
 
@@ -29,6 +33,7 @@ function bindEvents() {
   dom.workspaceActorTabBtn.addEventListener('click', closePublishTab);
   dom.workspaceWeaponTabBtn.addEventListener('click', closePublishTab);
   dom.refreshPublishPlanBtn.addEventListener('click', refreshPublishPlan);
+  dom.publishAndPlayBtn.addEventListener('click', publishAndPlay);
   dom.publishForm.addEventListener('submit', publishDraftPullRequest);
   dom.clearPublishTokenBtn.addEventListener('click', () => {
     dom.publishTokenInput.value = '';
@@ -281,8 +286,8 @@ async function refreshPublishPlan() {
     dom.publishCommitInput.value ||= `Update ${projectId} game content`;
     renderPublishPlan();
     if (state.plan.errors.length) setPublishStatus(state.plan.errors.join(' '), true);
-    else if (!state.plan.files.length) setPublishStatus('No changed map, actor, weapon, reward, shop, tile, or texture files are ready to publish.');
-    else setPublishStatus(`${state.plan.files.length} changed file(s) are ready for review and test publishing.`);
+    else if (!state.plan.files.length) setPublishStatus('No unpublished changes were found. Publish & Play will open the current game at the selected scene.');
+    else setPublishStatus(`${state.plan.files.length} changed game file(s) are ready. Publish & Play will open this browser draft immediately.`);
   } catch (error) {
     state.plan = null;
     renderPublishPlan();
@@ -306,10 +311,10 @@ function renderPublishPlan() {
     dom.publishPlanSummary.textContent = `${state.plan.projectId} cannot be published: ${state.plan.errors.join(' ')}`;
     dom.publishPlanSummary.classList.add('workspace-publish-error');
   } else if (!state.plan.files.length) {
-    dom.publishPlanSummary.textContent = `${state.plan.projectId} has no changed game files.`;
+    dom.publishPlanSummary.textContent = `${state.plan.projectId} has no unpublished changes. You can still open the selected scene with Publish & Play.`;
     dom.publishPlanSummary.classList.add('workspace-publish-warning');
   } else {
-    dom.publishPlanSummary.textContent = `${state.plan.projectId} → ${state.plan.repository} • new workspace branch from ${state.plan.baseBranch} • draft pull request for testing`;
+    dom.publishPlanSummary.textContent = `${state.plan.projectId} • ${state.plan.files.length} changed browser-draft file(s) • ready for one-click Publish & Play`;
   }
   for (const file of state.plan.files) {
     const row = document.createElement('div');
@@ -327,10 +332,45 @@ function renderPublishPlan() {
 
 function updatePublishButton() {
   const usablePlan = state.plan && !state.plan.errors.length && state.plan.files.length > 0;
+  const playablePlan = state.plan && !state.plan.errors.length;
+  dom.publishAndPlayBtn.disabled = Boolean(
+    state.loading || state.localSubmitting || state.submitting || state.publishing || !playablePlan
+  );
   dom.publishDraftPrBtn.disabled = Boolean(
-    state.loading || state.submitting || state.publishing || !usablePlan ||
+    state.loading || state.localSubmitting || state.submitting || state.publishing || !usablePlan ||
     !dom.publishConfirmInput.checked || !dom.publishTokenInput.value.trim()
   );
+}
+
+async function publishAndPlay(event) {
+  event?.preventDefault?.();
+  if (state.localSubmitting || state.submitting || state.publishing) return;
+  state.localSubmitting = true;
+  updatePublishButton();
+  try {
+    await refreshPublishPlan();
+    if (!state.plan || state.plan.errors.length) {
+      state.localSubmitting = false;
+      updatePublishButton();
+      return;
+    }
+    setPublishStatus('Publishing this browser draft and opening the game…');
+    const snapshot = createLocalPublishSnapshot({
+      plan: state.plan,
+      sceneId: dom.sceneSelect?.value || '',
+    });
+    writeLocalPublishSnapshot(snapshot);
+
+    const previewUrl = new URL('../preview.html', window.location.href);
+    previewUrl.searchParams.set('game', snapshot.projectId);
+    previewUrl.searchParams.set('localPublish', '1');
+    if (snapshot.sceneId) previewUrl.searchParams.set('scene', snapshot.sceneId);
+    window.location.assign(previewUrl.href);
+  } catch (error) {
+    setPublishStatus(`Publish & Play failed: ${error.message}`, true);
+    state.localSubmitting = false;
+    updatePublishButton();
+  }
 }
 
 async function publishDraftPullRequest(event) {

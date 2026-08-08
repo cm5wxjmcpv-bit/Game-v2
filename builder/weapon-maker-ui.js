@@ -66,8 +66,10 @@ function currentArt() {
   return current.weapon.art[activeArtRole];
 }
 
-function render() {
+function render(options = {}) {
   if (!workspace || !current) return;
+  const preserveViewport = options.preserveViewport !== false && tab.classList.contains('active');
+  const viewport = preserveViewport ? { x: window.scrollX, y: window.scrollY } : null;
   clearAutoTest();
   const weapons = weaponItems(workspace.items);
   const validation = validateWeaponDefinition(current);
@@ -189,6 +191,12 @@ function render() {
   bindRenderedEvents();
   resetArena(false);
   updateArtworkPreview();
+  if (viewport || options.afterRestore) {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (viewport) window.scrollTo(viewport.x, viewport.y);
+      options.afterRestore?.();
+    }));
+  }
 }
 
 function validationHtml(validation) {
@@ -378,12 +386,13 @@ function saveWeapon(event, openTest) {
   localStorage.removeItem(autosaveKey());
   window.pixelEngineWorkspace.markDirty(`Weapon “${current.name}” saved and mapped to the selected game systems.`);
   window.pixelEngineWorkspace.saveDraft();
-  render();
+  render({
+    afterRestore: openTest ? () => {
+      document.getElementById('wm-test-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => testAttack('normal'), 250);
+    } : null,
+  });
   setStatus('Saved to the project draft. Publish when you are ready to test the full game.');
-  if (openTest) {
-    document.getElementById('wm-test-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => testAttack('normal'), 250);
-  }
 }
 
 function replaceWeaponId(oldId, newId) {

@@ -47,8 +47,8 @@ test('publish plan includes the changed level and merged package tile texture fi
   const plan = buildWorkspacePublishPlan({
     projectId: 'scene-demo',
     manifest: { data: { actors: 'data/actors.json' } },
-    contentRootUrl: new URL('https://example.test/Game-v2/games/scene-demo/'),
-    repositoryRootUrl: new URL('https://example.test/Game-v2/'),
+    contentRootUrl: new URL('https://example.test/L-C-Forge/games/scene-demo/'),
+    repositoryRootUrl: new URL('https://example.test/L-C-Forge/'),
     actors: [],
     baselineActors: [],
     scenes: [currentScene],
@@ -69,8 +69,8 @@ test('custom texture publish files cannot escape the selected game package', () 
   const plan = buildWorkspacePublishPlan({
     projectId: 'scene-demo',
     manifest: { data: {} },
-    contentRootUrl: new URL('https://example.test/Game-v2/games/scene-demo/'),
-    repositoryRootUrl: new URL('https://example.test/Game-v2/'),
+    contentRootUrl: new URL('https://example.test/L-C-Forge/games/scene-demo/'),
+    repositoryRootUrl: new URL('https://example.test/L-C-Forge/'),
     actors: [],
     baselineActors: [],
     scenes: [],

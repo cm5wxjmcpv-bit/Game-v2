@@ -26,7 +26,7 @@ test('new game wizard previews and publishes a complete package through a draft 
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: corsHeaders, body: '' });
     const body = request.postDataJSON?.() || null;
     apiCalls.push({ method, path: url.pathname, body, authorization: request.headers().authorization });
-    if (url.pathname === '/repos/cm5wxjmcpv-bit/Game-v2') return json(route, { full_name: 'cm5wxjmcpv-bit/Game-v2' });
+    if (url.pathname === '/repos/cm5wxjmcpv-bit/L-C-Forge') return json(route, { full_name: 'cm5wxjmcpv-bit/L-C-Forge' });
     if (url.pathname.endsWith('/git/ref/heads/main')) return json(route, { object: { sha: 'base-sha' } });
     if (url.pathname.includes('/contents/games/catalog.json')) {
       return json(route, { type: 'file', encoding: 'base64', content: Buffer.from(catalogFile).toString('base64') });
@@ -38,7 +38,7 @@ test('new game wizard previews and publishes a complete package through a draft 
     if (url.pathname.endsWith('/git/commits')) return json(route, { sha: 'wizard-commit' }, 201);
     if (url.pathname.endsWith('/git/refs')) return json(route, { ref: body.ref }, 201);
     if (url.pathname.endsWith('/pulls')) {
-      return json(route, { number: 26, html_url: 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/26' }, 201);
+      return json(route, { number: 26, html_url: 'https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/26' }, 201);
     }
     return json(route, { message: `Unexpected ${method} ${url.pathname}` }, 404);
   });
@@ -68,7 +68,7 @@ test('new game wizard previews and publishes a complete package through a draft 
   await page.locator('#newGamePublishBtn').click();
 
   await expect(page.locator('#newGamePrLink')).toBeVisible();
-  await expect(page.locator('#newGamePrLink')).toHaveAttribute('href', 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/26');
+  await expect(page.locator('#newGamePrLink')).toHaveAttribute('href', 'https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/26');
   await expect(page.locator('#newGameStatus')).toContainText('Draft pull request #26 created');
   await expect(page.locator('#newGameTokenInput')).toHaveValue('');
   expect(pageErrors).toEqual([]);

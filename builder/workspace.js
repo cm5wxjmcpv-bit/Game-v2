@@ -53,6 +53,8 @@ const state = {
   dirty: false,
 };
 let projectLoadRequestId = 0;
+let localAutosaveTimer = null;
+const LOCAL_AUTOSAVE_DELAY_MS = 450;
 
 init().catch((error) => setMessage(`Workspace failed to initialize: ${error.message}`, true));
 
@@ -83,11 +85,7 @@ function bindEvents() {
   dom.newEntityBtn.addEventListener('click', newEntity);
   dom.deleteEntityBtn.addEventListener('click', deleteSelectedEntity);
   dom.entityForm.addEventListener('submit', saveEntity);
-  window.addEventListener('beforeunload', (event) => {
-    if (!state.dirty) return;
-    event.preventDefault();
-    event.returnValue = '';
-  });
+  window.addEventListener('pagehide', flushLocalAutosave);
   dom.entityList.addEventListener('click', (event) => {
     const button = event.target.closest('[data-entity-id]');
     if (button) selectEntity(button.dataset.entityId);
@@ -629,31 +627,56 @@ function draftKey() {
 }
 
 function saveDraft(event) {
+  writeDraft({ event, announce: true });
+}
+
+function workspaceDraftPayload() {
+  return {
+    version: 2,
+    projectId: state.projectId,
+    actors: cleanJson(state.actors),
+    scenes: cleanJson(state.scenes),
+    items: cleanJson(state.items),
+    shopPayload: cleanJson(state.shopPayload),
+    lootTables: cleanJson(state.lootTables),
+    rewardPackages: cleanJson(state.rewardPackages),
+    completionRewards: cleanJson(state.completionRewards),
+    settings: cleanJson(state.settings),
+    savedAt: new Date().toISOString(),
+  };
+}
+
+function writeDraft({ event = null, announce = false } = {}) {
   if (!state.projectId) return;
+  if (localAutosaveTimer) {
+    clearTimeout(localAutosaveTimer);
+    localAutosaveTimer = null;
+  }
   dom.saveDraftBtn.dataset.saveStatus = 'pending';
   try {
-    localStorage.setItem(draftKey(), JSON.stringify({
-      version: 2,
-      projectId: state.projectId,
-      actors: cleanJson(state.actors),
-      scenes: cleanJson(state.scenes),
-      items: cleanJson(state.items),
-      shopPayload: cleanJson(state.shopPayload),
-      lootTables: cleanJson(state.lootTables),
-      rewardPackages: cleanJson(state.rewardPackages),
-      completionRewards: cleanJson(state.completionRewards),
-      settings: cleanJson(state.settings),
-      savedAt: new Date().toISOString(),
-    }));
+    localStorage.setItem(draftKey(), JSON.stringify(workspaceDraftPayload()));
     dom.saveDraftBtn.dataset.saveStatus = 'success';
     state.dirty = false;
-    setMessage('Local workspace draft saved in this browser.');
+    if (announce) setMessage('Workspace saved locally. Cloud sync will follow when signed in.');
+    window.dispatchEvent(new CustomEvent('lc-forge-local-draft-saved', {
+      detail: { packageId: state.projectId, slotId: 'workspace' },
+    }));
   } catch (error) {
     dom.saveDraftBtn.dataset.saveStatus = 'error';
     event?.preventDefault();
     event?.stopImmediatePropagation();
     setMessage(`Local workspace draft was not saved: ${error.message}`, true);
   }
+}
+
+function scheduleLocalAutosave() {
+  if (!state.projectId) return;
+  if (localAutosaveTimer) clearTimeout(localAutosaveTimer);
+  localAutosaveTimer = setTimeout(() => writeDraft({ announce: false }), LOCAL_AUTOSAVE_DELAY_MS);
+}
+
+function flushLocalAutosave() {
+  if (state.dirty && state.projectId) writeDraft({ announce: false });
 }
 
 function restoreDraft() {
@@ -692,9 +715,16 @@ function clearDraft(event) {
     event?.stopImmediatePropagation();
     return;
   }
+  if (localAutosaveTimer) {
+    clearTimeout(localAutosaveTimer);
+    localAutosaveTimer = null;
+  }
   localStorage.removeItem(draftKey());
   state.dirty = false;
   setMessage('Local draft cleared. Choose Load Project to restore the current repository version.');
+  window.dispatchEvent(new CustomEvent('lc-forge-local-draft-cleared', {
+    detail: { packageId: state.projectId, slotId: 'workspace' },
+  }));
 }
 
 function exportActors() {
@@ -751,6 +781,7 @@ function downloadJson(filename, payload) {
 function markDirty(message) {
   state.dirty = true;
   setMessage(message);
+  scheduleLocalAutosave();
 }
 
 function exposeWorkspaceApi() {
@@ -763,6 +794,7 @@ function exposeWorkspaceApi() {
       window.dispatchEvent(new CustomEvent('pixel-engine-workspace-content-changed', { detail: { projectId: state.projectId } }));
     },
     saveDraft: () => dom.saveDraftBtn.click(),
+    reloadFromLocal: () => loadProject(state.projectId),
   };
 }
 

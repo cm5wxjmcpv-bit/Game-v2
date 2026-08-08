@@ -1,4 +1,4 @@
-# Pixel Engine (Game-v2)
+# L-C Forge
 
 A modular 2D pixel-art browser **engine** built with plain HTML, CSS, and JavaScript.
 
@@ -151,6 +151,12 @@ The package-aware actor and entity workspace is available under:
 
 The workspace reads `games/catalog.json`, resolves each package manifest and content root, displays all registered scenes and package tiles, converts legacy classes into editable actors, loads direct actors, and provides visual component-entity placement. Browser drafts are stored separately for each game package. Actor JSON, scene JSON, and full workspace bundles can still be exported without GitHub authentication.
 
+### Supabase cloud builder storage
+
+The Workspace and Testing Space include an optional authenticated Supabase layer while preserving the established local-first system. Workspace drafts, staged project assets, Weapon Maker autosaves, and reusable Testing Space maps remain in browser storage for immediate recovery and synchronize to the signed-in creator's cloud records after the initial setup. Player game saves, preview payloads, and map handoffs remain separate and local.
+
+Run the migration and configure the browser-safe Publishable key using [`supabase/README.md`](supabase/README.md). The storage classification, conflict rules, offline behavior, migration behavior, RLS model, and Character Art-ready asset design are documented in [`docs/SUPABASE_CLOUD_ARCHITECTURE.md`](docs/SUPABASE_CLOUD_ARCHITECTURE.md).
+
 ### Weapon Maker
 
 Open the workspace and choose **Weapons** to create a weapon from a blank form, a melee/ranged/magic family preset, or a clone. The guided steps cover identity and rarity, normal and special attacks, costs and cooldowns, artwork, and game availability. Optional **Advanced** panels provide equip restrictions, custom animation sheets, damage types, and precise artwork transforms.
@@ -207,13 +213,19 @@ Select a scene and object type, choose an existing object or create a new one, t
 
 Object changes are merged into the same package-specific browser draft used by component entities and actors. Scene exports, workspace bundles, map-editor handoffs, and Publish plans therefore receive the current object arrays without replacing unknown object groups or metadata.
 
-### Controlled draft-PR publishing
+### One-click Publish & Play
 
-The workspace **Publish** tab can send reviewed level, actor, object, tile, texture, weapon, shop, loot, reward, and settings changes to GitHub without writing directly to `main`.
+The workspace **Publish & Play** button saves the current browser draft as an isolated playable build and immediately opens the selected scene. It includes all changed manifest-resolved JSON—levels, portals, actors, objects, tiles, textures, weapons, shops, loot, rewards, and settings—without asking for a GitHub token or a second testing step.
+
+This browser build is intentionally separate from regular game saves, editable cloud records, and the public GitHub version. Supabase Cloud Save lets signed-in creators recover and continue builder work across devices; it does not silently publish or merge a public game update.
+
+### Advanced draft-PR publishing
+
+The optional advanced section of the workspace **Publish** tab can send reviewed level, actor, object, tile, texture, weapon, shop, loot, reward, and settings changes to GitHub without writing directly to `main`.
 
 1. Make and save workspace changes.
 2. Open **Publish** and review the exact manifest-resolved JSON file list.
-3. Use a fine-grained token scoped only to `cm5wxjmcpv-bit/Game-v2` with **Contents: write** and **Pull requests: write**.
+3. Use a fine-grained token scoped only to `cm5wxjmcpv-bit/L-C-Forge` with **Contents: write** and **Pull requests: write**.
 4. Confirm the file plan and choose **Publish Draft PR**.
 
 The token is kept only in the page's memory and cleared after success. Before creating anything, the workspace compares each target file with the current `main` version. Any stale file stops the whole operation. A successful publish creates one `workspace/...` branch, one commit, and one draft pull request. The workspace never merges the pull request. After publishing, **Test Draft in Game** loads the selected scene and all manifest-resolved JSON from that exact draft commit. Preview saves use a commit-specific key and do not overwrite published-game saves.
@@ -224,7 +236,7 @@ Current publishing limits:
 - no actor publishing for packages without a direct `data.actors` file
 - no new scene files until package scaffolding is implemented
 - maximum 50 files per publish
-- fixed repository `cm5wxjmcpv-bit/Game-v2` and base branch `main`
+- fixed repository `cm5wxjmcpv-bit/L-C-Forge` and base branch `main`
 
 ## Remaining generalization work
 

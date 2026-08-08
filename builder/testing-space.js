@@ -33,6 +33,12 @@ let pendingAddLibraryId = '';
 render();
 loadGameCatalog();
 
+window.addEventListener('lc-forge-testing-library-restored', () => {
+  library = readLibrary();
+  render();
+  setMessage('Testing Space library updated from cloud.');
+});
+
 dom.importInput.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
   event.target.value = '';

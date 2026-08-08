@@ -95,7 +95,7 @@ test('workspace map bridge keeps Building identity while using normal editor dat
   const handoff = createMapBridgeHandoff({
     projectId: 'scene-demo',
     sceneKind: 'building',
-    returnUrl: 'https://example.test/Game-v2/builder/workspace.html?game=scene-demo',
+    returnUrl: 'https://example.test/L-C-Forge/builder/workspace.html?game=scene-demo',
     scene: {
       id: 'blacksmith_shop',
       name: 'Blacksmith Shop',
@@ -139,8 +139,8 @@ test('workspace publishing creates new Building files only in buildingsDirectory
   const plan = buildWorkspacePublishPlan({
     projectId: 'scene-demo',
     manifest: { data: { buildingsDirectory: 'data/buildings' } },
-    contentRootUrl: new URL('https://example.test/Game-v2/games/scene-demo/'),
-    repositoryRootUrl: new URL('https://example.test/Game-v2/'),
+    contentRootUrl: new URL('https://example.test/L-C-Forge/games/scene-demo/'),
+    repositoryRootUrl: new URL('https://example.test/L-C-Forge/'),
     actors: [],
     baselineActors: [],
     scenes: [building],

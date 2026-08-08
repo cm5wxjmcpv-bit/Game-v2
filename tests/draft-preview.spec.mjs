@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const commitSha = 'b'.repeat(40);
-const rawPrefix = `/cm5wxjmcpv-bit/Game-v2/${commitSha}/`;
+const rawPrefix = `/cm5wxjmcpv-bit/L-C-Forge/${commitSha}/`;
 
 test('draft preview loads exact commit content, selected scene, and isolated saves', async ({ page }) => {
   const rawRequests = [];
@@ -31,7 +31,7 @@ test('draft preview loads exact commit content, selected scene, and isolated sav
   await expect(page.locator('#previewDetails')).toContainText('scene-demo › fallback_room');
   await expect(page.locator('#previewPrLink')).toHaveAttribute(
     'href',
-    'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/44',
+    'https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/44',
   );
   await expect(page.locator('#new-game')).toBeVisible();
   await page.locator('#new-game').click();

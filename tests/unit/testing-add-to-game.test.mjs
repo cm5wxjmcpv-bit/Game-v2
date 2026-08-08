@@ -146,8 +146,8 @@ test('workspace publish plan creates a new scene file and updates the staged wor
   const plan = buildWorkspacePublishPlan({
     projectId: 'scene-demo',
     manifest: { data: { levelsDirectory: 'data/levels' } },
-    contentRootUrl: new URL('https://example.test/Game-v2/games/scene-demo/'),
-    repositoryRootUrl: new URL('https://example.test/Game-v2/'),
+    contentRootUrl: new URL('https://example.test/L-C-Forge/games/scene-demo/'),
+    repositoryRootUrl: new URL('https://example.test/L-C-Forge/'),
     actors: [],
     baselineActors: [],
     scenes: [scene],
