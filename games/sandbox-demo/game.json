@@ -26,6 +26,7 @@
     "texturePack": "data/core.json",
     "world": "data/world.json",
     "classes": "data/core.json",
+    "npcs": "data/npcs/npcs.json",
     "items": "data/core.json",
     "enemies": "data/core.json",
     "shops": "data/core.json",
