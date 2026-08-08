@@ -272,14 +272,14 @@ function renderPortalList() {
   }
 }
 
-function selectPortal(id) {
+function selectPortal(id, announce = true) {
   const portal = portalsForSource().find((entry) => entry.id === id);
   if (!portal) return;
   state.selectedPortalId = portal.id;
   state.previousPortalId = portal.id;
   populateForm(portal);
   renderAllVisuals();
-  setStatus(`Editing ${portal.id}.`);
+  if (announce) setStatus(`Editing ${portal.id}.`);
 }
 
 function newPortal(announce = true) {
@@ -395,7 +395,7 @@ function savePortal(event) {
     state.previousPortalId = result.portal.id;
     renderSceneOptions();
     dom.sourceSceneSelect.value = state.sourceSceneId;
-    selectPortal(result.portal.id);
+    selectPortal(result.portal.id, false);
     renderValidation([]);
   } catch (error) {
     renderValidation([error.message]);
