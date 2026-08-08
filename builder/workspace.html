@@ -8,14 +8,16 @@
   <link rel="stylesheet" href="workspace.css" />
   <link rel="stylesheet" href="new-game-wizard.css" />
   <link rel="stylesheet" href="weapon-maker.css" />
+  <link rel="stylesheet" href="cloud-account.css" />
 </head>
 <body>
   <header class="site-header workspace-header">
     <div>
       <h1>Pixel Engine Project Workspace</h1>
-      <p>Build a connected level, add game content, and publish a reviewable test version without manually mapping its textures.</p>
+      <p>Build a connected level, add game content, then publish and play it without manually mapping textures.</p>
     </div>
     <div class="workspace-header-actions">
+      <div id="cloudAccountMount"></div>
       <a id="workspacePlayGameLink" class="workspace-link" href="../?game=sample-rpg" target="_blank" rel="noopener noreferrer">Play Published Game</a>
       <a class="workspace-link workspace-link-secondary" href="./" title="Open the standalone builder without a selected game or level">Standalone Builder</a>
     </div>
@@ -29,7 +31,7 @@
           <select id="projectSelect" class="text-input"></select>
         </div>
         <button id="loadProjectBtn" type="button">Load Project</button>
-        <button id="saveDraftBtn" type="button" class="secondary-btn">Save Local Draft</button>
+        <button id="saveDraftBtn" type="button" class="secondary-btn">Save Now</button>
         <button id="clearDraftBtn" type="button" class="danger-btn">Clear Local Draft</button>
         <button id="exportBundleBtn" type="button" class="secondary-btn">Export Workspace Bundle</button>
       </div>
@@ -44,8 +46,8 @@
       </div>
       <ol class="workspace-flow-steps">
         <li><span>1</span><div><strong>Build</strong><small>Create or import textures, save them, then paint the level.</small></div></li>
-        <li><span>2</span><div><strong>Add content & save</strong><small>Add objects or entities and save the local draft.</small></div></li>
-        <li><span>3</span><div><strong>Publish & test</strong><small>Review the automatic file plan, publish a draft PR, and test its exact commit.</small></div></li>
+        <li><span>2</span><div><strong>Add content & save</strong><small>Edits autosave locally, then sync to your cloud account when signed in.</small></div></li>
+        <li><span>3</span><div><strong>Publish & play</strong><small>Click once to save the complete browser build and open the selected scene in the game.</small></div></li>
       </ol>
     </section>
 
@@ -246,7 +248,7 @@
         </div>
         <label class="field-label" for="newGameTokenInput">Fine-grained GitHub Token</label>
         <input id="newGameTokenInput" class="text-input" type="password" autocomplete="off" spellcheck="false" />
-        <p class="small">Use a repository-scoped token for <code>cm5wxjmcpv-bit/Game-v2</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token remains only in page memory and is cleared after success.</p>
+        <p class="small">Use a repository-scoped token for <code>cm5wxjmcpv-bit/L-C-Forge</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token remains only in page memory and is cleared after success.</p>
         <label class="checkbox-row"><input id="newGameConfirmInput" type="checkbox" /> I reviewed the generated file tree and understand this creates a new branch and draft pull request without merging.</label>
         <div class="workspace-inline-actions">
           <button id="newGamePublishBtn" type="button" disabled>Publish New Game Draft PR</button>
@@ -260,35 +262,47 @@
     <section id="workspacePublishTab" class="panel workspace-tab workspace-publish-panel" role="tabpanel" aria-labelledby="workspacePublishTabBtn" aria-hidden="true">
       <div class="workspace-publish-heading">
         <div>
-          <h2>Publish a Draft Pull Request</h2>
-          <p>The file plan includes every changed manifest-resolved level, actor, object, tile, and texture JSON file. Publishing creates a new branch and draft pull request; it never merges or writes directly to <code>main</code>.</p>
+          <h2>Publish & Play</h2>
+          <p>Publish the current browser draft and immediately open the selected scene in the game. The level, portals, textures, actors, NPCs, weapons, and other connected game files are included automatically.</p>
         </div>
         <button id="refreshPublishPlanBtn" type="button" class="secondary-btn">Refresh File Plan</button>
       </div>
 
+      <section class="workspace-publish-play-card" aria-labelledby="publishPlayHeading">
+        <div>
+          <h3 id="publishPlayHeading">Ready to play your build?</h3>
+          <p>No token, confirmation box, pull request, or second testing button is required. This opens an isolated build from the current browser draft; cloud saving and public GitHub publishing remain separate.</p>
+        </div>
+        <button id="publishAndPlayBtn" type="button" disabled>Publish & Play</button>
+      </section>
+
       <div id="publishPlanSummary" class="workspace-summary">Open this tab after making changes to build a publish plan.</div>
       <div id="publishFileList" class="workspace-publish-files" aria-label="Files ready to publish"></div>
 
-      <form id="publishForm" class="item-form workspace-publish-form" novalidate>
-        <div class="workspace-two-column">
-          <div>
-            <label class="field-label" for="publishTitleInput">Draft PR Title</label>
-            <input id="publishTitleInput" class="text-input" type="text" maxlength="120" />
+      <details class="workspace-github-publish">
+        <summary>Advanced: publish a GitHub draft pull request</summary>
+        <p class="small">This optional owner tool updates repository files for review. You do not need it to use Publish & Play.</p>
+        <form id="publishForm" class="item-form workspace-publish-form" novalidate>
+          <div class="workspace-two-column">
+            <div>
+              <label class="field-label" for="publishTitleInput">Draft PR Title</label>
+              <input id="publishTitleInput" class="text-input" type="text" maxlength="120" />
+            </div>
+            <div>
+              <label class="field-label" for="publishCommitInput">Commit Message</label>
+              <input id="publishCommitInput" class="text-input" type="text" maxlength="120" />
+            </div>
           </div>
-          <div>
-            <label class="field-label" for="publishCommitInput">Commit Message</label>
-            <input id="publishCommitInput" class="text-input" type="text" maxlength="120" />
+          <label class="field-label" for="publishTokenInput">Fine-grained GitHub Token</label>
+          <input id="publishTokenInput" class="text-input" type="password" autocomplete="off" spellcheck="false" />
+          <p class="small">Create a repository-scoped token for <code>cm5wxjmcpv-bit/L-C-Forge</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token stays in this page's memory and is cleared after a successful publish. <a href="https://github.com/settings/personal-access-tokens/new?name=L-C-Forge%20Workspace&amp;description=Creates%20reviewable%20workspace%20branches%20and%20draft%20pull%20requests&amp;contents=write&amp;pull_requests=write" target="_blank" rel="noopener noreferrer">Create token</a></p>
+          <label class="checkbox-row workspace-publish-confirm"><input id="publishConfirmInput" type="checkbox" /> I reviewed the file list and understand this opens a draft pull request for review.</label>
+          <div class="workspace-inline-actions">
+            <button id="publishDraftPrBtn" type="submit" disabled>Publish Draft PR</button>
+            <button id="clearPublishTokenBtn" type="button" class="secondary-btn">Forget Token</button>
           </div>
-        </div>
-        <label class="field-label" for="publishTokenInput">Fine-grained GitHub Token</label>
-        <input id="publishTokenInput" class="text-input" type="password" autocomplete="off" spellcheck="false" />
-        <p class="small">Create a repository-scoped token for <code>cm5wxjmcpv-bit/Game-v2</code> with <strong>Contents: write</strong> and <strong>Pull requests: write</strong>. The token stays in this page's memory and is cleared after a successful publish. <a href="https://github.com/settings/personal-access-tokens/new?name=Pixel%20Engine%20Workspace&amp;description=Creates%20reviewable%20workspace%20branches%20and%20draft%20pull%20requests&amp;contents=write&amp;pull_requests=write" target="_blank" rel="noopener noreferrer">Create token</a></p>
-        <label class="checkbox-row workspace-publish-confirm"><input id="publishConfirmInput" type="checkbox" /> I reviewed the file list and understand this opens a draft pull request for review.</label>
-        <div class="workspace-inline-actions">
-          <button id="publishDraftPrBtn" type="submit" disabled>Publish Draft PR</button>
-          <button id="clearPublishTokenBtn" type="button" class="secondary-btn">Forget Token</button>
-        </div>
-      </form>
+        </form>
+      </details>
       <div id="publishStatus" class="message" role="status" aria-live="polite"></div>
       <div class="workspace-publish-result-actions">
         <a id="publishPreviewLink" class="workspace-link workspace-preview-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Test Draft in Game</a>
@@ -299,6 +313,7 @@
 
   <script type="module" src="workspace-map-launcher.js"></script>
   <script type="module" src="workspace.js"></script>
+  <script type="module" src="cloud-account-ui.js"></script>
   <script type="module" src="weapon-maker-ui.js"></script>
   <script type="module" src="new-game-wizard-ui.js"></script>
 </body>

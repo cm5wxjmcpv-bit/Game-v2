@@ -106,7 +106,7 @@ test('publisher verifies updates and absent create paths before opening a draft 
     const method = options.method || 'GET';
     const body = options.body ? JSON.parse(options.body) : null;
     calls.push({ path, method, body });
-    if (path === '/repos/cm5wxjmcpv-bit/Game-v2') return jsonResponse({ full_name: plan.repository });
+    if (path === '/repos/cm5wxjmcpv-bit/L-C-Forge') return jsonResponse({ full_name: plan.repository });
     if (path.endsWith('/git/ref/heads/main')) return jsonResponse({ object: { sha: 'base-sha' } });
     if (path.includes('/contents/games/catalog.json')) {
       return jsonResponse({ type: 'file', encoding: 'base64', content: Buffer.from(catalogText).toString('base64') });
@@ -117,7 +117,7 @@ test('publisher verifies updates and absent create paths before opening a draft 
     if (path.endsWith('/git/trees')) return jsonResponse({ sha: 'tree-sha' }, 201);
     if (path.endsWith('/git/commits')) return jsonResponse({ sha: 'commit-sha' }, 201);
     if (path.endsWith('/git/refs')) return jsonResponse({ ref: body.ref }, 201);
-    if (path.endsWith('/pulls')) return jsonResponse({ number: 26, html_url: 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/26' }, 201);
+    if (path.endsWith('/pulls')) return jsonResponse({ number: 26, html_url: 'https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/26' }, 201);
     return jsonResponse({ message: `Unexpected ${method} ${path}` }, 404);
   };
 
@@ -134,7 +134,7 @@ test('publisher stops if a requested package path already exists', async () => {
   const plan = wizardPlan();
   const fetchImpl = async (url) => {
     const path = new URL(url).pathname;
-    if (path === '/repos/cm5wxjmcpv-bit/Game-v2') return { ok: true, status: 200, json: async () => ({ full_name: plan.repository }) };
+    if (path === '/repos/cm5wxjmcpv-bit/L-C-Forge') return { ok: true, status: 200, json: async () => ({ full_name: plan.repository }) };
     if (path.endsWith('/git/ref/heads/main')) return { ok: true, status: 200, json: async () => ({ object: { sha: 'base-sha' } }) };
     if (path.includes('/contents/games/catalog.json')) {
       return { ok: true, status: 200, json: async () => ({ type: 'file', encoding: 'base64', content: Buffer.from(catalogText).toString('base64') }) };

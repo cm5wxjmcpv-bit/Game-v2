@@ -13,6 +13,31 @@ function json(route, payload, status = 200) {
   return route.fulfill({ status, headers: corsHeaders, body: JSON.stringify(payload) });
 }
 
+test('Publish & Play opens the current browser build without a token or GitHub request', async ({ page }) => {
+  const githubRequests = [];
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://api.github.com/')) githubRequests.push(request.url());
+  });
+
+  await page.goto('/builder/workspace.html?game=scene-demo');
+  await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
+  await page.locator('#workspaceActorTabBtn').click();
+  await page.locator('#actorList [data-actor-id="scene_actor"]').click();
+  await page.locator('#actorNameInput').fill('Browser Build Explorer');
+  await page.locator('#saveActorBtn').click();
+
+  await page.locator('#workspacePublishTabBtn').click();
+  await expect(page.locator('#publishAndPlayBtn')).toBeEnabled();
+  await page.locator('#publishAndPlayBtn').click();
+
+  await expect(page).toHaveURL(/\/preview\.html\?game=scene-demo&localPublish=1&scene=scene_lab/);
+  await expect(page.locator('#previewModeLabel')).toHaveText('Published Browser Build');
+  await expect(page.locator('#previewDetails')).toContainText('scene-demo › scene_lab');
+  const snapshot = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_local_publish_scene-demo')));
+  expect(snapshot.files.some((file) => file.path === 'games/scene-demo/data/actors.json' && file.content.includes('Browser Build Explorer'))).toBe(true);
+  expect(githubRequests).toEqual([]);
+});
+
 test('workspace publishes changed package JSON to a new draft pull request without storing the token', async ({ page }) => {
   const actorFile = await fs.readFile('games/scene-demo/data/actors.json', 'utf8');
   const apiCalls = [];
@@ -28,7 +53,7 @@ test('workspace publishes changed package JSON to a new draft pull request witho
     }
     const body = request.postDataJSON?.() || null;
     apiCalls.push({ method, path: url.pathname, body, authorization: request.headers().authorization });
-    if (url.pathname === '/repos/cm5wxjmcpv-bit/Game-v2') return json(route, { full_name: 'cm5wxjmcpv-bit/Game-v2' });
+    if (url.pathname === '/repos/cm5wxjmcpv-bit/L-C-Forge') return json(route, { full_name: 'cm5wxjmcpv-bit/L-C-Forge' });
     if (url.pathname.endsWith('/git/ref/heads/main')) return json(route, { object: { sha: 'base-sha' } });
     if (url.pathname.includes('/contents/games/scene-demo/data/actors.json')) {
       return json(route, { type: 'file', encoding: 'base64', content: Buffer.from(actorFile).toString('base64') });
@@ -39,7 +64,7 @@ test('workspace publishes changed package JSON to a new draft pull request witho
     if (url.pathname.endsWith('/git/commits')) return json(route, { sha: publishCommitSha }, 201);
     if (url.pathname.endsWith('/git/refs')) return json(route, { ref: body.ref }, 201);
     if (url.pathname.endsWith('/pulls')) {
-      return json(route, { number: 22, html_url: 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/22' }, 201);
+      return json(route, { number: 22, html_url: 'https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/22' }, 201);
     }
     return json(route, { message: `Unexpected ${method} ${url.pathname}` }, 404);
   });
@@ -53,14 +78,15 @@ test('workspace publishes changed package JSON to a new draft pull request witho
 
   await page.locator('#workspacePublishTabBtn').click();
   await expect(page.locator('#publishFileList')).toContainText('games/scene-demo/data/actors.json');
-  await expect(page.locator('#publishPlanSummary')).toContainText('draft pull request');
+  await expect(page.locator('#publishPlanSummary')).toContainText('ready for one-click Publish & Play');
+  await page.locator('.workspace-github-publish summary').click();
   await page.locator('#publishTokenInput').fill('github_pat_browser_test');
   await page.locator('#publishConfirmInput').check();
   await expect(page.locator('#publishDraftPrBtn')).toBeEnabled();
   await page.locator('#publishDraftPrBtn').click();
 
   await expect(page.locator('#publishPrLink')).toBeVisible();
-  await expect(page.locator('#publishPrLink')).toHaveAttribute('href', 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/22');
+  await expect(page.locator('#publishPrLink')).toHaveAttribute('href', 'https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/22');
   await expect(page.locator('#publishPreviewLink')).toBeVisible();
   const previewHref = await page.locator('#publishPreviewLink').getAttribute('href');
   const previewUrl = new URL(previewHref);
@@ -87,7 +113,8 @@ test('workspace publish plan reports no changes without requesting a token', asy
   await page.goto('/builder/workspace.html?game=scene-demo');
   await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
   await page.locator('#workspacePublishTabBtn').click();
-  await expect(page.locator('#publishPlanSummary')).toContainText('no changed game files');
+  await expect(page.locator('#publishPlanSummary')).toContainText('no unpublished changes');
+  await expect(page.locator('#publishAndPlayBtn')).toBeEnabled();
   await expect(page.locator('#publishDraftPrBtn')).toBeDisabled();
 });
 
@@ -146,7 +173,7 @@ test('rapid publish submission creates only one draft pull request', async ({ pa
     lastApiCallAt = Date.now();
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: corsHeaders, body: '' });
     const body = request.postDataJSON?.() || null;
-    if (url.pathname === '/repos/cm5wxjmcpv-bit/Game-v2') return json(route, { full_name: 'cm5wxjmcpv-bit/Game-v2' });
+    if (url.pathname === '/repos/cm5wxjmcpv-bit/L-C-Forge') return json(route, { full_name: 'cm5wxjmcpv-bit/L-C-Forge' });
     if (url.pathname.endsWith('/git/ref/heads/main')) return json(route, { object: { sha: 'base-sha' } });
     if (url.pathname.includes('/contents/games/scene-demo/data/actors.json')) {
       return json(route, { type: 'file', encoding: 'base64', content: Buffer.from(actorFile).toString('base64') });
@@ -161,7 +188,7 @@ test('rapid publish submission creates only one draft pull request', async ({ pa
       lastApiCallAt = Date.now();
       return json(route, {
         number: 30 + pullRequestCalls,
-        html_url: `https://github.com/cm5wxjmcpv-bit/Game-v2/pull/${30 + pullRequestCalls}`,
+        html_url: `https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/${30 + pullRequestCalls}`,
       }, 201);
     }
     return json(route, { message: `Unexpected ${method} ${url.pathname}` }, 404);
@@ -174,7 +201,8 @@ test('rapid publish submission creates only one draft pull request', async ({ pa
   await page.locator('#actorNameInput').fill('Single Publish Explorer');
   await page.locator('#saveActorBtn').click();
   await page.locator('#workspacePublishTabBtn').click();
-  await expect(page.locator('#publishPlanSummary')).toContainText('draft pull request');
+  await expect(page.locator('#publishPlanSummary')).toContainText('ready for one-click Publish & Play');
+  await page.locator('.workspace-github-publish summary').click();
   await page.locator('#publishTokenInput').fill('github_pat_single_submit_test');
   await page.locator('#publishConfirmInput').check();
   await expect(page.locator('#publishDraftPrBtn')).toBeEnabled();

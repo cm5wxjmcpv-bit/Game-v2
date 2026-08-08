@@ -1,6 +1,64 @@
+const ACTIVE_TAB_KEY = 'pixel_engine_workspace_active_tab';
+const TAB_QUERY_BUTTONS = Object.freeze({
+  scene: 'workspaceSceneTabBtn',
+  actors: 'workspaceActorTabBtn',
+  actor: 'workspaceActorTabBtn',
+  npcs: 'workspaceNpcTabBtn',
+  npc: 'workspaceNpcTabBtn',
+  weapons: 'workspaceWeaponTabBtn',
+  weapon: 'workspaceWeaponTabBtn',
+  objects: 'workspaceObjectsTabBtn',
+  'scene-objects': 'workspaceObjectsTabBtn',
+  'new-game': 'workspaceNewGameTabBtn',
+  publish: 'workspacePublishTabBtn',
+});
+
 function workspaceTabs() {
   return Array.from(document.querySelectorAll('.workspace-tab'));
 }
+
+function rememberActiveTab(button) {
+  if (!button?.id) return;
+  try {
+    sessionStorage.setItem(ACTIVE_TAB_KEY, button.id);
+  } catch {
+    // Tab memory is optional when browser storage is unavailable.
+  }
+}
+
+function requestedTabButtonId() {
+  const requested = new URL(window.location.href).searchParams.get('tab');
+  if (requested && TAB_QUERY_BUTTONS[requested.toLowerCase()]) return TAB_QUERY_BUTTONS[requested.toLowerCase()];
+  try {
+    return sessionStorage.getItem(ACTIVE_TAB_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function restoreRequestedTab() {
+  const buttonId = requestedTabButtonId();
+  if (!buttonId) return true;
+  const button = document.getElementById(buttonId);
+  const panel = button?.getAttribute('aria-controls')
+    ? document.getElementById(button.getAttribute('aria-controls'))
+    : null;
+  if (!button || !panel) return false;
+  if (!button.classList.contains('active') || !panel.classList.contains('active')) button.click();
+  return true;
+}
+
+window.addEventListener('pixel-engine-workspace-loaded', () => {
+  window.setTimeout(restoreRequestedTab, 0);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const observer = new MutationObserver(() => {
+    if (restoreRequestedTab()) observer.disconnect();
+  });
+  const tabBar = document.querySelector('.workspace-tabs');
+  if (tabBar && !restoreRequestedTab()) observer.observe(tabBar, { childList: true });
+});
 
 function workspaceTabButtons() {
   return Array.from(document.querySelectorAll('.workspace-tabs .tab-btn'));
@@ -42,6 +100,7 @@ export function activateWorkspaceTab(tab, button) {
   targetButton?.classList.add('active');
   targetButton?.setAttribute('aria-selected', 'true');
   if (targetButton) targetButton.tabIndex = 0;
+  rememberActiveTab(targetButton);
 }
 
 export function deactivateWorkspaceTab(tab, button) {

@@ -24,6 +24,47 @@
   gap: 0.55rem;
 }
 
+.workspace-publish-play-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px solid #2563eb;
+  border-radius: 10px;
+  background: #eff6ff;
+}
+
+.workspace-publish-play-card h3,
+.workspace-publish-play-card p {
+  margin: 0;
+}
+
+.workspace-publish-play-card p {
+  margin-top: 0.35rem;
+  max-width: 760px;
+}
+
+#publishAndPlayBtn {
+  flex: 0 0 auto;
+  min-width: 180px;
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.workspace-github-publish {
+  max-width: 920px;
+  padding: 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.workspace-github-publish > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .workspace-publish-file {
   display: flex;
   align-items: center;
@@ -86,8 +127,13 @@
 
 @media (max-width: 720px) {
   .workspace-publish-heading,
-  .workspace-publish-file {
+  .workspace-publish-file,
+  .workspace-publish-play-card {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  #publishAndPlayBtn {
+    width: 100%;
   }
 }

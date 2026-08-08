@@ -1,5 +1,5 @@
 export const WORKSPACE_PUBLISH_SCHEMA_VERSION = 1;
-export const WORKSPACE_PUBLISH_REPOSITORY = 'cm5wxjmcpv-bit/Game-v2';
+export const WORKSPACE_PUBLISH_REPOSITORY = 'cm5wxjmcpv-bit/L-C-Forge';
 export const WORKSPACE_PUBLISH_BASE_BRANCH = 'main';
 
 function clone(value) {

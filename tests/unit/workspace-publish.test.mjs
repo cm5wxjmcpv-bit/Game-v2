@@ -40,8 +40,8 @@ function planWithActorChange() {
   return buildWorkspacePublishPlan({
     projectId: 'scene-demo',
     manifest: { data: { actors: 'data/actors.json' } },
-    contentRootUrl: new URL('https://example.test/Game-v2/games/scene-demo/'),
-    repositoryRootUrl: new URL('https://example.test/Game-v2/'),
+    contentRootUrl: new URL('https://example.test/L-C-Forge/games/scene-demo/'),
+    repositoryRootUrl: new URL('https://example.test/L-C-Forge/'),
     actors: [{ ...baselineActor, name: 'Published Explorer' }],
     baselineActors: [baselineActor],
     scenes: [baselineScene],
@@ -54,8 +54,8 @@ test('publish plan resolves only changed manifest actor and scene JSON paths', (
   const plan = buildWorkspacePublishPlan({
     projectId: 'scene-demo',
     manifest: { data: { actors: 'data/actors.json' } },
-    contentRootUrl: new URL('https://example.test/Game-v2/games/scene-demo/'),
-    repositoryRootUrl: new URL('https://example.test/Game-v2/'),
+    contentRootUrl: new URL('https://example.test/L-C-Forge/games/scene-demo/'),
+    repositoryRootUrl: new URL('https://example.test/L-C-Forge/'),
     actors: [{ ...baselineActor, name: 'Published Explorer' }],
     baselineActors: [baselineActor],
     scenes: [changedScene],
@@ -75,8 +75,8 @@ test('actor changes are blocked when a package has no direct actors file', () =>
   const plan = buildWorkspacePublishPlan({
     projectId: 'sample-rpg',
     manifest: { data: {} },
-    contentRootUrl: new URL('https://example.test/Game-v2/'),
-    repositoryRootUrl: new URL('https://example.test/Game-v2/'),
+    contentRootUrl: new URL('https://example.test/L-C-Forge/'),
+    repositoryRootUrl: new URL('https://example.test/L-C-Forge/'),
     actors: [{ ...baselineActor, name: 'Changed' }],
     baselineActors: [baselineActor],
     scenes: [baselineScene],
@@ -88,11 +88,11 @@ test('actor changes are blocked when a package has no direct actors file', () =>
 
 test('repository paths cannot escape the GitHub Pages project root', () => {
   assert.equal(
-    repoPathFromUrl('https://example.test/Game-v2/games/demo/data/actors.json', 'https://example.test/Game-v2/'),
+    repoPathFromUrl('https://example.test/L-C-Forge/games/demo/data/actors.json', 'https://example.test/L-C-Forge/'),
     'games/demo/data/actors.json',
   );
   assert.throws(
-    () => repoPathFromUrl('https://example.test/other/actors.json', 'https://example.test/Game-v2/'),
+    () => repoPathFromUrl('https://example.test/other/actors.json', 'https://example.test/L-C-Forge/'),
     /outside this repository/i,
   );
 });
@@ -125,7 +125,7 @@ test('publisher verifies main, creates one commit and opens a draft PR', async (
     const method = options.method || 'GET';
     const body = options.body ? JSON.parse(options.body) : null;
     calls.push({ path, method, body, authorization: options.headers.Authorization });
-    if (path === '/repos/cm5wxjmcpv-bit/Game-v2') return jsonResponse({ full_name: 'cm5wxjmcpv-bit/Game-v2' });
+    if (path === '/repos/cm5wxjmcpv-bit/L-C-Forge') return jsonResponse({ full_name: 'cm5wxjmcpv-bit/L-C-Forge' });
     if (path.endsWith('/git/ref/heads/main')) return jsonResponse({ object: { sha: 'base-sha' } });
     if (path.includes('/contents/games/scene-demo/data/actors.json')) {
       return jsonResponse({ type: 'file', encoding: 'base64', content: Buffer.from(JSON.stringify(rawBaseline)).toString('base64') });
@@ -135,7 +135,7 @@ test('publisher verifies main, creates one commit and opens a draft PR', async (
     if (path.endsWith('/git/trees')) return jsonResponse({ sha: 'tree-sha' }, 201);
     if (path.endsWith('/git/commits')) return jsonResponse({ sha: 'commit-sha' }, 201);
     if (path.endsWith('/git/refs')) return jsonResponse({ ref: body.ref }, 201);
-    if (path.endsWith('/pulls')) return jsonResponse({ number: 22, html_url: 'https://github.com/cm5wxjmcpv-bit/Game-v2/pull/22' }, 201);
+    if (path.endsWith('/pulls')) return jsonResponse({ number: 22, html_url: 'https://github.com/cm5wxjmcpv-bit/L-C-Forge/pull/22' }, 201);
     return jsonResponse({ message: `Unexpected ${method} ${path}` }, 404);
   };
 
@@ -167,7 +167,7 @@ test('publisher rejects a stale remote file before creating a branch', async () 
   const plan = planWithActorChange();
   const fetchImpl = async (url, options = {}) => {
     const path = new URL(url).pathname;
-    if (path === '/repos/cm5wxjmcpv-bit/Game-v2') return { ok: true, status: 200, json: async () => ({ full_name: plan.repository }) };
+    if (path === '/repos/cm5wxjmcpv-bit/L-C-Forge') return { ok: true, status: 200, json: async () => ({ full_name: plan.repository }) };
     if (path.endsWith('/git/ref/heads/main')) return { ok: true, status: 200, json: async () => ({ object: { sha: 'base-sha' } }) };
     if (path.includes('/contents/')) {
       return { ok: true, status: 200, json: async () => ({ type: 'file', encoding: 'base64', content: Buffer.from('{"actors":[]}').toString('base64') }) };

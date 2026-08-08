@@ -140,12 +140,14 @@ function installMapEditorButton() {
 }
 
 function installAssetDraftCleanup() {
-  const clearButton = document.getElementById('clearDraftBtn');
-  const projectSelect = document.getElementById('projectSelect');
-  if (!clearButton || !projectSelect) return;
-  clearButton.addEventListener('click', () => {
-    const projectId = projectSelect.value;
-    if (projectId) localStorage.removeItem(assetDraftKey(projectId));
+  window.addEventListener('lc-forge-local-draft-cleared', (event) => {
+    if (event.detail?.slotId !== 'workspace') return;
+    const projectId = event.detail?.packageId || '';
+    if (!projectId) return;
+    localStorage.removeItem(assetDraftKey(projectId));
+    window.dispatchEvent(new CustomEvent('lc-forge-local-draft-cleared', {
+      detail: { packageId: projectId, slotId: 'workspace-assets' },
+    }));
   });
 }
 

@@ -1,0 +1,113 @@
+.cloud-account-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 42px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cloud-status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #94a3b8;
+  box-shadow: 0 0 0 2px rgb(148 163 184 / 20%);
+}
+
+.cloud-account-button[data-cloud-state='saved-cloud'] .cloud-status-dot { background: #22c55e; }
+.cloud-account-button[data-cloud-state='saving'] .cloud-status-dot { background: #f59e0b; }
+.cloud-account-button[data-cloud-state='offline'] .cloud-status-dot,
+.cloud-account-button[data-cloud-state='saved-local'] .cloud-status-dot { background: #38bdf8; }
+.cloud-account-button[data-cloud-state='conflict'] .cloud-status-dot,
+.cloud-account-button[data-cloud-state='sync-failed'] .cloud-status-dot,
+.cloud-account-button[data-cloud-state='auth-expired'] .cloud-status-dot { background: #ef4444; }
+
+.cloud-account-dialog {
+  width: min(520px, calc(100vw - 2rem));
+  max-height: min(760px, calc(100vh - 2rem));
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid #475569;
+  border-radius: 12px;
+  color: #0f172a;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 35%);
+}
+
+.cloud-account-dialog [hidden] {
+  display: none !important;
+}
+
+.cloud-account-dialog::backdrop { background: rgb(15 23 42 / 70%); }
+
+.cloud-dialog-heading,
+.cloud-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cloud-dialog-heading h2,
+.cloud-dialog-heading p,
+.cloud-account-section h3,
+.cloud-account-section p { margin-top: 0; }
+
+.cloud-kicker {
+  margin-bottom: 0.2rem;
+  color: #2563eb;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.cloud-account-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #cbd5e1;
+}
+
+.cloud-sign-in-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.cloud-detailed-status {
+  padding: 0.65rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+  font-weight: 700;
+}
+
+.cloud-action-card {
+  margin: 0.75rem 0;
+  padding: 0.8rem;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.cloud-action-card p { margin: 0.35rem 0 0.7rem; }
+
+.cloud-migration-report {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #14532d;
+}
+
+@media (max-width: 680px) {
+  #cloudAccountMount,
+  .cloud-account-button { width: 100%; }
+  .cloud-account-button { justify-content: center; }
+}
