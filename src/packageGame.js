@@ -58,7 +58,7 @@ export class PackageGame extends Game {
   loadScene(sceneId, options = {}) {
     const loaded = super.loadScene(sceneId, options);
     if (!loaded) return false;
-    const resolved = instantiateSceneNpcs(this.currentMap.entities, this.db.npcsById || {}, {
+    const resolved = instantiateSceneNpcs(this.currentMap.entities, this.db?.npcsById || {}, {
       texturesById: this.npcTexturesById,
       contentRootUrl: this.npcContentRootUrl,
     });
