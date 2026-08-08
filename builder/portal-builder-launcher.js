@@ -1,4 +1,5 @@
 import { WORKSPACE_DRAFT_PREFIX } from './map-bridge-model.js';
+import './npc-maker-ui.js';
 
 function installPortalBuilderButton() {
   const exportButton = document.getElementById('exportSceneBtn');

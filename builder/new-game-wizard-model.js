@@ -121,6 +121,7 @@ function createPackageFiles(config) {
       world: 'data/world/world.json',
       classes: 'data/classes/classes.json',
       actors: 'data/actors/actors.json',
+      npcs: 'data/npcs/npcs.json',
       items: 'data/items/items.json',
       enemies: 'data/enemies/enemies.json',
       shops: 'data/shops/shops.json',
@@ -218,7 +219,7 @@ function createPackageFiles(config) {
         render: { shape: 'diamond', color: '#facc15', size: Math.max(10, Math.round(tileSize * 0.5)) },
         interaction: { action: 'message', message: `Welcome to ${gameName}.`, range: 1.1 },
         collision: { solid: false },
-      },
+      }
     }] : [],
     objects: { portals: [], shops: [], fountains: [], enemySpawns: [], battleTriggers: [], rewardPickups: [] },
     randomEncounters: { enabled: false, minSeconds: 10, maxSeconds: 60, tableId: null },
@@ -251,6 +252,7 @@ function createPackageFiles(config) {
     }),
     makeFile(`${root}/data/world/progression.json`, 'progression', { unlocks: {} }),
     makeFile(`${root}/data/actors/actors.json`, 'actors', { actors: [actor] }),
+    makeFile(`${root}/data/npcs/npcs.json`, 'NPC templates', { npcs: [] }),
     makeFile(`${root}/data/classes/classes.json`, 'legacy compatibility', { classes: [] }),
     makeFile(`${root}/data/scenes/start.json`, 'starting scene', scene),
     makeFile(`${root}/data/tiles/tiles.json`, 'tiles', {

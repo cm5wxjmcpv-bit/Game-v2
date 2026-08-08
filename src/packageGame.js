@@ -6,15 +6,28 @@ import {
   isBlockedBySceneEntity,
   normalizeSceneEntities,
 } from './sceneEntityRuntime.js';
+import {
+  instantiateSceneNpcs,
+  loadNpcPackageData,
+  nextNpcDialogue,
+  updateNpcEntities,
+} from './npcRuntime.js';
 
 export class PackageGame extends Game {
   constructor(options) {
     super(options);
     this.currentEntities = [];
+    this.npcContentRootUrl = null;
+    this.npcTexturesById = {};
   }
 
   async init() {
     await super.init();
+    const npcData = await loadNpcPackageData(this.db.game.manifestUrl);
+    this.db.npcs = npcData.npcs;
+    this.db.npcsById = npcData.npcsById;
+    this.npcTexturesById = npcData.texturesById;
+    this.npcContentRootUrl = npcData.contentRootUrl;
     this.ui.showMainMenu(
       this.startNew.bind(this),
       this.tryLoadSave.bind(this),
@@ -45,7 +58,11 @@ export class PackageGame extends Game {
   loadScene(sceneId, options = {}) {
     const loaded = super.loadScene(sceneId, options);
     if (!loaded) return false;
-    this.currentEntities = normalizeSceneEntities(this.currentMap.entities);
+    const resolved = instantiateSceneNpcs(this.currentMap.entities, this.db?.npcsById || {}, {
+      texturesById: this.npcTexturesById,
+      contentRootUrl: this.npcContentRootUrl,
+    });
+    this.currentEntities = normalizeSceneEntities(resolved);
     return true;
   }
 
@@ -74,6 +91,12 @@ export class PackageGame extends Game {
     this.playerMovedThisFrame = Math.abs(this.player.x - prevX) > 0.0001 ||
       Math.abs(this.player.y - prevY) > 0.0001;
     this.updatePlayerAnimation(dt, this.player.x - prevX, this.player.y - prevY);
+
+    updateNpcEntities(this.currentEntities, dt, {
+      canMoveTo: (x, y) => this.isSystemEnabled('collision')
+        ? canWalkTo(this.currentMap, x, y, this.db.tileDefs)
+        : isInsideMapBounds(this.currentMap, x, y),
+    });
   }
 
   updateInteraction() {
@@ -82,6 +105,23 @@ export class PackageGame extends Game {
     const entity = findNearbyInteractiveEntity(this.player, this.currentEntities);
     const interaction = entity?.components?.interaction;
     if (entity && interaction) {
+      if (interaction.action === 'npc') {
+        const message = nextNpcDialogue(entity);
+        if (message) this.ui.flash(message);
+        if (interaction.shopId && this.isSystemEnabled('shops')) {
+          this.currentMap.objects ||= {};
+          this.currentMap.objects.shops ||= [];
+          const transientId = `npc_shop_${entity.id}`;
+          const transientShop = { id: transientId, x: entity.x, y: entity.y, shopId: interaction.shopId };
+          this.currentMap.objects.shops.unshift(transientShop);
+          try {
+            super.updateInteraction();
+          } finally {
+            this.currentMap.objects.shops = this.currentMap.objects.shops.filter((entry) => entry !== transientShop);
+          }
+        }
+        return;
+      }
       if (interaction.action === 'scene' && interaction.targetScene) {
         this.loadScene(interaction.targetScene);
       } else if (interaction.message) {
