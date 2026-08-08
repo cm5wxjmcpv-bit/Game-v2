@@ -3,6 +3,12 @@ import { expect, test } from '@playwright/test';
 const SUPABASE_URL = 'https://irgtpkqkeiacgtbewpzn.supabase.co';
 
 test('workspace explains the one missing browser-safe key without exposing a secret field', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.LC_FORGE_SUPABASE_CONFIG = {
+      url: 'https://irgtpkqkeiacgtbewpzn.supabase.co',
+      publishableKey: ' ',
+    };
+  });
   await page.goto('/builder/workspace.html?game=scene-demo');
   await expect(page.locator('#projectSummary')).toContainText('Generic Scene Demo');
   await expect(page.locator('#cloudAccountButtonLabel')).toHaveText('Cloud: Setup needed');
