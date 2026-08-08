@@ -131,6 +131,7 @@ function createPackageFiles(config) {
       rewards: 'data/rewards/rewards.json',
       townsDirectory: 'data/towns',
       levelsDirectory: 'data/levels',
+      buildingsDirectory: 'data/buildings',
       scenesDirectory: 'data/scenes',
     },
   };
@@ -231,6 +232,7 @@ function createPackageFiles(config) {
     makeFile(`${root}/data/world/world.json`, 'world', {
       towns: ['home'],
       levels: [],
+      buildings: [],
       scenes: ['start'],
       startTown: 'home',
       start: { townId: 'home', unlockedTowns: ['home'], unlockedLevels: [], gold: 0 },

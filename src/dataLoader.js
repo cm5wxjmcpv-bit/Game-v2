@@ -26,6 +26,7 @@ const DEFAULT_DATA_PATHS = Object.freeze({
   saveMetadata: null,
   townsDirectory: 'data/towns',
   levelsDirectory: 'data/levels',
+  buildingsDirectory: 'data/buildings',
   scenesDirectory: 'data/scenes',
 });
 
@@ -61,6 +62,7 @@ function withWorldDefaults(world, manifest) {
     ...world,
     towns: world.towns || [],
     levels: world.levels || [],
+    buildings: world.buildings || [],
     scenes: world.scenes || [],
     startTown,
     start: {
@@ -173,7 +175,7 @@ function validateAndNormalizeMap(map, expectedId, kind = 'map') {
     map.spawn = { x: 1, y: 1 };
   }
 
-  const legacyType = kind === 'town' || kind === 'level' ? kind : 'map';
+  const legacyType = kind === 'town' || kind === 'level' || kind === 'building' ? kind : 'map';
   return normalizeSceneMap(map, legacyType);
 }
 
@@ -227,13 +229,14 @@ export async function loadDatabase() {
   ]);
 
   const world = withWorldDefaults(rawWorld, gamePackage.manifest);
-  const [townMaps, levelMaps, genericSceneMaps] = await Promise.all([
+  const [townMaps, levelMaps, buildingMaps, genericSceneMaps] = await Promise.all([
     loadMapGroup(world.towns, paths.townsDirectory, gamePath, 'town'),
     loadMapGroup(world.levels, paths.levelsDirectory, gamePath, 'level'),
+    loadMapGroup(world.buildings, paths.buildingsDirectory, gamePath, 'building'),
     loadMapGroup(world.scenes, paths.scenesDirectory, gamePath, 'scene'),
   ]);
 
-  const scenesById = buildSceneRegistry(townMaps, levelMaps, genericSceneMaps);
+  const scenesById = buildSceneRegistry(townMaps, levelMaps, buildingMaps, genericSceneMaps);
   const requestedStartScene = gamePackage.manifest.startScene || null;
   const fallbackStartScene = world.start.townId
     ? { type: 'town', id: world.start.townId }
@@ -284,6 +287,7 @@ export async function loadDatabase() {
     completionRewards,
     townsById: Object.fromEntries(townMaps.filter((m) => m?.id).map((m) => [m.id, m])),
     levelsById: Object.fromEntries(levelMaps.filter((m) => m?.id).map((m) => [m.id, m])),
+    buildingsById: Object.fromEntries(buildingMaps.filter((m) => m?.id).map((m) => [m.id, m])),
     scenesById,
     scenes: Object.values(scenesById),
     progression,

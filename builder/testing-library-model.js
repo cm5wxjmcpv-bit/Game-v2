@@ -30,6 +30,13 @@ function normalizeLayer(layer, width, height, fallback) {
   });
 }
 
+function normalizeMapType(source) {
+  const type = String(source.mapType || source.type || '').toLowerCase();
+  if (type === 'building') return 'building';
+  if (type === 'town') return 'town';
+  return 'level';
+}
+
 export function normalizeTestingMap(payload) {
   if (!payload || typeof payload !== 'object') {
     throw new Error('Testing level must be a JSON object.');
@@ -54,7 +61,7 @@ export function normalizeTestingMap(payload) {
   return {
     width,
     height,
-    mapType: source.mapType === 'town' || source.type === 'town' ? 'town' : 'level',
+    mapType: normalizeMapType(source),
     mapId: safeId(source.mapId || source.id || 'testing_level'),
     mapName: String(source.mapName || source.name || 'Testing Level').trim() || 'Testing Level',
     tiles: clone(tileLayer),

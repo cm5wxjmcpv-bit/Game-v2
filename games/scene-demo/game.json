@@ -35,6 +35,7 @@
     "encounterTables": "data/core.json",
     "townsDirectory": "data/towns",
     "levelsDirectory": "data/levels",
+    "buildingsDirectory": "data/buildings",
     "scenesDirectory": "data/scenes"
   }
 }

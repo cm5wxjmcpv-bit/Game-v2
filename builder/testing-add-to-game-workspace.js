@@ -49,9 +49,14 @@ function rehydrateTestingSceneMetadata(projectId) {
     if (state.projectId !== projectId) return;
     const data = state.manifest?.data || {};
     for (const scene of state.scenes || []) {
-      const kind = scene.mapType === 'town' ? 'town' : scene.mapType === 'level' ? 'level' : '';
+      const kind = scene.mapType === 'building' ? 'building'
+        : scene.mapType === 'town' ? 'town'
+          : scene.mapType === 'level' ? 'level'
+            : '';
       if (!kind) continue;
-      const directory = kind === 'town' ? data.townsDirectory : data.levelsDirectory;
+      const directory = kind === 'building' ? data.buildingsDirectory
+        : kind === 'town' ? data.townsDirectory
+          : data.levelsDirectory;
       if (!directory) continue;
       scene._workspaceKind = kind;
       scene._workspacePath ||= `${String(directory).replace(/\/$/, '')}/${scene.id}.json`;
@@ -155,7 +160,7 @@ function prepareIncomingTextures(prepared, packageTiles, currentAssets) {
     }) : null;
 
     if (!requestTexture && !stagedTexture && !packageTile) {
-      throw new Error(`Custom texture “${id}” is used by this level but is not bundled with the Testing Space copy or registered in the selected game.`);
+      throw new Error(`Custom texture “${id}” is used by this map but is not bundled with the Testing Space copy or registered in the selected game.`);
     }
     if (requestTexture && stagedTexture && !sameTextureDesign(requestTexture, stagedTexture)) {
       throw new Error(`Custom texture ID “${id}” conflicts with a different texture already staged for this game.`);
@@ -232,7 +237,7 @@ async function buildWorldRegistrationFile(state, assetDraft, scene) {
   const existing = (assetDraft.files || []).find((file) => file.path === repositoryPath) || null;
 
   if (existing && canonicalJson(existing.baselinePayload) !== canonicalJson(repositoryWorld)) {
-    throw new Error('The game world index changed on main after an earlier local staging step. Clear/reload the game draft before adding another testing level.');
+    throw new Error('The game world index changed on main after an earlier local staging step. Clear/reload the game draft before adding another testing map.');
   }
 
   const baselinePayload = existing ? existing.baselinePayload : repositoryWorld;

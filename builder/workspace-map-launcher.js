@@ -122,7 +122,7 @@ function consumeReturnedMap() {
     localStorage.removeItem(MAP_BRIDGE_RESULT_KEY);
     localStorage.removeItem(MAP_BRIDGE_HANDOFF_KEY);
   } catch (error) {
-    writeNotice(`Level return was not saved: ${error.message} The previous level and texture drafts were restored, and the returned data was kept. Free browser storage if needed, then reload this workspace to retry.`, true);
+    writeNotice(`Level return was not saved: ${error.message} The previous map and texture drafts were restored, and the returned data was kept. Free browser storage if needed, then reload this workspace to retry.`, true);
   }
 }
 
@@ -151,7 +151,7 @@ function installAssetDraftCleanup() {
 function sceneKindFromSelection() {
   const select = document.getElementById('sceneSelect');
   const text = select?.selectedOptions?.[0]?.textContent || '';
-  const match = text.match(/\[(town|level|scene)\]\s*$/i);
+  const match = text.match(/\[(town|level|building|scene)\]\s*$/i);
   return match ? match[1].toLowerCase() : 'scene';
 }
 
@@ -205,7 +205,7 @@ async function openSelectedSceneInMapEditor() {
   } catch (error) {
     if (openButton) openButton.disabled = false;
     if (message) {
-      message.textContent = `Unable to open level and texture builder: ${error.message}`;
+      message.textContent = `Unable to open map and texture builder: ${error.message}`;
       message.classList.add('error');
     }
   }
@@ -243,7 +243,7 @@ function showPendingNotice() {
     if (!ready && attempts < 120) return;
     window.clearInterval(timer);
     if (message) {
-      message.textContent = notice.message || 'Level and texture bridge completed.';
+      message.textContent = notice.message || 'Map and texture bridge completed.';
       message.classList.toggle('error', Boolean(notice.isError));
     }
     try { sessionStorage.removeItem(MAP_BRIDGE_NOTICE_KEY); } catch { /* no-op */ }
