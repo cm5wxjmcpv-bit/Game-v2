@@ -1,3 +1,8 @@
+import {
+  INCREMENTAL_SAVE_VERSION,
+  validateIncrementalSnapshot,
+} from './incrementalSaveSystem.js';
+
 const CATALOG_URL = new URL('../games/catalog.json', import.meta.url);
 const GAME_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 const DEFAULT_GAME_ID = 'sample-rpg';
@@ -32,21 +37,29 @@ function savePayloadIsValid(snapshot) {
   return true;
 }
 
-function rawSaveIsValid(raw) {
+function rawSaveIsValid(raw, expectedGameType = 'adventure', expectedGameId = '') {
   if (!raw) return false;
   try {
     const parsed = JSON.parse(raw);
     const payload = parsed?.payload ? parsed.payload : parsed;
+    if (expectedGameType === 'incremental') {
+      return parsed?.version === INCREMENTAL_SAVE_VERSION
+        && parsed?.gameType === 'incremental'
+        && parsed?.gameId === expectedGameId
+        && parsed?.slot === 1
+        && validateIncrementalSnapshot(payload);
+    }
+    if (parsed?.gameType === 'incremental') return false;
     return savePayloadIsValid(payload);
   } catch {
     return false;
   }
 }
 
-function hasValidSave(gameId) {
+function hasValidSave(gameId, gameType = 'adventure') {
   const keys = [`pixel_engine_save_${gameId}_slot_1`];
   if (gameId === DEFAULT_GAME_ID) keys.push('pixel_engine_save_v2', 'pixel_engine_save_v1');
-  return keys.some((key) => rawSaveIsValid(localStorage.getItem(key)));
+  return keys.some((key) => rawSaveIsValid(localStorage.getItem(key), gameType, gameId));
 }
 
 function makeRuntimeUrl(gameId, action = '') {
@@ -74,11 +87,14 @@ function createGameCard(game) {
 
   const name = String(game?.name || id);
   const description = String(game?.description || 'Game package');
-  const canContinue = hasValidSave(id);
+  const gameType = game?.gameType === 'incremental' ? 'incremental' : 'adventure';
+  const builderSupported = game?.builderSupport !== false && gameType !== 'incremental';
+  const canContinue = hasValidSave(id, gameType);
 
   const article = document.createElement('article');
   article.className = 'hub-game-card';
   article.dataset.gameId = id;
+  article.dataset.gameType = gameType;
 
   const art = document.createElement('div');
   art.className = 'hub-game-art';
@@ -122,9 +138,15 @@ function createGameCard(game) {
   }
 
   const build = document.createElement('a');
-  build.className = 'hub-action hub-action-secondary';
-  build.href = makeBuilderUrl(id);
-  build.textContent = 'Open Builder';
+  build.className = `hub-action hub-action-secondary ${builderSupported ? '' : 'is-disabled'}`.trim();
+  build.textContent = builderSupported ? 'Open Builder' : 'Builder planned';
+  if (builderSupported) {
+    build.href = makeBuilderUrl(id);
+  } else {
+    build.setAttribute('aria-disabled', 'true');
+    build.tabIndex = -1;
+    build.title = 'Incremental Builder support is planned after the runtime contract is stable.';
+  }
 
   actions.append(play, newGame, continueGame, build);
   content.append(heading, summary, saveState, actions);
@@ -184,7 +206,6 @@ async function showRuntime(gameId) {
   app.hidden = false;
   runtimeBuilderLink.href = makeBuilderUrl(gameId || DEFAULT_GAME_ID);
 
-  await import('./save-menu-guard.js');
   await import('./main.js');
   queueMicrotask(runRequestedAction);
 }

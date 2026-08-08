@@ -40,6 +40,16 @@ for (const entry of catalog.games || []) {
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     if (manifest.id !== id) fail(`Catalog game ${id} has manifest id ${manifest.id}.`);
+    const catalogType = String(entry.gameType || 'adventure');
+    const manifestType = String(manifest.gameType || 'adventure');
+    if (!['adventure', 'incremental'].includes(catalogType)) fail(`Catalog game ${id} has unsupported gameType ${catalogType}.`);
+    if (catalogType !== manifestType) fail(`Catalog game ${id} gameType does not match its manifest.`);
+    if (entry.builderSupport !== undefined && typeof entry.builderSupport !== 'boolean') {
+      fail(`Catalog game ${id} builderSupport must be boolean when present.`);
+    }
+    if (manifestType === 'incremental' && entry.builderSupport !== false) {
+      fail(`Catalog game ${id} must disable map-builder support until an incremental builder exists.`);
+    }
   } catch (error) {
     fail(`Catalog game ${id} manifest could not be read: ${error.message}`);
   }

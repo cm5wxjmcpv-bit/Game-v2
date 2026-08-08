@@ -1,6 +1,6 @@
 # L-C Forge
 
-A modular 2D pixel-art browser **engine** built with plain HTML, CSS, and JavaScript.
+A modular, multi-runtime browser game **engine** built with plain HTML, CSS, and JavaScript.
 
 The current RPG is retained as the first engine test package, `sample-rpg`. The engine selects a game through a manifest instead of treating the repository's RPG content as the engine itself.
 
@@ -18,6 +18,7 @@ Then open a package:
 http://localhost:8080/?game=sample-rpg
 http://localhost:8080/?game=sandbox-demo
 http://localhost:8080/?game=scene-demo
+http://localhost:8080/?game=miner-incremental
 ```
 
 The `game` query parameter selects `games/<game-id>/game.json`. When it is omitted or unsafe, the engine loads `sample-rpg`.
@@ -43,8 +44,15 @@ The current packages are:
 - `sample-rpg`: the existing RPG content retained through backward-compatible paths
 - `sandbox-demo`: an independent package using the legacy town schema
 - `scene-demo`: a package using a neutral scene, a direct actor, and component entities
+- `miner-incremental`: the first package using the independent incremental runtime
 
 For transition safety, `sample-rpg` currently points to the existing `/data` content. This lets each generalized runtime layer be verified before moving or deleting working content.
+
+## Runtime selection
+
+Manifests that omit `gameType` remain backward compatible and use the existing `adventure` runtime. A manifest with `"gameType": "incremental"` loads `IncrementalGame` instead of `PackageGame`. The incremental path has its own validated content loader, game loop, responsive interface, and save schema; it does not inherit map movement, HP, collision, combat, towns, or RPG inventory assumptions.
+
+The first incremental content contract is documented in `games/README.md`. Map Builder surfaces intentionally exclude incremental packages until a dedicated visual incremental builder is implemented.
 
 ## Generalized scenes
 
@@ -102,7 +110,9 @@ Core engine logic is split in `/src` so each system can evolve independently:
 - scene and system contracts: `sceneRuntime.js`, `systemConfig.js`
 - actor and entity contracts: `actorRuntime.js`, `sceneEntityRuntime.js`
 - compatibility application runtime: `packageGame.js`, `packageRenderer.js`
-- loop/bootstrap: `main.js`, `game.js`, `dataLoader.js`
+- runtime selection and loop/bootstrap: `main.js`, `runtimeTypes.js`, `adventureMain.js`, `incrementalMain.js`
+- adventure runtime: `game.js`, `packageGame.js`, `dataLoader.js`
+- incremental runtime: `incrementalGame.js`, `incrementalDataLoader.js`, `incrementalContent.js`, `incrementalSaveSystem.js`
 - render/input/state: `renderer.js`, `camera.js`, `miniMap.js`, `input.js`, `stateManager.js`
 - gameplay systems: `combat.js`, `battleSystem.js`, `weaponSystem.js`, `rewardSystem.js`, `enemyAI.js`, `collision.js`, `shops.js`
 - player compatibility systems: `inventory.js`, `equipment.js`, `progression.js`, `statusEffects.js`
@@ -118,6 +128,8 @@ pixel_engine_save_<game-id>_slot_1
 ```
 
 Scene-aware saves include the current scene and last safe scene while retaining the legacy `currentTownId` field. Legacy `pixel_engine_save_v1` and `pixel_engine_save_v2` saves remain readable by `sample-rpg`.
+
+Incremental saves use the same package/slot namespace but carry `gameType: "incremental"` metadata and a separate versioned payload. They are rejected by the adventure loader and remain separate from creator cloud drafts and Publish & Play snapshots.
 
 ## Gameplay messages
 

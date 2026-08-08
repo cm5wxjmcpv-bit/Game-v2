@@ -33,9 +33,12 @@ test('root opens the Main Hub with registered games and builder links', async ({
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Game & Builder Hub' })).toBeVisible();
   await expect(page.locator('#app')).toBeHidden();
-  await expect(page.locator('.hub-game-card')).toHaveCount(3);
+  await expect(page.locator('.hub-game-card')).toHaveCount(4);
   await expect(page.locator('[data-game-id="sample-rpg"]')).toContainText('Sample RPG');
   await expect(page.locator('[data-game-id="scene-demo"]')).toContainText('Generic Scene Demo');
+  await expect(page.locator('[data-game-id="miner-incremental"]')).toContainText('Blackstone Breakaway');
+  await expect(page.locator('[data-game-id="miner-incremental"] a', { hasText: 'Builder planned' }))
+    .toHaveAttribute('aria-disabled', 'true');
 
   await expect(page.locator('[data-game-id="scene-demo"] a', { hasText: 'Play' }))
     .toHaveAttribute('href', /\?game=scene-demo$/);

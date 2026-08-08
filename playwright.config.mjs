@@ -2,6 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 const hardeningMatch = '**/site-hardening.spec.mjs';
 const localChromiumPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '';
+const localChromiumLaunch = localChromiumPath ? {
+  launchOptions: {
+    executablePath: localChromiumPath,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  },
+} : {};
 
 export default defineConfig({
   testDir: './tests',
@@ -17,20 +23,16 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: localChromiumPath ? 'off' : 'retain-on-failure',
-    launchOptions: localChromiumPath ? {
-      executablePath: localChromiumPath,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    } : undefined,
   },
   projects: [
     {
       name: 'chromium-desktop',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], ...localChromiumLaunch },
     },
     {
       name: 'chromium-mobile',
       testMatch: hardeningMatch,
-      use: { ...devices['iPhone 13'] },
+      use: { ...devices['iPhone 13'], browserName: 'chromium', ...localChromiumLaunch },
     },
     {
       name: 'firefox-desktop',

@@ -8,11 +8,45 @@ Launch a package with:
 index.html?game=<game-id>
 ```
 
-A package manifest identifies the game's data files, enabled systems, version, and starting scene. Paths are resolved from `contentRoot`, which is relative to the manifest file.
+A package manifest identifies the game's runtime, data files, version, and runtime-specific starting state. Paths are resolved from `contentRoot`, which is relative to the manifest file.
 
 The current `sample-rpg` package points to the existing `/data` directory for backward compatibility. A later migration can move that content inside `games/sample-rpg/` without changing the engine loader; only the manifest paths need to change.
 
 `scene-demo` verifies generic scenes, direct actors, component entities, and runtime system switches.
+
+## Runtime type
+
+Existing manifests do not need to change. A missing `gameType` normalizes to `adventure` and continues through `PackageGame`.
+
+An incremental package opts into the independent runtime explicitly:
+
+```json
+{
+  "schemaVersion": 2,
+  "id": "my-incremental-game",
+  "gameType": "incremental",
+  "name": "My Incremental Game",
+  "version": "0.1.0",
+  "contentRoot": "./",
+  "data": {
+    "incremental": "data/incremental.json"
+  }
+}
+```
+
+The referenced incremental JSON is a visual-editor-friendly contract with:
+
+- `balance`: manual power, autosave interval, and initial wage rules
+- `progression`: the XP curve inputs
+- `start`: cash, level, XP, mine, deposit, and story stage
+- `employment`: data-driven company and role names
+- `resources`: unique IDs, display values, colors, and icons
+- `deposits`: durability, resource reference, reward range, XP, weight, and visual fallback
+- `mines`: unique IDs and resolved deposit references
+
+All IDs, references, finite numbers, reward bounds, weights, and nonnegative values are validated at load and by the automated audit. Runtime UI inserts package text through text nodes rather than executable HTML.
+
+`IncrementalGame` owns deposit damage, reward settlement, replacement deposits, ticks, autosaves, and deterministic random injection. Its versioned save contains character/business expansion fields without requiring adventure fields such as HP, movement speed, maps, towns, bags, or combat equipment.
 
 ## Scene registry
 

@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "id": "miner-incremental",
+  "name": "Blackstone Breakaway",
+  "balance": {
+    "manualPower": 2,
+    "autosaveSeconds": 5,
+    "employeeWageShare": 0.08,
+    "minimumWage": 1
+  },
+  "progression": {
+    "xpBase": 100,
+    "xpGrowth": 1.25
+  },
+  "start": {
+    "cash": 0,
+    "level": 1,
+    "xp": 0,
+    "mineId": "blackstone-shaft-7",
+    "depositId": "stone-face",
+    "storyStage": "employee"
+  },
+  "employment": {
+    "companyId": "blackstone-mining",
+    "companyName": "Blackstone Mining Co.",
+    "role": "Underpaid Mine Worker",
+    "foremanName": "Foreman Cole"
+  },
+  "ui": {
+    "title": "Blackstone Breakaway",
+    "subtitle": "Every ton belongs to Blackstone. Every dollar toward freedom belongs to you.",
+    "instruction": "Keep swinging. Blackstone owns the ore; you receive a small wage when the deposit breaks."
+  },
+  "resources": [
+    {
+      "id": "stone",
+      "name": "Stone",
+      "value": 3,
+      "color": "#85817d",
+      "icon": "●"
+    },
+    {
+      "id": "coal",
+      "name": "Coal",
+      "value": 6,
+      "color": "#403d3b",
+      "icon": "◆"
+    },
+    {
+      "id": "copper",
+      "name": "Copper Ore",
+      "value": 14,
+      "color": "#bd6f45",
+      "icon": "◇"
+    }
+  ],
+  "deposits": [
+    {
+      "id": "stone-face",
+      "name": "Stone Face",
+      "maxHp": 20,
+      "resourceId": "stone",
+      "reward": {
+        "min": 4,
+        "max": 6
+      },
+      "xp": 6,
+      "weight": 60,
+      "visual": {
+        "color": "#77716c",
+        "accent": "#c4beb7",
+        "icon": "●"
+      }
+    },
+    {
+      "id": "coal-seam",
+      "name": "Coal Seam",
+      "maxHp": 30,
+      "resourceId": "coal",
+      "reward": {
+        "min": 3,
+        "max": 5
+      },
+      "xp": 10,
+      "weight": 28,
+      "visual": {
+        "color": "#302e2d",
+        "accent": "#77716e",
+        "icon": "◆"
+      }
+    },
+    {
+      "id": "copper-vein",
+      "name": "Copper Vein",
+      "maxHp": 44,
+      "resourceId": "copper",
+      "reward": {
+        "min": 2,
+        "max": 4
+      },
+      "xp": 16,
+      "weight": 12,
+      "visual": {
+        "color": "#8d4f32",
+        "accent": "#e6a06f",
+        "icon": "◇"
+      }
+    }
+  ],
+  "mines": [
+    {
+      "id": "blackstone-shaft-7",
+      "name": "Blackstone Shaft 7",
+      "description": "A cramped company shaft where new hires prove they can keep pace.",
+      "depositIds": [
+        "stone-face",
+        "coal-seam",
+        "copper-vein"
+      ]
+    }
+  ]
+}

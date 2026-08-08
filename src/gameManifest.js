@@ -1,3 +1,5 @@
+import { normalizeGameType } from './runtimeTypes.js';
+
 const DEFAULT_GAME_ID = 'sample-rpg';
 const GAME_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -20,7 +22,7 @@ export function getActiveGameId() {
   return activeGameId;
 }
 
-function normalizeManifest(manifest, requestedGameId) {
+export function normalizeGameManifest(manifest, requestedGameId) {
   if (!manifest || typeof manifest !== 'object') {
     throw new Error(`Game manifest for "${requestedGameId}" is not a JSON object.`);
   }
@@ -36,6 +38,7 @@ function normalizeManifest(manifest, requestedGameId) {
   return {
     schemaVersion: Number.isInteger(manifest.schemaVersion) ? manifest.schemaVersion : 1,
     id: manifestId,
+    gameType: normalizeGameType(manifest.gameType),
     name: String(manifest.name || manifestId),
     version: String(manifest.version || '0.0.0'),
     engineVersion: String(manifest.engineVersion || '0.1.0'),
@@ -64,7 +67,7 @@ export async function loadActiveGamePackage() {
       throw new Error(`Unable to load game "${gameId}" (${response.status}).`);
     }
 
-    const manifest = normalizeManifest(await response.json(), gameId);
+    const manifest = normalizeGameManifest(await response.json(), gameId);
     const contentRootUrl = new URL(manifest.contentRoot, manifestUrl);
 
     return {

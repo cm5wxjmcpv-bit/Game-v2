@@ -94,6 +94,10 @@ function validateSceneMetadata(map, label, fallbackType) {
 function auditPackage(manifestFile) {
   const manifest = readJson(manifestFile);
   const gameId = manifest.id || path.basename(path.dirname(manifestFile));
+  if (manifest.gameType === 'incremental') {
+    console.log(`Scene contract ${gameId}: skipped for incremental runtime.`);
+    return;
+  }
   const root = contentRoot(manifestFile, manifest);
   const worldFile = path.resolve(root, String(manifest.data?.world || 'data/world/world.json'));
   const world = readJson(worldFile, `${gameId}:world`);

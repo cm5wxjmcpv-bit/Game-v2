@@ -9,6 +9,7 @@ if [ -d node_modules ]; then
 fi
 
 node tests/data-audit.mjs || STATUS=$?
+node tests/incremental-data-audit.mjs || STATUS=$?
 node tests/building-data-audit.mjs || STATUS=$?
 node tests/npc-data-audit.mjs || STATUS=$?
 node tests/scene-contract-audit.mjs || STATUS=$?
