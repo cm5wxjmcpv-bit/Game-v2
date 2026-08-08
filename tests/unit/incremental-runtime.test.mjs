@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeGameManifest } from '../../src/gameManifest.js';
-import { normalizeIncrementalConfig } from '../../src/incrementalContent.js';
+import { normalizeIncrementalConfig, rollScratchPrize } from '../../src/incrementalContent.js';
 import { IncrementalGame } from '../../src/incrementalGame.js';
 import {
   INCREMENTAL_SAVE_VERSION,
@@ -89,6 +89,78 @@ function rawConfig() {
         effect: { type: 'automation-bonus', amount: 0.1, label: '+10% automation' },
       },
     ],
+    equipment: {
+      slots: [
+        { id: 'tool', name: 'Main Tool' },
+        { id: 'gloves', name: 'Gloves' },
+      ],
+      items: [
+        {
+          id: 'starter-pickaxe',
+          name: 'Starter Pickaxe',
+          slotId: 'tool',
+          cost: 0,
+          startingOwned: true,
+          startingEquipped: true,
+          bonuses: [{ type: 'manual-power-flat', amount: 0, label: 'Base power' }],
+        },
+        {
+          id: 'iron-pickaxe',
+          name: 'Iron Pickaxe',
+          slotId: 'tool',
+          cost: 10,
+          requiresItemId: 'starter-pickaxe',
+          bonuses: [{ type: 'manual-power-flat', amount: 2, label: '+2 power' }],
+        },
+        {
+          id: 'steel-pickaxe',
+          name: 'Steel Pickaxe',
+          slotId: 'tool',
+          cost: 20,
+          requiresItemId: 'iron-pickaxe',
+          bonuses: [{ type: 'manual-power-flat', amount: 4, label: '+4 power' }],
+        },
+        {
+          id: 'work-gloves',
+          name: 'Work Gloves',
+          slotId: 'gloves',
+          cost: 8,
+          bonuses: [{ type: 'critical-chance', amount: 0.25, label: '+25% critical chance' }],
+        },
+      ],
+    },
+    lottery: {
+      disclaimer: 'Fictional test lottery.',
+      scratchTickets: [
+        {
+          id: 'test-scratch',
+          name: 'Test Scratch',
+          cost: 10,
+          prizes: [
+            { id: 'none', label: 'No prize', probability: 0.5, reward: { type: 'none' } },
+            { id: 'cash', label: '$4', probability: 0.25, reward: { type: 'cash', amount: 4 } },
+            { id: 'stone', label: '1 Stone', probability: 0.15, reward: { type: 'resource', resourceId: 'stone', amount: 1 } },
+            { id: 'free', label: 'Free ticket', probability: 0.1, reward: { type: 'free-ticket', ticketId: 'test-scratch' } },
+          ],
+        },
+      ],
+    },
+    store: {
+      id: 'test-store',
+      name: 'Test Store',
+      categories: [
+        {
+          id: 'gear',
+          name: 'Gear',
+          equipmentIds: ['starter-pickaxe', 'iron-pickaxe', 'steel-pickaxe', 'work-gloves'],
+        },
+        {
+          id: 'lottery',
+          name: 'Lottery',
+          scratchTicketIds: ['test-scratch'],
+        },
+      ],
+    },
     story: {
       milestones: [
         {
@@ -161,7 +233,7 @@ function createGame(gameConfig = config(), options = {}) {
   const saves = [];
   const game = new IncrementalGame({
     config: gameConfig,
-    gameVersion: '0.2.0',
+    gameVersion: '0.3.0',
     random: options.random || (() => 0),
     clock: options.clock || (() => 1_000),
     saveAdapter: options.saveAdapter || {
@@ -193,15 +265,49 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   assert.equal(normalized.depositsById['stone-face'].resourceId, 'stone');
   assert.equal(normalized.skillsById['mining-power'].effect.type, 'manual-power-flat');
   assert.equal(normalized.story.milestones.at(-1).trigger.value, 'independent');
+  assert.equal(normalized.equipment.itemsById['iron-pickaxe'].requiresItemId, 'starter-pickaxe');
+  assert.equal(normalized.store.categories[0].equipmentIds.length, 4);
+  assert.equal(normalized.lottery.scratchTicketsById['test-scratch'].probabilityTotal, 1);
+  assert.equal(normalized.lottery.scratchTicketsById['test-scratch'].expectedPayout, 3.5);
 
   const broken = rawConfig();
   broken.deposits[0].resourceId = 'missing';
   broken.deposits[0].reward.max = -1;
   broken.skills[0].effect.amount = Number.POSITIVE_INFINITY;
   broken.story.milestones[0].trigger.type = 'javascript';
+  broken.equipment.items[1].requiresItemId = 'missing';
+  broken.store.categories[1].scratchTicketIds = ['missing'];
+  broken.lottery.scratchTickets[0].prizes[0].probability = 0.4;
   assert.throws(
     () => normalizeIncrementalConfig(broken, { gameId: 'miner-incremental' }),
-    /missing resource|reward\.max|effect\.amount|trigger\.type/,
+    /missing resource|reward\.max|effect\.amount|trigger\.type|missing item|missing scratch ticket|total exactly 1/,
+  );
+});
+
+test('lottery prize tables total exactly and remain below ticket cost', () => {
+  const ticket = config().lottery.scratchTicketsById['test-scratch'];
+  assert.equal(ticket.prizes.reduce((sum, prize) => sum + prize.probability, 0), 1);
+  assert.equal(ticket.expectedPayout, 3.5);
+  assert.ok(ticket.expectedPayout < ticket.cost);
+  assert.equal(rollScratchPrize(ticket, () => 0).id, 'none');
+  assert.equal(rollScratchPrize(ticket, () => 0.5).id, 'cash');
+  assert.equal(rollScratchPrize(ticket, () => 0.8).id, 'stone');
+  assert.equal(rollScratchPrize(ticket, () => 0.99).id, 'free');
+
+  const overpaying = rawConfig();
+  overpaying.lottery.scratchTickets[0].prizes = [
+    { id: 'certain-win', label: '$10', probability: 1, reward: { type: 'cash', amount: 10 } },
+  ];
+  assert.throws(
+    () => normalizeIncrementalConfig(overpaying, { gameId: 'miner-incremental' }),
+    /expected payout must be below/,
+  );
+
+  const circularEquipment = rawConfig();
+  circularEquipment.equipment.items[0].requiresItemId = 'steel-pickaxe';
+  assert.throws(
+    () => normalizeIncrementalConfig(circularEquipment, { gameId: 'miner-incremental' }),
+    /circular prerequisite chain/,
   );
 });
 
@@ -360,6 +466,137 @@ test('employee wages can fund the contract buyout and subsequent resources belon
   assert.equal(game.state.cash, 0);
 });
 
+test('independent miners can sell fixed quantities or all ore without producing negative resources', () => {
+  const { game } = createGame();
+  game.start();
+  game.state.materials.stone = 12;
+  assert.deepEqual(game.sellResource('stone', 1), { ok: false, reason: 'not-independent' });
+
+  game.state.storyStage = 'independent';
+  game.state.employment.active = false;
+  assert.equal(game.sellResource('missing', 1).reason, 'unknown-resource');
+  assert.equal(game.sellResource('stone', 0).reason, 'invalid-quantity');
+  assert.equal(game.sellResource('stone', 13).reason, 'insufficient-resource');
+
+  const first = game.sellResource('stone', 1);
+  assert.equal(first.ok, true);
+  assert.equal(first.proceeds, 10);
+  assert.equal(first.remaining, 11);
+  const ten = game.sellResource('stone', 10);
+  assert.equal(ten.proceeds, 100);
+  assert.equal(game.state.materials.stone, 1);
+  const rest = game.sellResource('stone', 'all');
+  assert.equal(rest.quantity, 1);
+  assert.equal(rest.proceeds, 10);
+  assert.equal(game.state.materials.stone, 0);
+  assert.equal(game.state.cash, 120);
+  assert.equal(game.state.statistics.totalOreSold, 12);
+  assert.equal(game.state.statistics.lifetimeEarnings, 120);
+  assert.equal(game.sellResource('stone', 'all').reason, 'nothing-to-sell');
+});
+
+test('equipment purchases validate cash and prerequisites while equipped bonuses affect mining stats', () => {
+  const { game } = createGame();
+  game.start();
+  assert.deepEqual(game.state.ownedEquipment, ['starter-pickaxe']);
+  assert.equal(game.state.equipment.tool, 'starter-pickaxe');
+  assert.equal(game.getManualPower(), 2);
+  assert.equal(game.purchaseEquipment('missing').reason, 'unknown-equipment');
+  assert.equal(game.purchaseEquipment('steel-pickaxe').reason, 'missing-prerequisite');
+
+  game.state.cash = 9;
+  assert.equal(game.purchaseEquipment('iron-pickaxe').reason, 'insufficient-cash');
+  assert.equal(game.state.cash, 9);
+  game.state.cash = 18;
+  const iron = game.purchaseEquipment('iron-pickaxe');
+  assert.equal(iron.ok, true);
+  assert.equal(iron.equipped, true);
+  assert.equal(game.state.cash, 8);
+  assert.equal(game.state.equipment.tool, 'iron-pickaxe');
+  assert.equal(game.getManualPower(), 4);
+  assert.equal(game.purchaseEquipment('iron-pickaxe').reason, 'already-owned');
+
+  const gloves = game.purchaseEquipment('work-gloves');
+  assert.equal(gloves.ok, true);
+  assert.equal(game.state.cash, 0);
+  assert.equal(game.getMiningStats().criticalChance, 0.25);
+  assert.equal(game.equipItem('steel-pickaxe').reason, 'not-owned');
+  const starter = game.equipItem('starter-pickaxe');
+  assert.equal(starter.ok, true);
+  assert.equal(game.getManualPower(), 2);
+  assert.equal(game.equipItem('starter-pickaxe').reason, 'already-equipped');
+
+  const hiddenConfig = config((raw) => {
+    raw.equipment.items.push({
+      id: 'reward-pickaxe',
+      name: 'Reward Pickaxe',
+      slotId: 'tool',
+      cost: 1,
+      bonuses: [{ type: 'manual-power-flat', amount: 20, label: '+20 power' }],
+    });
+  });
+  const { game: hiddenGame } = createGame(hiddenConfig);
+  hiddenGame.start();
+  hiddenGame.state.cash = 100;
+  assert.equal(hiddenGame.purchaseEquipment('reward-pickaxe').reason, 'not-for-sale');
+});
+
+test('scratch tickets cannot overspend and deterministic prizes update only valid save fields', () => {
+  const { game } = createGame(config(), { random: () => 0.8 });
+  game.start();
+  assert.equal(game.buyScratchTicket('missing').reason, 'unknown-ticket');
+  assert.deepEqual(game.buyScratchTicket('test-scratch'), {
+    ok: false, reason: 'insufficient-cash', ticketId: 'test-scratch', cost: 10, cash: 0,
+  });
+  assert.equal(game.state.cash, 0);
+  assert.equal(game.state.statistics.lotteryTicketsPurchased, 0);
+
+  game.state.cash = 10;
+  const bought = game.buyScratchTicket('test-scratch');
+  assert.equal(bought.ok, true);
+  assert.equal(game.state.cash, 0);
+  assert.deepEqual(game.state.lotteryState.scratchTickets, ['test-scratch']);
+  assert.equal(game.state.statistics.lotteryTicketsPurchased, 1);
+  const revealed = game.scratchTicket('test-scratch');
+  assert.equal(revealed.prizeId, 'stone');
+  assert.equal(game.state.materials.stone, 1);
+  assert.equal(game.state.statistics.lotteryWinnings, 10);
+  assert.equal(game.state.statistics.largestLotteryWin, 10);
+  assert.deepEqual(game.state.lotteryState.scratchTickets, []);
+  assert.equal(game.scratchTicket('test-scratch').reason, 'ticket-not-owned');
+  assert.ok(game.state.cash >= 0);
+  assert.ok(game.state.materials.stone >= 0);
+
+  const { game: freeTicketGame } = createGame(config(), { random: () => 0.99 });
+  freeTicketGame.start();
+  freeTicketGame.state.cash = 10;
+  freeTicketGame.buyScratchTicket('test-scratch');
+  const free = freeTicketGame.scratchTicket('test-scratch');
+  assert.equal(free.prizeId, 'free');
+  assert.deepEqual(freeTicketGame.state.lotteryState.scratchTickets, ['test-scratch']);
+  assert.equal(freeTicketGame.state.statistics.lotteryTicketsPurchased, 1);
+
+  const { game: cashGame } = createGame(config(), { random: () => 0.5 });
+  cashGame.start();
+  cashGame.state.cash = 10;
+  cashGame.buyScratchTicket('test-scratch');
+  assert.equal(cashGame.scratchTicket('test-scratch').prizeId, 'cash');
+  assert.equal(cashGame.state.cash, 4);
+
+  const hiddenLotteryConfig = config((raw) => {
+    raw.lottery.scratchTickets.push({
+      id: 'reward-scratch',
+      name: 'Reward Scratch',
+      cost: 10,
+      prizes: [{ id: 'none', label: 'No prize', probability: 1, reward: { type: 'none' } }],
+    });
+  });
+  const { game: hiddenLotteryGame } = createGame(hiddenLotteryConfig);
+  hiddenLotteryGame.start();
+  hiddenLotteryGame.state.cash = 10;
+  assert.equal(hiddenLotteryGame.buyScratchTicket('reward-scratch').reason, 'not-for-sale');
+});
+
 test('data-driven milestone triggers unlock once at start, level, contract, and stage thresholds', () => {
   const seen = [];
   const { game } = createGame();
@@ -396,12 +633,12 @@ test('incremental tick support tracks time and autosaves at the configured inter
   assert.equal(game.state.statistics.timePlayed, 2);
 });
 
-test('incremental saves round trip, migrate v1 saves, and reject malformed or future data', (t) => {
+test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or future data', (t) => {
   const originalWindow = globalThis.window;
   t.after(() => { globalThis.window = originalWindow; });
   globalThis.window = { location: { href: 'http://localhost/?game=miner-incremental' } };
   const local = storage();
-  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.2.0' });
+  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.3.0' });
 
   assert.equal(saveIncrementalGame(snapshot, 1, { storage: local, now: 1234 }), true);
   assert.ok(local.values.has('pixel_engine_save_miner-incremental_slot_1'));
@@ -419,8 +656,17 @@ test('incremental saves round trip, migrate v1 saves, and reject malformed or fu
   }));
   assert.equal(loadIncrementalGame(1, { storage: local }), null);
 
+  const unknownEquipment = JSON.parse(JSON.stringify(snapshot));
+  unknownEquipment.ownedEquipment.push('forged-client-item');
+  assert.equal(validateIncrementalSnapshot(unknownEquipment), true);
+  const { game: incompatibleGame } = createGame(config(), {
+    saveAdapter: { load: () => unknownEquipment, save: () => true },
+  });
+  assert.equal(incompatibleGame.start().source, 'invalid-save');
+
   const legacy = JSON.parse(JSON.stringify(snapshot));
   legacy.saveVersion = 1;
+  delete legacy.ownedEquipment;
   delete legacy.employment.active;
   delete legacy.employment.contractBuyoutPaid;
   delete legacy.employment.endedAt;
@@ -433,13 +679,34 @@ test('incremental saves round trip, migrate v1 saves, and reject malformed or fu
   };
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify(legacyEnvelope));
   const migratedLegacy = loadIncrementalGame(1, { storage: local });
-  assert.equal(migratedLegacy.saveVersion, 2);
+  assert.equal(migratedLegacy.saveVersion, 3);
+  assert.deepEqual(migratedLegacy.ownedEquipment, ['starter-pickaxe']);
   assert.equal(migratedLegacy.employment.active, true);
   assert.equal(migratedLegacy.employment.contractBuyoutPaid, 0);
   assert.equal(migratedLegacy.employment.endedAt, null);
   assert.ok(normalizeIncrementalSaveEnvelope(legacyEnvelope, {
     gameId: 'miner-incremental', slot: 1,
   }));
+
+  const milestoneTwo = JSON.parse(JSON.stringify(snapshot));
+  milestoneTwo.saveVersion = 2;
+  milestoneTwo.equipment = {};
+  delete milestoneTwo.ownedEquipment;
+  const migratedMilestoneTwo = migrateIncrementalSnapshot(milestoneTwo);
+  assert.equal(migratedMilestoneTwo.saveVersion, 3);
+  assert.deepEqual(migratedMilestoneTwo.ownedEquipment, []);
+  let reconciledSave = null;
+  const { game: reconciledGame } = createGame(config(), {
+    saveAdapter: {
+      load: () => migratedMilestoneTwo,
+      save: (state) => { reconciledSave = JSON.parse(JSON.stringify(state)); return true; },
+    },
+  });
+  assert.equal(reconciledGame.start().source, 'save');
+  assert.equal(reconciledGame.state.gameVersion, '0.3.0');
+  assert.deepEqual(reconciledGame.state.ownedEquipment, ['starter-pickaxe']);
+  assert.equal(reconciledGame.state.equipment.tool, 'starter-pickaxe');
+  assert.deepEqual(reconciledSave.ownedEquipment, ['starter-pickaxe']);
 
   const cyclic = { ...snapshot };
   cyclic.self = cyclic;
@@ -456,7 +723,7 @@ test('incremental saves round trip, migrate v1 saves, and reject malformed or fu
 
   const versionZero = JSON.parse(JSON.stringify(snapshot));
   delete versionZero.saveVersion;
-  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 2);
+  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 3);
 });
 
 test('large values use compact readable formatting', () => {

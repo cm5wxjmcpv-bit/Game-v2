@@ -9,7 +9,9 @@ const SKILL_EFFECT_TYPES = new Set([
   'rare-find-chance',
   'automation-bonus',
 ]);
+const LOTTERY_REWARD_TYPES = new Set(['none', 'cash', 'resource', 'free-ticket']);
 const STORY_TRIGGER_TYPES = new Set(['start', 'level', 'cash', 'stage', 'contract-affordable']);
+const PROBABILITY_EPSILON = 1e-9;
 
 export class IncrementalConfigError extends Error {
   constructor(errors) {
@@ -134,6 +136,278 @@ function normalizeMilestones(rawStory, errors) {
   });
   uniqueIds(milestones, 'story.milestones', errors);
   return milestones;
+}
+
+function normalizeEquipment(rawEquipment, errors) {
+  if (rawEquipment !== undefined && (!rawEquipment || typeof rawEquipment !== 'object' || Array.isArray(rawEquipment))) {
+    errors.push('equipment must be an object when provided');
+  }
+  const source = rawEquipment && typeof rawEquipment === 'object' && !Array.isArray(rawEquipment)
+    ? rawEquipment
+    : {};
+  if (source.slots !== undefined && !Array.isArray(source.slots)) {
+    errors.push('equipment.slots must be an array when provided');
+  }
+  if (source.items !== undefined && !Array.isArray(source.items)) {
+    errors.push('equipment.items must be an array when provided');
+  }
+
+  const slots = (Array.isArray(source.slots) ? source.slots : []).map((entry) => ({
+    id: normalizedId(entry?.id),
+    name: text(entry?.name, entry?.id || 'Equipment Slot', 80),
+    description: text(entry?.description, '', 180),
+  }));
+  const slotIds = uniqueIds(slots, 'equipment.slots', errors);
+
+  const items = (Array.isArray(source.items) ? source.items : []).map((entry, itemIndex) => {
+    if (!isFiniteNumber(entry?.cost) || entry.cost < 0) {
+      errors.push(`equipment.items[${itemIndex}].cost must be a finite nonnegative number`);
+    }
+    if (entry?.startingOwned !== undefined && typeof entry.startingOwned !== 'boolean') {
+      errors.push(`equipment.items[${itemIndex}].startingOwned must be a boolean when provided`);
+    }
+    if (entry?.startingEquipped !== undefined && typeof entry.startingEquipped !== 'boolean') {
+      errors.push(`equipment.items[${itemIndex}].startingEquipped must be a boolean when provided`);
+    }
+    if (entry?.bonuses !== undefined && !Array.isArray(entry.bonuses)) {
+      errors.push(`equipment.items[${itemIndex}].bonuses must be an array when provided`);
+    }
+    const bonuses = (Array.isArray(entry?.bonuses) ? entry.bonuses : []).map((bonus, bonusIndex) => {
+      const type = normalizedId(bonus?.type);
+      if (!SKILL_EFFECT_TYPES.has(type)) {
+        errors.push(`equipment.items[${itemIndex}].bonuses[${bonusIndex}].type is unsupported`);
+      }
+      if (!isFiniteNumber(bonus?.amount) || bonus.amount < 0) {
+        errors.push(`equipment.items[${itemIndex}].bonuses[${bonusIndex}].amount must be a finite nonnegative number`);
+      }
+      return {
+        type,
+        amount: nonnegative(bonus?.amount),
+        label: text(bonus?.label, '', 120),
+      };
+    });
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Equipment', 80),
+      description: text(entry?.description, '', 240),
+      slotId: normalizedId(entry?.slotId),
+      cost: nonnegative(entry?.cost),
+      icon: text(entry?.icon, '⛏', 8),
+      requiresItemId: normalizedId(entry?.requiresItemId),
+      startingOwned: entry?.startingOwned === true,
+      startingEquipped: entry?.startingEquipped === true,
+      bonuses,
+    };
+  });
+  const itemIds = uniqueIds(items, 'equipment.items', errors);
+  const itemsById = Object.fromEntries(items.map((entry) => [entry.id, entry]));
+  const startingSlots = new Set();
+  items.forEach((item) => {
+    if (!slotIds.has(item.slotId)) {
+      errors.push(`equipment item "${item.id || '(invalid)'}" references missing slot "${item.slotId || '(invalid)'}"`);
+    }
+    if (item.requiresItemId && !itemIds.has(item.requiresItemId)) {
+      errors.push(`equipment item "${item.id || '(invalid)'}" requires missing item "${item.requiresItemId}"`);
+    }
+    if (item.requiresItemId === item.id) {
+      errors.push(`equipment item "${item.id || '(invalid)'}" cannot require itself`);
+    }
+    if (item.startingEquipped && !item.startingOwned) {
+      errors.push(`equipment item "${item.id || '(invalid)'}" must be startingOwned when startingEquipped`);
+    }
+    if (item.startingOwned && item.requiresItemId && !itemsById[item.requiresItemId]?.startingOwned) {
+      errors.push(`starting equipment item "${item.id || '(invalid)'}" requires an item that is not startingOwned`);
+    }
+    if (item.startingEquipped && startingSlots.has(item.slotId)) {
+      errors.push(`equipment slot "${item.slotId || '(invalid)'}" has more than one starting item`);
+    }
+    if (item.startingEquipped) startingSlots.add(item.slotId);
+  });
+  items.forEach((item) => {
+    const visited = new Set([item.id]);
+    let requiredId = item.requiresItemId;
+    while (requiredId && itemsById[requiredId]) {
+      if (visited.has(requiredId)) {
+        errors.push(`equipment item "${item.id || '(invalid)'}" has a circular prerequisite chain`);
+        break;
+      }
+      visited.add(requiredId);
+      requiredId = itemsById[requiredId].requiresItemId;
+    }
+  });
+
+  return {
+    slots,
+    items,
+    slotsById: Object.fromEntries(slots.map((entry) => [entry.id, entry])),
+    itemsById,
+  };
+}
+
+function normalizeLottery(rawLottery, resourcesById, errors) {
+  if (rawLottery !== undefined && (!rawLottery || typeof rawLottery !== 'object' || Array.isArray(rawLottery))) {
+    errors.push('lottery must be an object when provided');
+  }
+  const source = rawLottery && typeof rawLottery === 'object' && !Array.isArray(rawLottery)
+    ? rawLottery
+    : {};
+  if (source.scratchTickets !== undefined && !Array.isArray(source.scratchTickets)) {
+    errors.push('lottery.scratchTickets must be an array when provided');
+  }
+  const tickets = (Array.isArray(source.scratchTickets) ? source.scratchTickets : []).map((entry, ticketIndex) => {
+    if (!isFiniteNumber(entry?.cost) || entry.cost <= 0) {
+      errors.push(`lottery.scratchTickets[${ticketIndex}].cost must be a finite positive number`);
+    }
+    if (!Array.isArray(entry?.prizes) || entry.prizes.length < 1) {
+      errors.push(`lottery.scratchTickets[${ticketIndex}].prizes must contain at least one entry`);
+    }
+    const prizes = (Array.isArray(entry?.prizes) ? entry.prizes : []).map((prize, prizeIndex) => {
+      const probability = finite(prize?.probability, -1);
+      const rewardType = normalizedId(prize?.reward?.type);
+      if (!isFiniteNumber(prize?.probability) || probability <= 0 || probability > 1) {
+        errors.push(`lottery.scratchTickets[${ticketIndex}].prizes[${prizeIndex}].probability must be greater than 0 and at most 1`);
+      }
+      if (!LOTTERY_REWARD_TYPES.has(rewardType)) {
+        errors.push(`lottery.scratchTickets[${ticketIndex}].prizes[${prizeIndex}].reward.type is unsupported`);
+      }
+      if (rewardType === 'cash'
+        && (!isFiniteNumber(prize?.reward?.amount) || prize.reward.amount < 0)) {
+        errors.push(`lottery.scratchTickets[${ticketIndex}].prizes[${prizeIndex}].reward.amount must be finite and nonnegative`);
+      }
+      if (rewardType === 'resource'
+        && (!Number.isInteger(prize?.reward?.amount) || prize.reward.amount < 1)) {
+        errors.push(`lottery.scratchTickets[${ticketIndex}].prizes[${prizeIndex}].reward.amount must be a positive integer`);
+      }
+      const resourceId = normalizedId(prize?.reward?.resourceId);
+      if (rewardType === 'resource' && !resourcesById[resourceId]) {
+        errors.push(`lottery.scratchTickets[${ticketIndex}].prizes[${prizeIndex}] references missing resource "${resourceId || '(invalid)'}"`);
+      }
+      return {
+        id: normalizedId(prize?.id),
+        label: text(prize?.label, 'Prize', 100),
+        probability: Math.max(0, probability),
+        reward: {
+          type: rewardType,
+          amount: rewardType === 'resource'
+            ? integer(prize?.reward?.amount, 0, 1)
+            : rewardType === 'cash'
+              ? nonnegative(prize?.reward?.amount)
+              : 0,
+          resourceId,
+          ticketId: normalizedId(prize?.reward?.ticketId),
+        },
+      };
+    });
+    uniqueIds(prizes, `lottery.scratchTickets[${ticketIndex}].prizes`, errors);
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Scratch Ticket', 80),
+      description: text(entry?.description, '', 240),
+      cost: nonnegative(entry?.cost),
+      icon: text(entry?.icon, '★', 8),
+      prizes,
+      probabilityTotal: prizes.reduce((sum, prize) => sum + prize.probability, 0),
+      expectedPayout: 0,
+    };
+  });
+  const ticketIds = uniqueIds(tickets, 'lottery.scratchTickets', errors);
+  const ticketsById = Object.fromEntries(tickets.map((entry) => [entry.id, entry]));
+
+  tickets.forEach((ticket) => {
+    if (Math.abs(ticket.probabilityTotal - 1) > PROBABILITY_EPSILON) {
+      errors.push(`scratch ticket "${ticket.id || '(invalid)'}" prize probabilities must total exactly 1`);
+    }
+    ticket.prizes.forEach((prize) => {
+      if (prize.reward.type === 'free-ticket') {
+        if (!ticketIds.has(prize.reward.ticketId)) {
+          errors.push(`scratch ticket "${ticket.id || '(invalid)'}" prize "${prize.id || '(invalid)'}" references missing ticket "${prize.reward.ticketId || '(invalid)'}"`);
+        }
+      }
+      const value = prize.reward.type === 'cash'
+        ? prize.reward.amount
+        : prize.reward.type === 'resource'
+          ? prize.reward.amount * (resourcesById[prize.reward.resourceId]?.value || 0)
+          : prize.reward.type === 'free-ticket'
+            ? ticketsById[prize.reward.ticketId]?.cost || 0
+            : 0;
+      prize.estimatedValue = value;
+    });
+    ticket.expectedPayout = ticket.prizes.reduce(
+      (sum, prize) => sum + (prize.probability * prize.estimatedValue),
+      0,
+    );
+    if (ticket.expectedPayout >= ticket.cost) {
+      errors.push(`scratch ticket "${ticket.id || '(invalid)'}" expected payout must be below its purchase cost`);
+    }
+  });
+
+  return {
+    disclaimer: text(source.disclaimer, 'Fictional lottery using earned in-game currency only.', 240),
+    scratchTickets: tickets,
+    scratchTicketsById: ticketsById,
+  };
+}
+
+function normalizeStore(rawStore, equipment, lottery, errors) {
+  if (rawStore !== undefined && (!rawStore || typeof rawStore !== 'object' || Array.isArray(rawStore))) {
+    errors.push('store must be an object when provided');
+  }
+  const source = rawStore && typeof rawStore === 'object' && !Array.isArray(rawStore) ? rawStore : {};
+  if (source.categories !== undefined && !Array.isArray(source.categories)) {
+    errors.push('store.categories must be an array when provided');
+  }
+  const categories = (Array.isArray(source.categories) ? source.categories : []).map((entry, index) => {
+    if (entry?.equipmentIds !== undefined && !Array.isArray(entry.equipmentIds)) {
+      errors.push(`store.categories[${index}].equipmentIds must be an array when provided`);
+    }
+    if (entry?.scratchTicketIds !== undefined && !Array.isArray(entry.scratchTicketIds)) {
+      errors.push(`store.categories[${index}].scratchTicketIds must be an array when provided`);
+    }
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Store Category', 80),
+      description: text(entry?.description, '', 200),
+      equipmentIds: Array.isArray(entry?.equipmentIds)
+        ? entry.equipmentIds.map(normalizedId).filter(Boolean)
+        : [],
+      scratchTicketIds: Array.isArray(entry?.scratchTicketIds)
+        ? entry.scratchTicketIds.map(normalizedId).filter(Boolean)
+        : [],
+    };
+  });
+  uniqueIds(categories, 'store.categories', errors);
+  const listedEquipment = new Set();
+  const listedTickets = new Set();
+  categories.forEach((category) => {
+    if (!category.equipmentIds.length && !category.scratchTicketIds.length) {
+      errors.push(`store category "${category.id || '(invalid)'}" must list equipment or scratch tickets`);
+    }
+    category.equipmentIds.forEach((itemId) => {
+      if (!equipment.itemsById[itemId]) {
+        errors.push(`store category "${category.id || '(invalid)'}" references missing equipment "${itemId}"`);
+      } else if (listedEquipment.has(itemId)) {
+        errors.push(`store equipment "${itemId}" is listed more than once`);
+      }
+      listedEquipment.add(itemId);
+    });
+    category.scratchTicketIds.forEach((ticketId) => {
+      if (!lottery.scratchTicketsById[ticketId]) {
+        errors.push(`store category "${category.id || '(invalid)'}" references missing scratch ticket "${ticketId}"`);
+      } else if (listedTickets.has(ticketId)) {
+        errors.push(`store scratch ticket "${ticketId}" is listed more than once`);
+      }
+      listedTickets.add(ticketId);
+    });
+  });
+  return {
+    id: normalizedId(source.id),
+    name: text(source.name, 'General Store', 100),
+    keeperName: text(source.keeperName, 'Shopkeeper', 100),
+    description: text(source.description, '', 240),
+    categories,
+    equipmentIds: [...listedEquipment],
+    scratchTicketIds: [...listedTickets],
+  };
 }
 
 export function normalizeIncrementalConfig(raw, options = {}) {
@@ -292,6 +566,13 @@ export function normalizeIncrementalConfig(raw, options = {}) {
 
   const skills = normalizeSkills(raw.skills, errors);
   const milestones = normalizeMilestones(raw.story, errors);
+  const equipment = normalizeEquipment(raw.equipment, errors);
+  const resourcesById = Object.fromEntries(resources.map((entry) => [entry.id, entry]));
+  const lottery = normalizeLottery(raw.lottery, resourcesById, errors);
+  const store = normalizeStore(raw.store, equipment, lottery, errors);
+  if ((equipment.items.length || lottery.scratchTickets.length || store.categories.length) && !store.id) {
+    errors.push('store.id must be a safe non-empty identifier when store content is provided');
+  }
 
   if (errors.length) throw new IncrementalConfigError(errors);
 
@@ -342,11 +623,14 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     },
     story: { milestones },
     skills,
+    equipment,
+    lottery,
+    store,
     resources,
     deposits,
     mines,
     skillsById: Object.fromEntries(skills.map((entry) => [entry.id, entry])),
-    resourcesById: Object.fromEntries(resources.map((entry) => [entry.id, entry])),
+    resourcesById,
     depositsById: Object.fromEntries(deposits.map((entry) => [entry.id, entry])),
     minesById: Object.fromEntries(mines.map((entry) => [entry.id, entry])),
   };
@@ -379,6 +663,16 @@ export function selectWeightedDeposit(config, mineId, random = Math.random) {
 export function rollDepositReward(deposit, random = Math.random) {
   const range = deposit.reward.max - deposit.reward.min + 1;
   return deposit.reward.min + Math.floor(safeRandom(random) * range);
+}
+
+export function rollScratchPrize(ticket, random = Math.random) {
+  if (!ticket?.prizes?.length) throw new Error('Scratch ticket has no prize table.');
+  let roll = safeRandom(random);
+  for (const prize of ticket.prizes) {
+    roll -= prize.probability;
+    if (roll < 0) return prize;
+  }
+  return ticket.prizes.at(-1);
 }
 
 export function xpRequiredForLevel(config, level) {

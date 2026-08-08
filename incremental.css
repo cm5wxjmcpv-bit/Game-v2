@@ -625,6 +625,40 @@ body.incremental-game-mode #hud {
   font-size: 10px;
 }
 
+.incremental-resource-row.has-sale-actions {
+  padding-bottom: 10px;
+}
+
+.incremental-sale-actions {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.incremental-sale-button {
+  min-height: 44px;
+  padding: 7px 8px;
+  border: 1px solid #705646;
+  border-radius: 7px;
+  background: #392d27;
+  color: #f6dfc2;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.incremental-sale-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.incremental-sale-button:focus-visible {
+  outline: 3px solid var(--mine-gold);
+  outline-offset: 2px;
+}
+
 .incremental-resource-icon {
   display: grid;
   place-items: center;
@@ -725,6 +759,328 @@ body.incremental-game-mode #hud {
 
 #incremental-skills-view {
   margin-top: 16px;
+}
+
+.incremental-section-view {
+  margin-top: 16px;
+}
+
+.incremental-store-header,
+.incremental-equipment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.incremental-store-header h2,
+.incremental-equipment-header h2,
+.incremental-owned-heading h2 {
+  margin: 4px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+}
+
+.incremental-store-header p,
+.incremental-equipment-header p,
+.incremental-category-heading p {
+  max-width: 720px;
+  margin: 7px 0 0;
+  color: var(--mine-muted);
+  line-height: 1.5;
+}
+
+.incremental-store-cash,
+.incremental-equipment-power {
+  display: grid;
+  flex: none;
+  min-width: 160px;
+  padding: 13px 15px;
+  border: 1px solid #72543e;
+  border-radius: 9px;
+  background: #2b231f;
+}
+
+.incremental-store-cash span,
+.incremental-equipment-power span {
+  color: var(--mine-muted);
+  font-size: 11px;
+}
+
+.incremental-store-cash strong,
+.incremental-equipment-power strong {
+  margin-top: 3px;
+  color: #ffe2ad;
+  font-size: 22px;
+}
+
+.incremental-section-status {
+  min-height: 22px;
+  margin: 12px 3px;
+  color: #d9c7ad;
+  font-size: 13px;
+}
+
+.incremental-store-categories {
+  display: grid;
+  gap: 16px;
+}
+
+.incremental-store-category {
+  padding: 19px;
+}
+
+.incremental-category-heading h2 {
+  margin: 0;
+}
+
+.incremental-category-heading p {
+  font-size: 13px;
+}
+
+.incremental-store-grid,
+.incremental-equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.incremental-equipment-card,
+.incremental-lottery-card {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  min-height: 250px;
+  padding: 15px;
+  border: 1px solid #5b4739;
+  border-radius: 10px;
+  background:
+    linear-gradient(145deg, rgba(240, 185, 77, 0.06), transparent 48%),
+    #251e1b;
+}
+
+.incremental-equipment-card.is-equipped {
+  border-color: #53856a;
+  box-shadow: inset 0 0 0 1px rgba(104, 201, 149, 0.18);
+}
+
+.incremental-equipment-card-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.incremental-equipment-card h3,
+.incremental-lottery-card h3,
+.incremental-slot-card h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+}
+
+.incremental-equipment-card-header small {
+  color: var(--mine-muted);
+  font-size: 10px;
+}
+
+.incremental-equipment-card-header > strong,
+.incremental-lottery-header > strong {
+  color: var(--mine-gold);
+  font-size: 13px;
+}
+
+.incremental-equipment-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #765a43;
+  border-radius: 9px;
+  background: #342821;
+  color: #f5c86e;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.incremental-equipment-card > p,
+.incremental-lottery-header p,
+.incremental-slot-card p {
+  margin: 0;
+  color: var(--mine-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.incremental-equipment-bonus {
+  color: #f2ce8f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.incremental-equipment-requirement {
+  color: #ad9b82;
+  font-size: 10px;
+}
+
+.incremental-equipment-card .incremental-secondary-button {
+  align-self: end;
+  margin-top: auto;
+}
+
+.incremental-lottery-card {
+  grid-column: span 2;
+}
+
+.incremental-lottery-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+}
+
+.incremental-lottery-header > span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #b5842f;
+  border-radius: 50%;
+  background: #563d1d;
+  color: #ffd879;
+  font-size: 22px;
+}
+
+.incremental-lottery-odds-heading {
+  color: #ffe2ad;
+  font-size: 12px;
+}
+
+.incremental-lottery-odds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.incremental-lottery-odds li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #49392f;
+  color: var(--mine-muted);
+  font-size: 11px;
+}
+
+.incremental-lottery-odds li strong {
+  color: #e9c98f;
+}
+
+.incremental-lottery-return {
+  color: #a9967e;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.incremental-lottery-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(180px, 1.2fr);
+  gap: 10px;
+  margin-top: auto;
+}
+
+.incremental-lottery-actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.incremental-scratch-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 64px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px dashed #f2c25e;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(120deg, rgba(255, 255, 255, 0.08) 0 8px, transparent 8px 16px),
+    #8c6a35;
+  color: #fff4cf;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.incremental-scratch-card small {
+  color: #f5deb0;
+  font-size: 10px;
+}
+
+.incremental-scratch-card:hover,
+.incremental-scratch-card:focus-visible {
+  filter: brightness(1.12);
+}
+
+.incremental-scratch-card:focus-visible {
+  outline: 3px solid var(--mine-gold);
+  outline-offset: 2px;
+}
+
+.incremental-lottery-reveal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid #4f8a68;
+  border-radius: 8px;
+  background: rgba(63, 125, 93, 0.16);
+}
+
+.incremental-lottery-reveal span {
+  color: #9fcdb0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.incremental-lottery-reveal strong {
+  color: #b7efc9;
+}
+
+.incremental-equipment-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.incremental-slot-card {
+  min-height: 132px;
+}
+
+.incremental-slot-card h3 {
+  margin-top: 7px;
+}
+
+.incremental-slot-card p {
+  margin-top: 9px;
+}
+
+.incremental-owned-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.incremental-owned-heading .incremental-secondary-button {
+  width: auto;
 }
 
 .incremental-skills-header {
@@ -921,6 +1277,13 @@ body.incremental-game-mode #hud {
   .incremental-skills-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .incremental-store-grid,
+  .incremental-equipment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .incremental-lottery-card {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 620px) {
@@ -948,12 +1311,16 @@ body.incremental-game-mode #hud {
     gap: 3px;
   }
   .incremental-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     position: sticky;
     top: 104px;
     z-index: 20;
   }
   .incremental-nav button {
-    flex: 1;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 12px;
   }
   .incremental-story-card {
     grid-template-columns: 1fr;
@@ -997,6 +1364,32 @@ body.incremental-game-mode #hud {
   }
   .incremental-skills-grid {
     grid-template-columns: 1fr;
+  }
+  .incremental-store-header,
+  .incremental-equipment-header,
+  .incremental-owned-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .incremental-store-cash,
+  .incremental-equipment-power {
+    min-width: 0;
+  }
+  .incremental-store-grid,
+  .incremental-equipment-grid,
+  .incremental-equipment-slots {
+    grid-template-columns: 1fr;
+  }
+  .incremental-equipment-card,
+  .incremental-lottery-card {
+    min-height: 0;
+  }
+  .incremental-lottery-odds,
+  .incremental-lottery-actions {
+    grid-template-columns: 1fr;
+  }
+  .incremental-owned-heading .incremental-secondary-button {
+    width: 100%;
   }
   .incremental-skill-card {
     min-height: 0;

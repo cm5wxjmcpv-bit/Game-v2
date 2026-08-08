@@ -65,6 +65,8 @@ function createRuntimeRoot() {
 
       <nav class="incremental-nav" role="tablist" aria-label="Mining game sections">
         <button id="incremental-tab-mine" class="is-active" type="button" role="tab" aria-controls="incremental-mine-view" aria-selected="true">Mine</button>
+        <button id="incremental-tab-store" type="button" role="tab" aria-controls="incremental-store-view" aria-selected="false" tabindex="-1">General Store</button>
+        <button id="incremental-tab-equipment" type="button" role="tab" aria-controls="incremental-equipment-view" aria-selected="false" tabindex="-1">Equipment</button>
         <button id="incremental-tab-skills" type="button" role="tab" aria-controls="incremental-skills-view" aria-selected="false" tabindex="-1">Skills <span id="incremental-nav-skill-points">0</span></button>
       </nav>
 
@@ -151,6 +153,43 @@ function createRuntimeRoot() {
         </div>
       </section>
 
+      <section id="incremental-store-view" class="incremental-view incremental-section-view" role="tabpanel" aria-labelledby="incremental-tab-store" hidden>
+        <div class="incremental-store-header incremental-panel">
+          <div>
+            <span class="incremental-label">SUPPLIES & FIXED-ODDS FUN</span>
+            <h2 id="incremental-store-name">General Store</h2>
+            <p id="incremental-store-description"></p>
+          </div>
+          <div class="incremental-store-cash">
+            <span>Cash on hand</span>
+            <strong id="incremental-store-cash">$0</strong>
+          </div>
+        </div>
+        <p id="incremental-store-status" class="incremental-section-status" role="status">Miller keeps the counter open from your first shift onward.</p>
+        <div id="incremental-store-categories" class="incremental-store-categories"></div>
+      </section>
+
+      <section id="incremental-equipment-view" class="incremental-view incremental-section-view" role="tabpanel" aria-labelledby="incremental-tab-equipment" hidden>
+        <div class="incremental-equipment-header incremental-panel">
+          <div>
+            <span class="incremental-label">PERSONAL LOADOUT</span>
+            <h2>Miner Equipment</h2>
+            <p>Personal gear changes manual mining stats. Company machinery remains a separate future system.</p>
+          </div>
+          <div class="incremental-equipment-power">
+            <span>Equipped manual power</span>
+            <strong id="incremental-equipment-power">2</strong>
+          </div>
+        </div>
+        <p id="incremental-equipment-status" class="incremental-section-status" role="status">Purchase equipment at Miller's, then switch owned gear here.</p>
+        <div id="incremental-equipment-slots" class="incremental-equipment-slots"></div>
+        <div class="incremental-owned-heading">
+          <div><span class="incremental-label">OWNED GEAR</span><h2>Your Equipment</h2></div>
+          <button id="incremental-open-store" class="incremental-secondary-button" type="button">Visit Miller's General Store</button>
+        </div>
+        <div id="incremental-owned-equipment" class="incremental-equipment-grid"></div>
+      </section>
+
       <section id="incremental-skills-view" class="incremental-view" role="tabpanel" aria-labelledby="incremental-tab-skills" hidden>
         <div class="incremental-skills-header incremental-panel">
           <div>
@@ -231,9 +270,23 @@ function buildUi(root, database) {
     open_skills: byId('incremental-open-skills'),
     reset: byId('incremental-reset'),
     tab_mine: byId('incremental-tab-mine'),
+    tab_store: byId('incremental-tab-store'),
+    tab_equipment: byId('incremental-tab-equipment'),
     tab_skills: byId('incremental-tab-skills'),
     mine_view: byId('incremental-mine-view'),
+    store_view: byId('incremental-store-view'),
+    equipment_view: byId('incremental-equipment-view'),
     skills_view: byId('incremental-skills-view'),
+    store_name: byId('incremental-store-name'),
+    store_description: byId('incremental-store-description'),
+    store_cash: byId('incremental-store-cash'),
+    store_status: byId('incremental-store-status'),
+    store_categories: byId('incremental-store-categories'),
+    equipment_power: byId('incremental-equipment-power'),
+    equipment_status: byId('incremental-equipment-status'),
+    equipment_slots: byId('incremental-equipment-slots'),
+    owned_equipment: byId('incremental-owned-equipment'),
+    open_store: byId('incremental-open-store'),
     skills_available: byId('incremental-skills-available'),
     skills_grid: byId('incremental-skills-grid'),
     skill_status: byId('incremental-skill-status'),
@@ -247,9 +300,12 @@ function buildUi(root, database) {
   };
   const storyQueue = [];
   let activeStory = null;
+  let lastLotteryResult = null;
 
   nodes.title.textContent = config.ui.title || database.game.name;
   nodes.subtitle.textContent = config.ui.subtitle;
+  nodes.store_name.textContent = config.store.name;
+  nodes.store_description.textContent = `${config.store.description} ${config.lottery.disclaimer}`.trim();
 
   function setSaveStatus(message, failed = false) {
     nodes.save_status.textContent = message;
@@ -257,15 +313,21 @@ function buildUi(root, database) {
   }
 
   function setView(view) {
-    const skillsActive = view === 'skills';
-    nodes.mine_view.hidden = skillsActive;
-    nodes.skills_view.hidden = !skillsActive;
-    nodes.tab_mine.classList.toggle('is-active', !skillsActive);
-    nodes.tab_skills.classList.toggle('is-active', skillsActive);
-    nodes.tab_mine.setAttribute('aria-selected', String(!skillsActive));
-    nodes.tab_skills.setAttribute('aria-selected', String(skillsActive));
-    nodes.tab_mine.tabIndex = skillsActive ? -1 : 0;
-    nodes.tab_skills.tabIndex = skillsActive ? 0 : -1;
+    const sections = {
+      mine: [nodes.tab_mine, nodes.mine_view],
+      store: [nodes.tab_store, nodes.store_view],
+      equipment: [nodes.tab_equipment, nodes.equipment_view],
+      skills: [nodes.tab_skills, nodes.skills_view],
+    };
+    const activeView = sections[view] ? view : 'mine';
+    Object.entries(sections).forEach(([name, [tab, panel]]) => {
+      const active = name === activeView;
+      panel.hidden = !active;
+      panel.setAttribute('aria-hidden', String(!active));
+      tab.classList.toggle('is-active', active);
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
   }
 
   function renderResources(state, employeeStage) {
@@ -295,8 +357,216 @@ function buildUi(root, database) {
       const count = document.createElement('strong');
       count.textContent = formatNumber(quantity);
       row.append(icon, label, count);
+      if (!employeeStage) {
+        row.classList.add('has-sale-actions');
+        const actions = document.createElement('div');
+        actions.className = 'incremental-sale-actions';
+        [1, 10, 'all'].forEach((amount) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'incremental-sale-button';
+          button.dataset.sellResourceId = resource.id;
+          button.dataset.sellQuantity = String(amount);
+          button.textContent = amount === 'all' ? 'Sell All' : `Sell ${amount}`;
+          button.disabled = quantity < (amount === 'all' ? 1 : amount);
+          actions.appendChild(button);
+        });
+        row.appendChild(actions);
+      }
       nodes.resources.appendChild(row);
     });
+  }
+
+  function equipmentBonusSummary(item) {
+    return item.bonuses.map((bonus) => bonus.label).filter(Boolean).join(' · ') || 'No stat bonus';
+  }
+
+  function makeEquipmentCard(game, item, context = 'store') {
+    const owned = game.state.ownedEquipment.includes(item.id);
+    const equipped = game.state.equipment[item.slotId] === item.id;
+    const prerequisite = item.requiresItemId ? config.equipment.itemsById[item.requiresItemId] : null;
+    const prerequisiteMet = !prerequisite || game.state.ownedEquipment.includes(prerequisite.id);
+    const card = document.createElement('article');
+    card.className = 'incremental-equipment-card';
+    card.classList.toggle('is-equipped', equipped);
+
+    const header = document.createElement('div');
+    header.className = 'incremental-equipment-card-header';
+    const icon = document.createElement('span');
+    icon.className = 'incremental-equipment-icon';
+    icon.textContent = item.icon;
+    const titleWrap = document.createElement('div');
+    const title = document.createElement('h3');
+    title.textContent = item.name;
+    const slot = document.createElement('small');
+    slot.textContent = config.equipment.slotsById[item.slotId]?.name || item.slotId;
+    titleWrap.append(title, slot);
+    const price = document.createElement('strong');
+    price.textContent = item.cost > 0 ? formatCurrency(item.cost) : 'Issued';
+    header.append(icon, titleWrap, price);
+
+    const description = document.createElement('p');
+    description.textContent = item.description;
+    const bonus = document.createElement('span');
+    bonus.className = 'incremental-equipment-bonus';
+    bonus.textContent = equipmentBonusSummary(item);
+    card.append(header, description, bonus);
+
+    if (prerequisite) {
+      const requirement = document.createElement('small');
+      requirement.className = 'incremental-equipment-requirement';
+      requirement.textContent = prerequisiteMet
+        ? `Progression requirement met: ${prerequisite.name}`
+        : `Requires ownership of ${prerequisite.name}`;
+      card.appendChild(requirement);
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'incremental-secondary-button';
+    if (context === 'store') {
+      button.dataset.buyEquipmentId = item.id;
+      button.textContent = equipped
+        ? 'Equipped'
+        : owned
+          ? 'Owned'
+          : !prerequisiteMet
+            ? `Requires ${prerequisite.name}`
+            : `Buy & Equip · ${formatCurrency(item.cost)}`;
+      button.disabled = owned || !prerequisiteMet || game.state.cash < item.cost;
+    } else {
+      button.dataset.equipItemId = item.id;
+      button.textContent = equipped ? 'Currently Equipped' : 'Equip';
+      button.disabled = equipped;
+    }
+    card.appendChild(button);
+    return card;
+  }
+
+  function makeLotteryCard(game, ticket) {
+    const pending = game.state.lotteryState.scratchTickets.filter((id) => id === ticket.id).length;
+    const card = document.createElement('article');
+    card.className = 'incremental-lottery-card';
+    const header = document.createElement('div');
+    header.className = 'incremental-lottery-header';
+    const icon = document.createElement('span');
+    icon.textContent = ticket.icon;
+    const heading = document.createElement('div');
+    const title = document.createElement('h3');
+    title.textContent = ticket.name;
+    const description = document.createElement('p');
+    description.textContent = ticket.description;
+    heading.append(title, description);
+    const cost = document.createElement('strong');
+    cost.textContent = formatCurrency(ticket.cost);
+    header.append(icon, heading, cost);
+    card.appendChild(header);
+
+    const oddsHeading = document.createElement('strong');
+    oddsHeading.className = 'incremental-lottery-odds-heading';
+    oddsHeading.textContent = 'Published prize odds';
+    const odds = document.createElement('ul');
+    odds.className = 'incremental-lottery-odds';
+    ticket.prizes.forEach((prize) => {
+      const row = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = prize.label;
+      const chance = document.createElement('strong');
+      chance.textContent = percent(prize.probability);
+      row.append(label, chance);
+      odds.appendChild(row);
+    });
+    const returnNote = document.createElement('small');
+    returnNote.className = 'incremental-lottery-return';
+    returnNote.textContent = `Prize chances total 100%. Expected prize value: ${formatCurrency(ticket.expectedPayout)} per ${formatCurrency(ticket.cost)} ticket.`;
+    card.append(oddsHeading, odds, returnNote);
+
+    const actions = document.createElement('div');
+    actions.className = 'incremental-lottery-actions';
+    const buy = document.createElement('button');
+    buy.type = 'button';
+    buy.className = 'incremental-primary-button';
+    buy.dataset.buyTicketId = ticket.id;
+    buy.textContent = `Buy Ticket · ${formatCurrency(ticket.cost)}`;
+    buy.disabled = game.state.cash < ticket.cost;
+    actions.appendChild(buy);
+    if (pending > 0) {
+      const scratch = document.createElement('button');
+      scratch.type = 'button';
+      scratch.className = 'incremental-scratch-card';
+      scratch.dataset.scratchTicketId = ticket.id;
+      scratch.setAttribute('aria-label', `Scratch ${ticket.name}. ${pending} ticket${pending === 1 ? '' : 's'} ready.`);
+      const dust = document.createElement('span');
+      dust.textContent = 'TAP OR CLICK TO SCRATCH';
+      const count = document.createElement('small');
+      count.textContent = `${pending} ready`;
+      scratch.append(dust, count);
+      actions.appendChild(scratch);
+    }
+    card.appendChild(actions);
+
+    if (lastLotteryResult?.ticketId === ticket.id) {
+      const reveal = document.createElement('div');
+      reveal.className = 'incremental-lottery-reveal';
+      const revealLabel = document.createElement('span');
+      revealLabel.textContent = 'REVEALED PRIZE';
+      const revealPrize = document.createElement('strong');
+      revealPrize.textContent = lastLotteryResult.label;
+      reveal.append(revealLabel, revealPrize);
+      card.appendChild(reveal);
+    }
+    return card;
+  }
+
+  function renderStore(game) {
+    nodes.store_cash.textContent = formatCurrency(game.state.cash);
+    nodes.store_categories.replaceChildren();
+    config.store.categories.forEach((category) => {
+      const section = document.createElement('section');
+      section.className = 'incremental-store-category incremental-panel';
+      const heading = document.createElement('div');
+      heading.className = 'incremental-category-heading';
+      const title = document.createElement('h2');
+      title.textContent = category.name;
+      const description = document.createElement('p');
+      description.textContent = category.description;
+      heading.append(title, description);
+      const grid = document.createElement('div');
+      grid.className = 'incremental-store-grid';
+      category.equipmentIds.forEach((itemId) => {
+        grid.appendChild(makeEquipmentCard(game, config.equipment.itemsById[itemId], 'store'));
+      });
+      category.scratchTicketIds.forEach((ticketId) => {
+        grid.appendChild(makeLotteryCard(game, config.lottery.scratchTicketsById[ticketId]));
+      });
+      section.append(heading, grid);
+      nodes.store_categories.appendChild(section);
+    });
+  }
+
+  function renderEquipment(game) {
+    nodes.equipment_power.textContent = formatNumber(game.getManualPower());
+    nodes.equipment_slots.replaceChildren();
+    config.equipment.slots.forEach((slot) => {
+      const item = game.getEquippedItem(slot.id);
+      const card = document.createElement('article');
+      card.className = 'incremental-slot-card incremental-panel';
+      const label = document.createElement('span');
+      label.className = 'incremental-label';
+      label.textContent = slot.name;
+      const title = document.createElement('h3');
+      title.textContent = item?.name || 'Empty Slot';
+      const description = document.createElement('p');
+      description.textContent = item ? equipmentBonusSummary(item) : slot.description;
+      card.append(label, title, description);
+      nodes.equipment_slots.appendChild(card);
+    });
+
+    nodes.owned_equipment.replaceChildren();
+    const ownedItems = game.state.ownedEquipment
+      .map((itemId) => config.equipment.itemsById[itemId])
+      .filter(Boolean);
+    ownedItems.forEach((item) => nodes.owned_equipment.appendChild(makeEquipmentCard(game, item, 'equipment')));
   }
 
   function renderSkills(game) {
@@ -405,9 +675,11 @@ function buildUi(root, database) {
     nodes.contract_title.textContent = employeeStage ? 'Buy Out Employment Contract' : 'You Work for Yourself Now';
     nodes.contract_copy.textContent = employeeStage
       ? `Pay ${formatCurrency(contractCost)} to leave Blackstone. Until then, the company owns every resource you recover.`
-      : `You paid ${formatCurrency(state.employment.contractBuyoutPaid)} for your freedom. New ore now enters your personal stockpile; direct sales arrive in Milestone 3.`;
+      : `You paid ${formatCurrency(state.employment.contractBuyoutPaid)} for your freedom. New ore enters your stockpile and can be sold directly at the listed value.`;
 
     renderResources(state, employeeStage);
+    renderStore(game);
+    renderEquipment(game);
     renderSkills(game);
   }
 
@@ -463,6 +735,13 @@ function buildUi(root, database) {
     advanceStory();
   }
 
+  function showLotteryResult(result) {
+    lastLotteryResult = result;
+    nodes.store_status.textContent = result.value > 0
+      ? `${result.label} revealed. Prize value: ${formatCurrency(result.value)}.`
+      : `${result.label} revealed. Mining remains the reliable way forward.`;
+  }
+
   function dismissStory() {
     activeStory = null;
     nodes.story_overlay.hidden = true;
@@ -473,6 +752,9 @@ function buildUi(root, database) {
     storyQueue.length = 0;
     activeStory = null;
     nodes.story_overlay.hidden = true;
+    lastLotteryResult = null;
+    nodes.store_status.textContent = 'Miller keeps the counter open from your first shift onward.';
+    nodes.equipment_status.textContent = 'Purchase equipment at Miller\'s, then switch owned gear here.';
   }
 
   return {
@@ -482,6 +764,7 @@ function buildUi(root, database) {
     setView,
     showImpact,
     showMilestone,
+    showLotteryResult,
     dismissStory,
     resetStoryQueue,
   };
@@ -501,6 +784,7 @@ async function bootstrap() {
   game.subscribe((event) => {
     if (event.type === 'mine') ui.showImpact(event.detail);
     if (event.type === 'milestone') ui.showMilestone(event.detail);
+    if (event.type === 'lottery') ui.showLotteryResult(event.detail);
     if (event.type === 'save') {
       ui.setSaveStatus(event.detail.saved ? 'Saved locally' : 'Local save failed', !event.detail.saved);
     }
@@ -511,26 +795,32 @@ async function bootstrap() {
   const startResult = game.start({ forceNew: action === 'new' });
   clearRequestedAction();
   ui.setSaveStatus(startResult.source === 'save' ? 'Local save loaded' : 'New local save created');
+  ui.setView('mine');
   ui.render(game);
 
   ui.nodes.mining_target.addEventListener('click', () => game.mine());
-  ui.nodes.tab_mine.addEventListener('click', () => ui.setView('mine'));
-  ui.nodes.tab_skills.addEventListener('click', () => ui.setView('skills'));
-  const tabs = [ui.nodes.tab_mine, ui.nodes.tab_skills];
-  tabs.forEach((tab, index) => {
+  const tabDefinitions = [
+    [ui.nodes.tab_mine, 'mine'],
+    [ui.nodes.tab_store, 'store'],
+    [ui.nodes.tab_equipment, 'equipment'],
+    [ui.nodes.tab_skills, 'skills'],
+  ];
+  tabDefinitions.forEach(([tab, view]) => tab.addEventListener('click', () => ui.setView(view)));
+  tabDefinitions.forEach(([tab], index) => {
     tab.addEventListener('keydown', (event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
       const nextIndex = event.key === 'Home'
         ? 0
         : event.key === 'End'
-          ? tabs.length - 1
-          : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-      ui.setView(nextIndex === 0 ? 'mine' : 'skills');
-      tabs[nextIndex].focus();
+          ? tabDefinitions.length - 1
+          : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabDefinitions.length) % tabDefinitions.length;
+      ui.setView(tabDefinitions[nextIndex][1]);
+      tabDefinitions[nextIndex][0].focus();
     });
   });
   ui.nodes.open_skills.addEventListener('click', () => ui.setView('skills'));
+  ui.nodes.open_store.addEventListener('click', () => ui.setView('store'));
   ui.nodes.story_continue.addEventListener('click', () => ui.dismissStory());
   ui.nodes.story_overlay.addEventListener('click', (event) => {
     if (event.target === ui.nodes.story_overlay) ui.dismissStory();
@@ -546,6 +836,63 @@ async function bootstrap() {
     ui.nodes.skill_status.textContent = result.ok
       ? `${database.config.skillsById[result.skillId].name} advanced to rank ${result.rank}.`
       : 'That skill cannot be advanced right now.';
+    ui.render(game);
+  });
+
+  ui.nodes.resources.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-sell-resource-id]');
+    if (!button) return;
+    const quantity = button.dataset.sellQuantity === 'all'
+      ? 'all'
+      : Number(button.dataset.sellQuantity);
+    const result = game.sellResource(button.dataset.sellResourceId, quantity);
+    ui.nodes.last_result.textContent = result.ok
+      ? `Sold ${formatNumber(result.quantity)} ${database.config.resourcesById[result.resourceId].name} for ${formatCurrency(result.proceeds)}.`
+      : 'That ore sale could not be completed.';
+    ui.render(game);
+  });
+
+  ui.nodes.store_categories.addEventListener('click', (event) => {
+    const equipmentButton = event.target.closest('button[data-buy-equipment-id]');
+    if (equipmentButton) {
+      const result = game.purchaseEquipment(equipmentButton.dataset.buyEquipmentId);
+      const item = database.config.equipment.itemsById[equipmentButton.dataset.buyEquipmentId];
+      ui.nodes.store_status.textContent = result.ok
+        ? `${item.name} purchased and equipped for ${formatCurrency(result.cost)}.`
+        : result.reason === 'insufficient-cash'
+          ? `You need ${formatCurrency(result.cost)} to buy ${item.name}.`
+          : result.reason === 'missing-prerequisite'
+            ? `Buy ${database.config.equipment.itemsById[result.requiredItemId].name} first.`
+            : `${item.name} is already owned.`;
+      ui.render(game);
+      return;
+    }
+
+    const buyTicketButton = event.target.closest('button[data-buy-ticket-id]');
+    if (buyTicketButton) {
+      const result = game.buyScratchTicket(buyTicketButton.dataset.buyTicketId);
+      const ticket = database.config.lottery.scratchTicketsById[buyTicketButton.dataset.buyTicketId];
+      ui.nodes.store_status.textContent = result.ok
+        ? `${ticket.name} purchased. Scratch the covered ticket to reveal its prize.`
+        : `You need ${formatCurrency(result.cost)} to buy that ticket.`;
+      ui.render(game);
+      return;
+    }
+
+    const scratchButton = event.target.closest('button[data-scratch-ticket-id]');
+    if (!scratchButton) return;
+    game.scratchTicket(scratchButton.dataset.scratchTicketId);
+    ui.render(game);
+  });
+
+  ui.nodes.owned_equipment.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-equip-item-id]');
+    if (!button) return;
+    const result = game.equipItem(button.dataset.equipItemId);
+    const item = database.config.equipment.itemsById[button.dataset.equipItemId];
+    ui.nodes.equipment_status.textContent = result.ok
+      ? `${item.name} equipped in the ${database.config.equipment.slotsById[result.slotId].name} slot.`
+      : `${item.name} is already equipped.`;
     ui.render(game);
   });
 

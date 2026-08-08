@@ -31,7 +31,7 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-cash')).not.toHaveText('$0');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
   expect(saved.gameType).toBe('incremental');
-  expect(saved.version).toBe(2);
+  expect(saved.version).toBe(3);
   expect(saved.payload.statistics.totalManualSwings).toBe(10);
   expect(saved.payload.statistics.totalDepositsBroken).toBe(1);
   expect(saved.payload.statistics.totalOreMined).toBeGreaterThan(0);
@@ -82,7 +82,7 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   await page.locator('#incremental-story-continue').click();
 
   await page.locator('#incremental-tab-mine').focus();
-  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('End');
   await expect(page.getByRole('heading', { name: 'Miner Skills' })).toBeVisible();
   const powerSkill = page.locator('.incremental-skill-card', { hasText: 'Mining Power' });
   await powerSkill.getByRole('button', { name: 'Spend 1 Point' }).click();
@@ -124,6 +124,77 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   await expect(page.locator('#incremental-resource-badge')).toHaveText('Player owned');
 });
 
+test('ore sales, Miller equipment, and scratch tickets persist without bypassing purchase rules', async ({ page }) => {
+  await page.goto('/?game=miner-incremental');
+  await page.locator('#incremental-story-continue').click();
+
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('milestone-three-seeded')) return;
+    const key = 'pixel_engine_save_miner-incremental_slot_1';
+    const save = JSON.parse(localStorage.getItem(key));
+    if (!save) return;
+    save.payload.cash = 100;
+    save.payload.storyStage = 'independent';
+    save.payload.employment.active = false;
+    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.endedAt = Date.now();
+    save.payload.materials.stone = 12;
+    save.payload.milestones = [
+      'blackstone-first-shift',
+      'contract-within-reach',
+      'contract-bought',
+    ];
+    localStorage.setItem(key, JSON.stringify(save));
+    sessionStorage.setItem('milestone-three-seeded', 'true');
+  });
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-resource-badge')).toHaveText('Player owned');
+
+  const stone = page.locator('.incremental-resource-row', { hasText: 'Stone' });
+  await expect(stone.getByRole('button', { name: 'Sell 10' })).toBeEnabled();
+  await stone.getByRole('button', { name: 'Sell 10' }).click();
+  await expect(page.locator('#incremental-cash')).toHaveText('$130');
+  await expect(stone).toContainText('2 owned');
+
+  await page.locator('#incremental-tab-store').click();
+  await expect(page.getByRole('heading', { name: "Miller's General Store" })).toBeVisible();
+  await expect(page.locator('#incremental-store-cash')).toHaveText('$130');
+  const ironPickaxe = page.locator('.incremental-equipment-card', { hasText: 'Iron Pickaxe' });
+  await ironPickaxe.getByRole('button', { name: /Buy & Equip/ }).click();
+  await expect(ironPickaxe.getByRole('button', { name: 'Equipped' })).toBeDisabled();
+  await expect(page.locator('#incremental-store-cash')).toHaveText('$100');
+
+  await page.locator('#incremental-tab-equipment').click();
+  await expect(page.getByRole('heading', { name: 'Miner Equipment' })).toBeVisible();
+  await expect(page.locator('#incremental-equipment-power')).toHaveText('3');
+  await expect(page.locator('.incremental-slot-card', { hasText: 'Main Tool' })).toContainText('Iron Pickaxe');
+
+  await page.locator('#incremental-tab-store').click();
+  const ticket = page.locator('.incremental-lottery-card', { hasText: 'Gold Vein Scratch-Off' });
+  await expect(ticket).toContainText('Prize chances total 100%');
+  await ticket.getByRole('button', { name: /Buy Ticket/ }).click();
+  await expect(page.locator('#incremental-store-cash')).toHaveText('$90');
+  await ticket.getByRole('button', { name: /Scratch Gold Vein Scratch-Off/ }).click();
+  await expect(ticket.locator('.incremental-lottery-reveal')).toBeVisible();
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
+  expect(saved.version).toBe(3);
+  expect(saved.payload.materials.stone).toBe(2);
+  expect(saved.payload.statistics.totalOreSold).toBe(10);
+  expect(saved.payload.ownedEquipment).toContain('iron-pickaxe');
+  expect(saved.payload.equipment.tool).toBe('iron-pickaxe');
+  expect(saved.payload.statistics.lotteryTicketsPurchased).toBe(1);
+  expect(saved.payload.cash).toBeGreaterThanOrEqual(0);
+  expect(Object.values(saved.payload.materials).every((quantity) => quantity >= 0)).toBe(true);
+
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await page.locator('#incremental-tab-equipment').click();
+  await expect(page.locator('#incremental-equipment-power')).toHaveText('3');
+  await expect(page.locator('.incremental-slot-card', { hasText: 'Main Tool' })).toContainText('Iron Pickaxe');
+});
+
 test.describe('touch viewport', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
@@ -139,5 +210,11 @@ test.describe('touch viewport', () => {
     expect(box.x + box.width).toBeLessThanOrEqual(390);
     await target.tap();
     await expect(page.locator('#incremental-deposit-hp')).toHaveText('18 / 20 HP');
+
+    await page.locator('#incremental-tab-store').tap();
+    await expect(page.getByRole('heading', { name: "Miller's General Store" })).toBeVisible();
+    const navBox = await page.locator('#incremental-tab-store').boundingBox();
+    expect(navBox.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 });

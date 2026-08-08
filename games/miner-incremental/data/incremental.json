@@ -37,7 +37,7 @@
     "operationName": "Freedom Claim",
     "locationName": "Freedom Claim",
     "subtitle": "The claim is small, but every resource you recover now belongs to you.",
-    "instruction": "This ore is yours. Break deposits to build a personal stockpile; direct ore sales arrive in Milestone 3."
+    "instruction": "This ore is yours. Break deposits, build a personal stockpile, and sell it directly for full value."
   },
   "ui": {
     "title": "Blackstone Breakaway",
@@ -129,6 +129,277 @@
       }
     }
   ],
+  "equipment": {
+    "slots": [
+      {
+        "id": "tool",
+        "name": "Main Tool",
+        "description": "Your pickaxe determines the force of each manual swing."
+      },
+      {
+        "id": "gloves",
+        "name": "Gloves",
+        "description": "Work gloves improve precision and critical strikes."
+      },
+      {
+        "id": "helmet",
+        "name": "Helmet / Lamp",
+        "description": "Prospecting headgear helps you recover more usable ore."
+      }
+    ],
+    "items": [
+      {
+        "id": "rusty-pickaxe",
+        "name": "Rusty Pickaxe",
+        "description": "Blackstone's battered issue pick. It works, but only just.",
+        "slotId": "tool",
+        "cost": 0,
+        "icon": "RP",
+        "startingOwned": true,
+        "startingEquipped": true,
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 0,
+            "label": "Standard manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "iron-pickaxe",
+        "name": "Iron Pickaxe",
+        "description": "A balanced personal tool that hits harder than company issue gear.",
+        "slotId": "tool",
+        "cost": 30,
+        "icon": "IP",
+        "requiresItemId": "rusty-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 1,
+            "label": "+1 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "steel-pickaxe",
+        "name": "Steel Pickaxe",
+        "description": "A forged steel head bites cleanly into harder seams.",
+        "slotId": "tool",
+        "cost": 120,
+        "icon": "SP",
+        "requiresItemId": "iron-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 3,
+            "label": "+3 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "hardened-pickaxe",
+        "name": "Hardened Pickaxe",
+        "description": "Heat-treated steel built for long shifts and stubborn rock.",
+        "slotId": "tool",
+        "cost": 450,
+        "icon": "HP",
+        "requiresItemId": "steel-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 6,
+            "label": "+6 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "diamond-tipped-pickaxe",
+        "name": "Diamond-Tipped Pickaxe",
+        "description": "An expensive precision head that turns personal swings into serious production.",
+        "slotId": "tool",
+        "cost": 1800,
+        "icon": "DP",
+        "requiresItemId": "hardened-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 12,
+            "label": "+12 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "leather-work-gloves",
+        "name": "Leather Work Gloves",
+        "description": "A steadier grip creates more opportunities for a perfect strike.",
+        "slotId": "gloves",
+        "cost": 75,
+        "icon": "WG",
+        "bonuses": [
+          {
+            "type": "critical-chance",
+            "amount": 0.03,
+            "label": "+3% critical chance"
+          }
+        ]
+      },
+      {
+        "id": "impact-gloves",
+        "name": "Impact Gloves",
+        "description": "Reinforced palms transfer more force when a critical swing lands.",
+        "slotId": "gloves",
+        "cost": 350,
+        "icon": "IG",
+        "requiresItemId": "leather-work-gloves",
+        "bonuses": [
+          {
+            "type": "critical-damage",
+            "amount": 0.25,
+            "label": "+0.25x critical damage"
+          }
+        ]
+      },
+      {
+        "id": "surveyors-lamp",
+        "name": "Surveyor's Lamp",
+        "description": "A focused beam helps distinguish usable ore from waste rock.",
+        "slotId": "helmet",
+        "cost": 250,
+        "icon": "SL",
+        "bonuses": [
+          {
+            "type": "ore-yield-chance",
+            "amount": 0.05,
+            "label": "+5% bonus-ore chance"
+          }
+        ]
+      },
+      {
+        "id": "prospector-helmet",
+        "name": "Prospector Helmet",
+        "description": "A rugged helmet with a calibrated lamp for spotting rich fragments.",
+        "slotId": "helmet",
+        "cost": 900,
+        "icon": "PH",
+        "requiresItemId": "surveyors-lamp",
+        "bonuses": [
+          {
+            "type": "ore-yield-chance",
+            "amount": 0.1,
+            "label": "+10% bonus-ore chance"
+          }
+        ]
+      }
+    ]
+  },
+  "lottery": {
+    "disclaimer": "A completely fictional game of chance purchased only with earned in-game cash. Prizes have no real-world value.",
+    "scratchTickets": [
+      {
+        "id": "gold-vein-scratch-off",
+        "name": "Gold Vein Scratch-Off",
+        "description": "Scratch through the rock dust to reveal one fixed-odds prize.",
+        "cost": 10,
+        "icon": "★",
+        "prizes": [
+          {
+            "id": "spent-ticket",
+            "label": "No prize",
+            "probability": 0.58,
+            "reward": {
+              "type": "none"
+            }
+          },
+          {
+            "id": "small-cash",
+            "label": "$4 cash",
+            "probability": 0.2,
+            "reward": {
+              "type": "cash",
+              "amount": 4
+            }
+          },
+          {
+            "id": "copper-chip",
+            "label": "1 Copper Ore",
+            "probability": 0.1,
+            "reward": {
+              "type": "resource",
+              "resourceId": "copper",
+              "amount": 1
+            }
+          },
+          {
+            "id": "ten-dollar-find",
+            "label": "$10 cash",
+            "probability": 0.06,
+            "reward": {
+              "type": "cash",
+              "amount": 10
+            }
+          },
+          {
+            "id": "free-ticket",
+            "label": "Free Gold Vein ticket",
+            "probability": 0.04,
+            "reward": {
+              "type": "free-ticket",
+              "ticketId": "gold-vein-scratch-off"
+            }
+          },
+          {
+            "id": "cash-jackpot",
+            "label": "$75 jackpot",
+            "probability": 0.02,
+            "reward": {
+              "type": "cash",
+              "amount": 75
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "store": {
+    "id": "millers-general-store",
+    "name": "Miller's General Store",
+    "keeperName": "Miller",
+    "description": "A familiar supply counter for working miners, independent operators, and anyone feeling lucky.",
+    "categories": [
+      {
+        "id": "mining-tools",
+        "name": "Mining Tools",
+        "description": "Personal tools that directly increase manual mining power.",
+        "equipmentIds": [
+          "rusty-pickaxe",
+          "iron-pickaxe",
+          "steel-pickaxe",
+          "hardened-pickaxe",
+          "diamond-tipped-pickaxe"
+        ]
+      },
+      {
+        "id": "protective-gear",
+        "name": "Gloves & Lamps",
+        "description": "Gear for critical strikes and better ore recovery.",
+        "equipmentIds": [
+          "leather-work-gloves",
+          "impact-gloves",
+          "surveyors-lamp",
+          "prospector-helmet"
+        ]
+      },
+      {
+        "id": "lottery-counter",
+        "name": "Lottery Counter",
+        "description": "Fixed odds, fictional prizes, and no real-world value.",
+        "scratchTicketIds": [
+          "gold-vein-scratch-off"
+        ]
+      }
+    ]
+  },
   "story": {
     "milestones": [
       {

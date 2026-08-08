@@ -1,7 +1,7 @@
 import { getActiveGameId } from './gameManifest.js';
 import { getSaveStorageKey } from './saveNamespace.js';
 
-export const INCREMENTAL_SAVE_VERSION = 2;
+export const INCREMENTAL_SAVE_VERSION = 3;
 const DEFAULT_SLOT = 1;
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -48,6 +48,18 @@ function skillMap(config) {
   return Object.fromEntries(config.skills.map((skill) => [skill.id, 0]));
 }
 
+function startingEquipment(config) {
+  const equipped = Object.fromEntries(config.equipment.slots.map((slot) => [slot.id, null]));
+  config.equipment.items.forEach((item) => {
+    if (item.startingEquipped) equipped[item.slotId] = item.id;
+  });
+  return equipped;
+}
+
+function startingOwnedEquipment(config) {
+  return config.equipment.items.filter((item) => item.startingOwned).map((item) => item.id);
+}
+
 export function createInitialIncrementalSnapshot(config, options = {}) {
   const now = Number.isFinite(options.now) ? options.now : Date.now();
   const deposit = config.depositsById[config.start.depositId];
@@ -62,7 +74,8 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
     },
     skills: skillMap(config),
     materials: resourceMap(config),
-    equipment: {},
+    ownedEquipment: startingOwnedEquipment(config),
+    equipment: startingEquipment(config),
     currentMine: config.start.mineId,
     unlockedMines: [config.start.mineId],
     currentDeposit: {
@@ -144,6 +157,17 @@ export function migrateIncrementalSnapshot(snapshot) {
     migrated.saveVersion = 2;
   }
 
+  if (migrated.saveVersion === 2) {
+    const equippedIds = plainObject(migrated.equipment)
+      ? Object.values(migrated.equipment).filter(validId)
+      : [];
+    const previouslyOwned = Array.isArray(migrated.ownedEquipment)
+      ? migrated.ownedEquipment.filter(validId)
+      : [];
+    migrated.ownedEquipment = [...new Set([...previouslyOwned, ...equippedIds])];
+    migrated.saveVersion = 3;
+  }
+
   return migrated;
 }
 
@@ -159,8 +183,11 @@ export function validateIncrementalSnapshot(snapshot) {
   if (!validNumberMap(snapshot.skills, true)) return false;
   if (!validNumberMap(snapshot.materials)) return false;
 
+  if (!validIdList(snapshot.ownedEquipment)) return false;
   if (!plainObject(snapshot.equipment)) return false;
-  if (!Object.entries(snapshot.equipment).every(([slot, itemId]) => validId(slot) && (itemId === null || validId(itemId)))) return false;
+  if (!Object.entries(snapshot.equipment).every(([slot, itemId]) => (
+    validId(slot) && (itemId === null || (validId(itemId) && snapshot.ownedEquipment.includes(itemId)))
+  ))) return false;
   if (!validId(snapshot.currentMine) || !validIdList(snapshot.unlockedMines) || !snapshot.unlockedMines.includes(snapshot.currentMine)) return false;
 
   const deposit = snapshot.currentDeposit;
