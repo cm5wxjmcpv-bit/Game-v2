@@ -202,7 +202,7 @@ function showPreviewError(error) {
   const modal = document.createElement('div');
   modal.className = 'modal';
   const heading = document.createElement('h2');
-  heading.textContent = 'Unable to Load Game Preview';
+  heading.textContent = localPublishMode ? 'Unable to Load Published Build' : 'Unable to Load Draft Preview';
   const details = document.createElement('p');
   details.textContent = message;
   const recovery = document.createElement('a');

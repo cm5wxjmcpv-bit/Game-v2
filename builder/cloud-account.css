@@ -42,6 +42,10 @@
   box-shadow: 0 24px 70px rgb(15 23 42 / 35%);
 }
 
+.cloud-account-dialog [hidden] {
+  display: none !important;
+}
+
 .cloud-account-dialog::backdrop { background: rgb(15 23 42 / 70%); }
 
 .cloud-dialog-heading,
@@ -107,4 +111,3 @@
   .cloud-account-button { width: 100%; }
   .cloud-account-button { justify-content: center; }
 }
-

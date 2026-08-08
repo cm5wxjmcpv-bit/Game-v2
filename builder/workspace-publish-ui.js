@@ -287,7 +287,7 @@ async function refreshPublishPlan() {
     renderPublishPlan();
     if (state.plan.errors.length) setPublishStatus(state.plan.errors.join(' '), true);
     else if (!state.plan.files.length) setPublishStatus('No unpublished changes were found. Publish & Play will open the current game at the selected scene.');
-    else setPublishStatus(`${state.plan.files.length} changed game file(s) are ready. Publish & Play will open this browser draft immediately.`);
+    else setPublishStatus(`${state.plan.files.length} changed game file(s) are ready for review. Publish & Play will open this browser draft immediately.`);
   } catch (error) {
     state.plan = null;
     renderPublishPlan();

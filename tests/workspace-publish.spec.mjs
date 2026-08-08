@@ -79,6 +79,7 @@ test('workspace publishes changed package JSON to a new draft pull request witho
   await page.locator('#workspacePublishTabBtn').click();
   await expect(page.locator('#publishFileList')).toContainText('games/scene-demo/data/actors.json');
   await expect(page.locator('#publishPlanSummary')).toContainText('ready for one-click Publish & Play');
+  await page.locator('.workspace-github-publish summary').click();
   await page.locator('#publishTokenInput').fill('github_pat_browser_test');
   await page.locator('#publishConfirmInput').check();
   await expect(page.locator('#publishDraftPrBtn')).toBeEnabled();
@@ -201,6 +202,7 @@ test('rapid publish submission creates only one draft pull request', async ({ pa
   await page.locator('#saveActorBtn').click();
   await page.locator('#workspacePublishTabBtn').click();
   await expect(page.locator('#publishPlanSummary')).toContainText('ready for one-click Publish & Play');
+  await page.locator('.workspace-github-publish summary').click();
   await page.locator('#publishTokenInput').fill('github_pat_single_submit_test');
   await page.locator('#publishConfirmInput').check();
   await expect(page.locator('#publishDraftPrBtn')).toBeEnabled();
