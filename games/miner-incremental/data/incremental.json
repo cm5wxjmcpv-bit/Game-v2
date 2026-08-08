@@ -106,10 +106,8 @@
     {
       "id": "rare-find",
       "name": "Rare Find Chance",
-      "description": "Improves future gemstone, treasure, and special-deposit rolls.",
+      "description": "Improves the chance that a manual deposit break uncovers a valuable rare find.",
       "maxRank": 10,
-      "enabled": false,
-      "unlockNote": "Activates when rare finds arrive with mine progression.",
       "effect": {
         "type": "rare-find-chance",
         "amount": 0.02,
@@ -616,6 +614,48 @@
       "value": 14,
       "color": "#bd6f45",
       "icon": "◇"
+    },
+    {
+      "id": "iron",
+      "name": "Iron Ore",
+      "value": 32,
+      "color": "#9aa0a3",
+      "icon": "⬢"
+    },
+    {
+      "id": "silver",
+      "name": "Silver Ore",
+      "value": 75,
+      "color": "#c8d0d4",
+      "icon": "◈"
+    },
+    {
+      "id": "gold",
+      "name": "Gold Ore",
+      "value": 180,
+      "color": "#e2b547",
+      "icon": "✦"
+    },
+    {
+      "id": "emerald",
+      "name": "Emerald",
+      "value": 450,
+      "color": "#44aa78",
+      "icon": "⬟"
+    },
+    {
+      "id": "ruby",
+      "name": "Ruby",
+      "value": 750,
+      "color": "#cc4f5e",
+      "icon": "◆"
+    },
+    {
+      "id": "diamond",
+      "name": "Diamond",
+      "value": 1800,
+      "color": "#bcecf2",
+      "icon": "◊"
     }
   ],
   "deposits": [
@@ -669,6 +709,108 @@
         "accent": "#e6a06f",
         "icon": "◇"
       }
+    },
+    {
+      "id": "iron-vein",
+      "name": "Iron Vein",
+      "maxHp": 80,
+      "resourceId": "iron",
+      "reward": {
+        "min": 3,
+        "max": 5
+      },
+      "xp": 26,
+      "weight": 24,
+      "visual": {
+        "color": "#666c70",
+        "accent": "#b8c0c4",
+        "icon": "⬢"
+      }
+    },
+    {
+      "id": "silver-vein",
+      "name": "Silver Vein",
+      "maxHp": 140,
+      "resourceId": "silver",
+      "reward": {
+        "min": 2,
+        "max": 4
+      },
+      "xp": 45,
+      "weight": 30,
+      "visual": {
+        "color": "#7d878c",
+        "accent": "#e1eaee",
+        "icon": "◈"
+      }
+    },
+    {
+      "id": "gold-vein",
+      "name": "Gold Vein",
+      "maxHp": 240,
+      "resourceId": "gold",
+      "reward": {
+        "min": 1,
+        "max": 3
+      },
+      "xp": 75,
+      "weight": 12,
+      "visual": {
+        "color": "#8f6d24",
+        "accent": "#f5d66d",
+        "icon": "✦"
+      }
+    },
+    {
+      "id": "emerald-pocket",
+      "name": "Emerald Pocket",
+      "maxHp": 420,
+      "resourceId": "emerald",
+      "reward": {
+        "min": 1,
+        "max": 2
+      },
+      "xp": 120,
+      "weight": 26,
+      "visual": {
+        "color": "#236b4a",
+        "accent": "#73e0a8",
+        "icon": "⬟"
+      }
+    },
+    {
+      "id": "ruby-pocket",
+      "name": "Ruby Pocket",
+      "maxHp": 650,
+      "resourceId": "ruby",
+      "reward": {
+        "min": 1,
+        "max": 2
+      },
+      "xp": 180,
+      "weight": 12,
+      "visual": {
+        "color": "#7a2936",
+        "accent": "#ef7380",
+        "icon": "◆"
+      }
+    },
+    {
+      "id": "diamond-cluster",
+      "name": "Diamond Cluster",
+      "maxHp": 1000,
+      "resourceId": "diamond",
+      "reward": {
+        "min": 1,
+        "max": 2
+      },
+      "xp": 280,
+      "weight": 2,
+      "visual": {
+        "color": "#6e9ba2",
+        "accent": "#dcfbff",
+        "icon": "◊"
+      }
     }
   ],
   "mines": [
@@ -680,7 +822,256 @@
         "stone-face",
         "coal-seam",
         "copper-vein"
-      ]
+      ],
+      "unlock": {
+        "cost": 0,
+        "characterLevel": 1,
+        "companyLevel": 0,
+        "requiresIndependence": false,
+        "requiredDepositsBroken": 0
+      },
+      "visual": {
+        "background": "#29221f",
+        "accent": "#f0b94d"
+      }
+    },
+    {
+      "id": "old-iron-mine",
+      "name": "Old Iron Mine",
+      "description": "A neglected hillside claim with dependable iron beneath its weathered timber supports.",
+      "depositIds": [
+        "coal-seam",
+        "copper-vein",
+        "iron-vein"
+      ],
+      "unlock": {
+        "cost": 2500,
+        "characterLevel": 4,
+        "companyLevel": 0,
+        "requiresIndependence": true,
+        "requiredMineId": "blackstone-shaft-7",
+        "requiredDepositsBroken": 35
+      },
+      "visual": {
+        "background": "#24282a",
+        "accent": "#aeb8bd"
+      }
+    },
+    {
+      "id": "deep-shaft",
+      "name": "Deep Shaft",
+      "description": "Reinforced lifts descend to silver-bearing rock and the first serious traces of gold.",
+      "depositIds": [
+        "iron-vein",
+        "silver-vein",
+        "gold-vein"
+      ],
+      "unlock": {
+        "cost": 20000,
+        "characterLevel": 7,
+        "companyLevel": 2,
+        "requiresIndependence": true,
+        "requiredMineId": "old-iron-mine",
+        "requiredDepositsBroken": 75
+      },
+      "visual": {
+        "background": "#1d2530",
+        "accent": "#d1b65e"
+      }
+    },
+    {
+      "id": "crystal-caverns",
+      "name": "Crystal Caverns",
+      "description": "Natural chambers conceal gold, emeralds, and rare ruby pockets behind dense stone.",
+      "depositIds": [
+        "gold-vein",
+        "emerald-pocket",
+        "ruby-pocket"
+      ],
+      "unlock": {
+        "cost": 150000,
+        "characterLevel": 11,
+        "companyLevel": 3,
+        "requiresIndependence": true,
+        "requiredMineId": "deep-shaft",
+        "requiredDepositsBroken": 140
+      },
+      "visual": {
+        "background": "#1f2b2a",
+        "accent": "#64d69c"
+      }
+    },
+    {
+      "id": "ancient-depths",
+      "name": "Ancient Depths",
+      "description": "The deepest surveyed workings demand a regional company and reward it with exceptional gemstones.",
+      "depositIds": [
+        "gold-vein",
+        "ruby-pocket",
+        "diamond-cluster"
+      ],
+      "unlock": {
+        "cost": 1200000,
+        "characterLevel": 16,
+        "companyLevel": 4,
+        "requiresIndependence": true,
+        "requiredMineId": "crystal-caverns",
+        "requiredDepositsBroken": 240
+      },
+      "visual": {
+        "background": "#18262e",
+        "accent": "#bcecf2"
+      }
     }
-  ]
+  ],
+  "rareFinds": {
+    "baseChance": 0.02,
+    "maxChance": 0.35,
+    "manualOnly": true,
+    "finds": [
+      {
+        "id": "ancient-coin",
+        "name": "Ancient Coin",
+        "description": "A worn collector's coin was wedged behind the broken face.",
+        "icon": "◎",
+        "weight": 45,
+        "reward": {
+          "type": "cash",
+          "amount": 125
+        }
+      },
+      {
+        "id": "fossil-impression",
+        "name": "Fossil Impression",
+        "description": "A clean fossil impression teaches you more about reading the surrounding rock.",
+        "icon": "◉",
+        "weight": 30,
+        "reward": {
+          "type": "xp",
+          "amount": 75
+        }
+      },
+      {
+        "id": "rich-copper-cache",
+        "name": "Rich Copper Cache",
+        "description": "A compact pocket of high-grade copper survived inside the deposit.",
+        "icon": "◇",
+        "weight": 20,
+        "eligibleMineIds": [
+          "blackstone-shaft-7",
+          "old-iron-mine"
+        ],
+        "reward": {
+          "type": "resource",
+          "resourceId": "copper",
+          "amount": 5
+        }
+      },
+      {
+        "id": "silver-specimen",
+        "name": "Silver Specimen",
+        "description": "An unusually pure silver specimen can be sold intact.",
+        "icon": "◈",
+        "weight": 18,
+        "eligibleMineIds": [
+          "old-iron-mine",
+          "deep-shaft"
+        ],
+        "reward": {
+          "type": "resource",
+          "resourceId": "silver",
+          "amount": 2
+        }
+      },
+      {
+        "id": "hidden-gem-pocket",
+        "name": "Hidden Gem Pocket",
+        "description": "A narrow seam opens onto a single saleable emerald.",
+        "icon": "⬟",
+        "weight": 10,
+        "eligibleMineIds": [
+          "deep-shaft",
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "reward": {
+          "type": "resource",
+          "resourceId": "emerald",
+          "amount": 1
+        }
+      },
+      {
+        "id": "lost-payroll-box",
+        "name": "Lost Payroll Box",
+        "description": "A rusted lockbox still contains old company scrip accepted by a collector.",
+        "icon": "▣",
+        "weight": 3,
+        "eligibleMineIds": [
+          "deep-shaft",
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "reward": {
+          "type": "cash",
+          "amount": 1500
+        }
+      }
+    ]
+  },
+  "miningEvents": {
+    "triggerChance": 0.015,
+    "events": [
+      {
+        "id": "rich-seam",
+        "name": "Rich Seam",
+        "description": "Fresh fractures expose denser material. Deposit rewards are improved while the seam holds.",
+        "icon": "+",
+        "weight": 65,
+        "durationSeconds": 20,
+        "effects": {
+          "rewardMultiplier": 1.35,
+          "depositWeightMultipliers": {}
+        }
+      },
+      {
+        "id": "gold-rush",
+        "name": "Gold Rush",
+        "description": "Gold-bearing deposits become much more likely and all recovered material is richer.",
+        "icon": "✦",
+        "weight": 25,
+        "durationSeconds": 30,
+        "eligibleMineIds": [
+          "deep-shaft",
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "effects": {
+          "rewardMultiplier": 1.6,
+          "depositWeightMultipliers": {
+            "gold-vein": 6
+          }
+        }
+      },
+      {
+        "id": "gemstone-flash",
+        "name": "Gemstone Flash",
+        "description": "A sparkling fracture reveals a short-lived run of richer gemstone deposits.",
+        "icon": "◆",
+        "weight": 10,
+        "durationSeconds": 20,
+        "eligibleMineIds": [
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "effects": {
+          "rewardMultiplier": 1.5,
+          "depositWeightMultipliers": {
+            "emerald-pocket": 2.5,
+            "ruby-pocket": 2.5,
+            "diamond-cluster": 3
+          }
+        }
+      }
+    ]
+  }
 }

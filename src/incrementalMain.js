@@ -67,6 +67,7 @@ function createRuntimeRoot() {
         <button id="incremental-tab-mine" class="is-active" type="button" role="tab" aria-controls="incremental-mine-view" aria-selected="true">Mine</button>
         <button id="incremental-tab-store" type="button" role="tab" aria-controls="incremental-store-view" aria-selected="false" tabindex="-1">General Store</button>
         <button id="incremental-tab-equipment" type="button" role="tab" aria-controls="incremental-equipment-view" aria-selected="false" tabindex="-1">Equipment</button>
+        <button id="incremental-tab-mines" type="button" role="tab" aria-controls="incremental-mines-view" aria-selected="false" tabindex="-1">Mines</button>
         <button id="incremental-tab-company" type="button" role="tab" aria-controls="incremental-company-view" aria-selected="false" tabindex="-1">Company</button>
         <button id="incremental-tab-skills" type="button" role="tab" aria-controls="incremental-skills-view" aria-selected="false" tabindex="-1">Skills <span id="incremental-nav-skill-points">0</span></button>
       </nav>
@@ -78,6 +79,16 @@ function createRuntimeRoot() {
               <span id="incremental-role"></span>
               <strong id="incremental-employer"></strong>
               <p id="incremental-instruction"></p>
+            </div>
+
+            <div id="incremental-event-banner" class="incremental-event-banner" hidden>
+              <span id="incremental-event-icon" aria-hidden="true">!</span>
+              <div>
+                <small>ACTIVE MINING EVENT</small>
+                <strong id="incremental-event-name">Rich Seam</strong>
+                <p id="incremental-event-description"></p>
+              </div>
+              <strong id="incremental-event-time">0s</strong>
             </div>
 
             <div class="incremental-mine-stage" id="incremental-mine-stage">
@@ -148,8 +159,10 @@ function createRuntimeRoot() {
               <div class="incremental-ledger-row"><span>Critical chance</span><strong id="incremental-critical-chance">0%</strong></div>
               <div class="incremental-ledger-row"><span>Critical damage</span><strong id="incremental-critical-damage">2x</strong></div>
               <div class="incremental-ledger-row"><span>Bonus ore chance</span><strong id="incremental-ore-yield">0%</strong></div>
+              <div class="incremental-ledger-row"><span>Rare find chance</span><strong id="incremental-rare-find-chance">0%</strong></div>
               <div class="incremental-ledger-row"><span>Automated power</span><strong id="incremental-automation-power">0/sec</strong></div>
               <button id="incremental-open-skills" class="incremental-secondary-button" type="button">Spend Skill Points</button>
+              <button id="incremental-open-mines" class="incremental-secondary-button" type="button">Explore Mines</button>
               <button id="incremental-open-company" class="incremental-secondary-button" type="button">Manage Company</button>
             </section>
           </aside>
@@ -191,6 +204,23 @@ function createRuntimeRoot() {
           <button id="incremental-open-store" class="incremental-secondary-button" type="button">Visit Miller's General Store</button>
         </div>
         <div id="incremental-owned-equipment" class="incremental-equipment-grid"></div>
+      </section>
+
+      <section id="incremental-mines-view" class="incremental-view incremental-section-view" role="tabpanel" aria-labelledby="incremental-tab-mines" hidden>
+        <div class="incremental-mines-header incremental-panel">
+          <div>
+            <span class="incremental-label">MINE PROGRESSION</span>
+            <h2>Claims & Shafts</h2>
+            <p>Break deposits, improve your miner, and grow the company to reach more valuable ground. Unlock costs are paid once.</p>
+          </div>
+          <div class="incremental-mines-summary">
+            <span>Current operation</span>
+            <strong id="incremental-mines-current">Starting Mine</strong>
+            <small id="incremental-mines-unlocked">1 / 1 unlocked</small>
+          </div>
+        </div>
+        <p id="incremental-mines-status" class="incremental-section-status" role="status">Your current shaft remains active until you enter another unlocked mine.</p>
+        <div id="incremental-mines-grid" class="incremental-mines-grid"></div>
       </section>
 
       <section id="incremental-company-view" class="incremental-view incremental-section-view" role="tabpanel" aria-labelledby="incremental-tab-company" hidden>
@@ -315,6 +345,12 @@ function buildUi(root, database) {
     role: byId('incremental-role'),
     employer: byId('incremental-employer'),
     instruction: byId('incremental-instruction'),
+    mine_stage: byId('incremental-mine-stage'),
+    event_banner: byId('incremental-event-banner'),
+    event_icon: byId('incremental-event-icon'),
+    event_name: byId('incremental-event-name'),
+    event_description: byId('incremental-event-description'),
+    event_time: byId('incremental-event-time'),
     mining_target: byId('incremental-mining-target'),
     deposit_icon: byId('incremental-deposit-icon'),
     float_layer: byId('incremental-float-layer'),
@@ -342,18 +378,22 @@ function buildUi(root, database) {
     critical_chance: byId('incremental-critical-chance'),
     critical_damage: byId('incremental-critical-damage'),
     ore_yield: byId('incremental-ore-yield'),
+    rare_find_chance: byId('incremental-rare-find-chance'),
     automation_power: byId('incremental-automation-power'),
     open_skills: byId('incremental-open-skills'),
+    open_mines: byId('incremental-open-mines'),
     open_company: byId('incremental-open-company'),
     reset: byId('incremental-reset'),
     tab_mine: byId('incremental-tab-mine'),
     tab_store: byId('incremental-tab-store'),
     tab_equipment: byId('incremental-tab-equipment'),
+    tab_mines: byId('incremental-tab-mines'),
     tab_company: byId('incremental-tab-company'),
     tab_skills: byId('incremental-tab-skills'),
     mine_view: byId('incremental-mine-view'),
     store_view: byId('incremental-store-view'),
     equipment_view: byId('incremental-equipment-view'),
+    mines_view: byId('incremental-mines-view'),
     company_view: byId('incremental-company-view'),
     skills_view: byId('incremental-skills-view'),
     store_name: byId('incremental-store-name'),
@@ -366,6 +406,10 @@ function buildUi(root, database) {
     equipment_slots: byId('incremental-equipment-slots'),
     owned_equipment: byId('incremental-owned-equipment'),
     open_store: byId('incremental-open-store'),
+    mines_current: byId('incremental-mines-current'),
+    mines_unlocked: byId('incremental-mines-unlocked'),
+    mines_status: byId('incremental-mines-status'),
+    mines_grid: byId('incremental-mines-grid'),
     skills_available: byId('incremental-skills-available'),
     skills_grid: byId('incremental-skills-grid'),
     skill_status: byId('incremental-skill-status'),
@@ -416,6 +460,7 @@ function buildUi(root, database) {
       mine: [nodes.tab_mine, nodes.mine_view],
       store: [nodes.tab_store, nodes.store_view],
       equipment: [nodes.tab_equipment, nodes.equipment_view],
+      mines: [nodes.tab_mines, nodes.mines_view],
       company: [nodes.tab_company, nodes.company_view],
       skills: [nodes.tab_skills, nodes.skills_view],
     };
@@ -438,7 +483,13 @@ function buildUi(root, database) {
     nodes.resource_badge.classList.toggle('is-player-owned', !employeeStage);
     nodes.resources.replaceChildren();
 
-    config.resources.forEach((resource) => {
+    const currentMine = config.minesById[state.currentMine];
+    const currentResourceIds = new Set(currentMine.depositIds.map((depositId) => (
+      config.depositsById[depositId].resourceId
+    )));
+    config.resources.filter((resource) => (
+      currentResourceIds.has(resource.id) || source[resource.id] > 0
+    )).forEach((resource) => {
       const quantity = source[resource.id];
       const row = document.createElement('div');
       row.className = 'incremental-resource-row';
@@ -475,6 +526,147 @@ function buildUi(root, database) {
       }
       nodes.resources.appendChild(row);
     });
+  }
+
+  function mineDisplayName(state, mine) {
+    return !state.employment.active && mine.id === config.start.mineId
+      ? config.independence.locationName
+      : mine.name;
+  }
+
+  function renderMiningEvent(game) {
+    const activeEvent = game.getActiveMiningEvent();
+    nodes.event_banner.hidden = !activeEvent;
+    if (!activeEvent) return;
+    nodes.event_icon.textContent = activeEvent.icon;
+    nodes.event_name.textContent = activeEvent.name;
+    nodes.event_description.textContent = activeEvent.description;
+    nodes.event_time.textContent = `${Math.ceil(activeEvent.remainingSeconds)}s`;
+  }
+
+  function makeMineRequirement(label, value, met) {
+    const row = document.createElement('div');
+    row.className = 'incremental-mine-requirement';
+    row.classList.toggle('is-met', met);
+    const name = document.createElement('span');
+    name.textContent = label;
+    const status = document.createElement('strong');
+    status.textContent = value;
+    row.append(name, status);
+    return row;
+  }
+
+  function makeMineCard(game, mine) {
+    const state = game.state;
+    const status = game.getMineUnlockStatus(mine.id);
+    const progress = game.getMineProgress(mine.id);
+    const active = state.currentMine === mine.id;
+    const card = document.createElement('article');
+    card.className = 'incremental-mine-option incremental-panel';
+    card.classList.toggle('is-active', active);
+    card.classList.toggle('is-locked', !status.unlocked);
+    card.style.setProperty('--mine-card-accent', mine.visual.accent);
+
+    const header = document.createElement('div');
+    header.className = 'incremental-mine-option-header';
+    const titleWrap = document.createElement('div');
+    const kicker = document.createElement('span');
+    kicker.className = 'incremental-label';
+    kicker.textContent = `MINE ${mine.order}`;
+    const title = document.createElement('h3');
+    title.textContent = mineDisplayName(state, mine);
+    titleWrap.append(kicker, title);
+    const badge = document.createElement('strong');
+    badge.textContent = active ? 'ACTIVE' : status.unlocked ? 'UNLOCKED' : 'LOCKED';
+    header.append(titleWrap, badge);
+
+    const description = document.createElement('p');
+    description.textContent = mine.description;
+    const resources = document.createElement('div');
+    resources.className = 'incremental-mine-resources';
+    mine.depositIds.forEach((depositId) => {
+      const resource = config.resourcesById[config.depositsById[depositId].resourceId];
+      const chip = document.createElement('span');
+      chip.style.setProperty('--resource-color', resource.color);
+      chip.textContent = `${resource.icon} ${resource.name}`;
+      resources.appendChild(chip);
+    });
+    const progressRow = document.createElement('div');
+    progressRow.className = 'incremental-mine-progress-copy';
+    const progressLabel = document.createElement('span');
+    progressLabel.textContent = 'Mine progress';
+    const progressValue = document.createElement('strong');
+    progressValue.textContent = `${formatNumber(progress.depositsBroken)} deposits · ${formatNumber(progress.oreMined)} resources`;
+    progressRow.append(progressLabel, progressValue);
+    card.append(header, description, resources, progressRow);
+
+    if (!status.unlocked) {
+      const requirements = document.createElement('div');
+      requirements.className = 'incremental-mine-requirements';
+      const requirementState = status.requirements;
+      if (requirementState.independence.required) {
+        requirements.appendChild(makeMineRequirement(
+          'Independence',
+          requirementState.independence.met ? 'Contract paid' : 'Buyout required',
+          requirementState.independence.met,
+        ));
+      }
+      requirements.appendChild(makeMineRequirement(
+        'Character level',
+        `${formatNumber(requirementState.characterLevel.current)} / ${formatNumber(requirementState.characterLevel.required)}`,
+        requirementState.characterLevel.met,
+      ));
+      if (requirementState.companyLevel.required > 0) {
+        requirements.appendChild(makeMineRequirement(
+          'Company level',
+          `${formatNumber(requirementState.companyLevel.current)} / ${formatNumber(requirementState.companyLevel.required)}`,
+          requirementState.companyLevel.met,
+        ));
+      }
+      if (requirementState.previousMine.mineId) {
+        const previousMine = config.minesById[requirementState.previousMine.mineId];
+        requirements.appendChild(makeMineRequirement(
+          `${previousMine.name} deposits`,
+          `${formatNumber(requirementState.previousMine.current)} / ${formatNumber(requirementState.previousMine.required)}`,
+          requirementState.previousMine.met,
+        ));
+      }
+      if (requirementState.cash.required > 0) {
+        requirements.appendChild(makeMineRequirement(
+          'Unlock cost',
+          `${formatCurrency(requirementState.cash.current)} / ${formatCurrency(requirementState.cash.required)}`,
+          requirementState.cash.met,
+        ));
+      }
+      card.appendChild(requirements);
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = active ? 'incremental-secondary-button' : 'incremental-primary-button';
+    if (active) {
+      button.textContent = 'Current Mine';
+      button.disabled = true;
+    } else if (status.unlocked) {
+      button.dataset.selectMineId = mine.id;
+      button.textContent = 'Enter Mine';
+    } else {
+      button.dataset.unlockMineId = mine.id;
+      button.textContent = status.canUnlock
+        ? `Unlock · ${formatCurrency(status.cost)}`
+        : 'Requirements Not Met';
+      button.disabled = !status.canUnlock;
+    }
+    card.appendChild(button);
+    return card;
+  }
+
+  function renderMines(game) {
+    const currentMine = config.minesById[game.state.currentMine];
+    nodes.mines_current.textContent = mineDisplayName(game.state, currentMine);
+    nodes.mines_unlocked.textContent = `${formatNumber(game.state.unlockedMines.length)} / ${formatNumber(config.mines.length)} unlocked`;
+    nodes.mines_grid.replaceChildren();
+    config.mines.forEach((mine) => nodes.mines_grid.appendChild(makeMineCard(game, mine)));
   }
 
   function equipmentBonusSummary(item) {
@@ -900,6 +1092,7 @@ function buildUi(root, database) {
     nodes.deposit_bar.style.width = `${hpProgress * 100}%`;
     nodes.deposit_progress.setAttribute('aria-valuenow', String(game.state.currentDeposit.hp));
     nodes.mining_target.setAttribute('aria-label', `Mine ${config.depositsById[game.state.currentDeposit.id].name}. ${game.state.currentDeposit.hp} of ${game.state.currentDeposit.maxHp} durability remaining.`);
+    renderMiningEvent(game);
   }
 
   function render(game) {
@@ -927,9 +1120,7 @@ function buildUi(root, database) {
     nodes.xp_bar.parentElement.setAttribute('aria-valuemax', String(xpNeeded));
     nodes.xp_bar.parentElement.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
     nodes.subtitle.textContent = employeeStage ? config.ui.subtitle : config.independence.subtitle;
-    nodes.mine_name.textContent = !employeeStage && state.currentMine === config.start.mineId
-      ? config.independence.locationName
-      : mine.name;
+    nodes.mine_name.textContent = mineDisplayName(state, mine);
     nodes.role.textContent = employeeStage
       ? config.employment.role
       : companyOwner
@@ -950,12 +1141,15 @@ function buildUi(root, database) {
     nodes.deposit_icon.textContent = deposit.visual.icon;
     nodes.mining_target.style.setProperty('--deposit-color', deposit.visual.color);
     nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
+    nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
+    nodes.mine_stage.style.setProperty('--mine-accent', mine.visual.accent);
     nodes.wages.textContent = formatCurrency(state.employment.totalWages);
     nodes.company_value.textContent = formatCurrency(state.employment.companyValue);
     nodes.manual_power.textContent = formatNumber(miningStats.manualPower);
     nodes.critical_chance.textContent = percent(miningStats.criticalChance);
     nodes.critical_damage.textContent = `${formatNumber(miningStats.criticalDamage, { decimals: 1 })}x`;
     nodes.ore_yield.textContent = percent(miningStats.oreYieldChance);
+    nodes.rare_find_chance.textContent = percent(miningStats.rareFindChance);
     nodes.automation_power.textContent = `${formatNumber(automation.totalPower)}/sec`;
 
     nodes.contract_progress_label.textContent = `${formatCurrency(Math.min(state.cash, contractCost))} / ${formatCurrency(contractCost)}`;
@@ -974,6 +1168,8 @@ function buildUi(root, database) {
     renderResources(state, employeeStage);
     renderStore(game);
     renderEquipment(game);
+    renderMiningEvent(game);
+    renderMines(game);
     renderCompany(game);
     renderSkills(game);
   }
@@ -1001,13 +1197,29 @@ function buildUi(root, database) {
       const resource = config.resourcesById[result.resourceId];
       spawnFloat(`+${formatNumber(result.quantity)} ${resource.name}`, 'ore');
       if (result.wage > 0) spawnFloat(`+${formatCurrency(result.wage)} wage`, 'cash');
+      if (result.rareFind) spawnFloat(`RARE: ${result.rareFind.name}`, 'rare');
+      if (result.eventStarted) spawnFloat(result.eventStarted.name.toUpperCase(), 'event');
       const destination = result.destination === 'employer'
         ? `${resource.name} delivered to ${config.employment.companyName}. You earned ${formatCurrency(result.wage)}`
         : `${resource.name} added to your personal stockpile`;
       const levelText = result.levelsGained > 0
         ? ` Reached level ${formatNumber(result.level)}; ${formatNumber(result.skillPointsGained)} skill point${result.skillPointsGained === 1 ? '' : 's'} awarded.`
         : '';
-      nodes.last_result.textContent = `${destination} and ${formatNumber(result.xp)} XP.${levelText}`;
+      let rareText = '';
+      if (result.rareFind?.reward.type === 'cash') {
+        rareText = ` Rare find: ${result.rareFind.name}, worth ${formatCurrency(result.rareFind.value)}.`;
+      } else if (result.rareFind?.reward.type === 'xp') {
+        rareText = ` Rare find: ${result.rareFind.name}, granting ${formatNumber(result.rareFind.xp)} bonus XP.`;
+      } else if (result.rareFind?.reward.type === 'resource') {
+        const rareResource = config.resourcesById[result.rareFind.resourceId];
+        rareText = result.rareFind.destination === 'employer'
+          ? ` Rare find: ${result.rareFind.name}, delivering ${formatNumber(result.rareFind.quantity)} ${rareResource.name} to ${config.employment.companyName}.`
+          : ` Rare find: ${result.rareFind.name}, adding ${formatNumber(result.rareFind.quantity)} ${rareResource.name} to your stockpile.`;
+      }
+      const eventText = result.eventStarted
+        ? ` ${result.eventStarted.name} has begun for ${formatNumber(result.eventStarted.durationSeconds)} seconds.`
+        : '';
+      nodes.last_result.textContent = `${destination} and ${formatNumber(result.xp)} XP.${levelText}${rareText}${eventText}`;
     } else {
       nodes.last_result.textContent = result.critical
         ? `Critical strike for ${formatNumber(result.damage)} mining damage.`
@@ -1021,7 +1233,9 @@ function buildUi(root, database) {
       .map(([resourceId, quantity]) => `${formatNumber(quantity)} ${config.resourcesById[resourceId]?.name || resourceId}`)
       .join(', ');
     spawnFloat(`AUTO +${formatNumber(Object.values(result.resources).reduce((sum, value) => sum + value, 0))}`, 'ore');
-    nodes.last_result.textContent = `Your operation broke ${formatNumber(result.depositsBroken)} deposit${result.depositsBroken === 1 ? '' : 's'} and recovered ${rewards}. Manual mining remains the source of character XP.`;
+    const eventStarted = result.breaks.find((entry) => entry.eventStarted)?.eventStarted;
+    if (eventStarted) spawnFloat(eventStarted.name.toUpperCase(), 'event');
+    nodes.last_result.textContent = `Your operation broke ${formatNumber(result.depositsBroken)} deposit${result.depositsBroken === 1 ? '' : 's'} and recovered ${rewards}. Manual mining remains the source of character XP.${eventStarted ? ` ${eventStarted.name} has begun.` : ''}`;
   }
 
   function advanceStory() {
@@ -1060,6 +1274,7 @@ function buildUi(root, database) {
     nodes.company_name.value = '';
     nodes.store_status.textContent = 'Miller keeps the counter open from your first shift onward.';
     nodes.equipment_status.textContent = 'Purchase equipment at Miller\'s, then switch owned gear here.';
+    nodes.mines_status.textContent = 'Your current shaft remains active until you enter another unlocked mine.';
     nodes.company_status.textContent = 'Build your own operation after leaving Blackstone.';
   }
 
@@ -1113,6 +1328,7 @@ async function bootstrap() {
     [ui.nodes.tab_mine, 'mine'],
     [ui.nodes.tab_store, 'store'],
     [ui.nodes.tab_equipment, 'equipment'],
+    [ui.nodes.tab_mines, 'mines'],
     [ui.nodes.tab_company, 'company'],
     [ui.nodes.tab_skills, 'skills'],
   ];
@@ -1131,6 +1347,7 @@ async function bootstrap() {
     });
   });
   ui.nodes.open_skills.addEventListener('click', () => ui.setView('skills'));
+  ui.nodes.open_mines.addEventListener('click', () => ui.setView('mines'));
   ui.nodes.open_store.addEventListener('click', () => ui.setView('store'));
   ui.nodes.open_company.addEventListener('click', () => ui.setView('company'));
   ui.nodes.story_continue.addEventListener('click', () => ui.dismissStory());
@@ -1205,6 +1422,28 @@ async function bootstrap() {
     ui.nodes.equipment_status.textContent = result.ok
       ? `${item.name} equipped in the ${database.config.equipment.slotsById[result.slotId].name} slot.`
       : `${item.name} is already equipped.`;
+    ui.render(game);
+  });
+
+  ui.nodes.mines_grid.addEventListener('click', (event) => {
+    const unlockButton = event.target.closest('button[data-unlock-mine-id]');
+    if (unlockButton) {
+      const result = game.unlockMine(unlockButton.dataset.unlockMineId);
+      const mine = database.config.minesById[unlockButton.dataset.unlockMineId];
+      ui.nodes.mines_status.textContent = result.ok && result.unlocked
+        ? `${mine.name} unlocked for ${formatCurrency(result.cost)}. Enter it when you are ready to replace the active deposit.`
+        : 'That mine still has unmet progression requirements.';
+      ui.render(game);
+      return;
+    }
+    const selectButton = event.target.closest('button[data-select-mine-id]');
+    if (!selectButton) return;
+    const result = game.selectMine(selectButton.dataset.selectMineId);
+    const mine = database.config.minesById[selectButton.dataset.selectMineId];
+    ui.nodes.mines_status.textContent = result.ok
+      ? `${mine.name} is now active.${result.eventEnded ? ' The previous mine event ended when you changed locations.' : ''}`
+      : 'That mine must be unlocked before you can enter it.';
+    if (result.ok) ui.setView('mine');
     ui.render(game);
   });
 
@@ -1288,7 +1527,7 @@ async function bootstrap() {
   let lastAutomationRender = 0;
   function loop(now) {
     const result = game.update(Math.min(1, (now - lastFrame) / 1000));
-    if (result?.automation?.damage > 0 && now - lastAutomationRender >= 100) {
+    if ((result?.automation?.damage > 0 || game.state.activeMiningEvent) && now - lastAutomationRender >= 100) {
       ui.renderTick(game);
       lastAutomationRender = now;
     }

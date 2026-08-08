@@ -31,7 +31,7 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-cash')).not.toHaveText('$0');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
   expect(saved.gameType).toBe('incremental');
-  expect(saved.version).toBe(4);
+  expect(saved.version).toBe(5);
   expect(saved.payload.statistics.totalManualSwings).toBe(10);
   expect(saved.payload.statistics.totalDepositsBroken).toBe(1);
   expect(saved.payload.statistics.totalOreMined).toBeGreaterThan(0);
@@ -179,7 +179,7 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
   await expect(ticket.locator('.incremental-lottery-reveal')).toBeVisible();
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(4);
+  expect(saved.version).toBe(5);
   expect(saved.payload.materials.stone).toBe(2);
   expect(saved.payload.statistics.totalOreSold).toBe(10);
   expect(saved.payload.ownedEquipment).toContain('iron-pickaxe');
@@ -266,7 +266,7 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
   await expect(page.locator('#incremental-company-production')).toHaveText('3.45/sec');
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(4);
+  expect(saved.version).toBe(5);
   expect(saved.payload.storyStage).toBe('company-owner');
   expect(saved.payload.company.name).toBe('Freedom Forge Mining');
   expect(saved.payload.company.level).toBe(2);
@@ -288,6 +288,84 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
   await expect(page.locator('.incremental-business-card').filter({
     has: page.getByRole('heading', { name: 'Hired Miner', exact: true }),
   })).toContainText('Owned 3');
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test('mine progression shows combined requirements, pays a one-time unlock cost, and switches deposits', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+
+  await page.goto('/?game=miner-incremental');
+  await page.locator('#incremental-story-continue').click();
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('milestone-five-seeded')) return;
+    const key = 'pixel_engine_save_miner-incremental_slot_1';
+    const save = JSON.parse(localStorage.getItem(key));
+    if (!save) return;
+    save.payload.cash = 10000;
+    save.payload.character.level = 4;
+    save.payload.character.xp = 0;
+    save.payload.storyStage = 'independent';
+    save.payload.employment.active = false;
+    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.endedAt = Date.now();
+    save.payload.mineProgress['blackstone-shaft-7'] = {
+      depositsBroken: 35,
+      oreMined: 150,
+    };
+    save.payload.activeMiningEvent = { id: 'rich-seam', remainingSeconds: 20 };
+    save.payload.milestones = [
+      'blackstone-first-shift',
+      'blackstone-level-two',
+      'blackstone-level-four',
+      'contract-within-reach',
+      'contract-bought',
+    ];
+    localStorage.setItem(key, JSON.stringify(save));
+    sessionStorage.setItem('milestone-five-seeded', 'true');
+  });
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-event-banner')).toBeVisible();
+  await expect(page.locator('#incremental-event-name')).toHaveText('Rich Seam');
+
+  await page.locator('#incremental-tab-mines').click();
+  await expect(page.getByRole('heading', { name: 'Claims & Shafts' })).toBeVisible();
+  const oldIronMine = page.locator('.incremental-mine-option').filter({
+    has: page.getByRole('heading', { name: 'Old Iron Mine', exact: true }),
+  });
+  await expect(oldIronMine).toContainText('Contract paid');
+  await expect(oldIronMine).toContainText('35 / 35');
+  await expect(oldIronMine).toContainText('$10.00K / $2.50K');
+  await oldIronMine.getByRole('button', { name: /Unlock/ }).click();
+  await expect(page.locator('#incremental-cash')).toHaveText('$7.50K');
+  await expect(oldIronMine).toContainText('UNLOCKED');
+  await oldIronMine.getByRole('button', { name: 'Enter Mine' }).click();
+
+  await expect(page.locator('#incremental-mine-view')).toBeVisible();
+  await expect(page.locator('#incremental-mine-name')).toHaveText('Old Iron Mine');
+  await expect(page.locator('#incremental-resources')).toContainText('Iron Ore');
+  await expect(page.locator('#incremental-deposit-name')).toHaveText(/Coal Seam|Copper Vein|Iron Vein/);
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
+  expect(saved.version).toBe(5);
+  expect(saved.payload.currentMine).toBe('old-iron-mine');
+  expect(saved.payload.unlockedMines).toContain('old-iron-mine');
+  expect(saved.payload.statistics.minesUnlocked).toBe(2);
+  expect(saved.payload.cash).toBe(7500);
+  expect(saved.payload.mineProgress['blackstone-shaft-7'].depositsBroken).toBe(35);
+  expect(saved.payload.mineProgress['old-iron-mine'].depositsBroken).toBe(0);
+  expect(saved.payload.activeMiningEvent.id).toBe('rich-seam');
+
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-mine-name')).toHaveText('Old Iron Mine');
+  await expect(page.locator('#incremental-event-banner')).toBeVisible();
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
@@ -350,6 +428,12 @@ test.describe('touch viewport', () => {
     const companyCardBox = await companyCard.boundingBox();
     expect(companyCardBox.x).toBeGreaterThanOrEqual(0);
     expect(companyCardBox.x + companyCardBox.width).toBeLessThanOrEqual(390);
+    await page.locator('#incremental-tab-mines').tap();
+    await expect(page.getByRole('heading', { name: 'Claims & Shafts' })).toBeVisible();
+    const mineCard = page.locator('.incremental-mine-option').first();
+    const mineCardBox = await mineCard.boundingBox();
+    expect(mineCardBox.x).toBeGreaterThanOrEqual(0);
+    expect(mineCardBox.x + mineCardBox.width).toBeLessThanOrEqual(390);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 });

@@ -4,6 +4,8 @@ import {
   rollScratchPrize,
   scaledPurchaseCost,
   selectWeightedDeposit,
+  selectWeightedMiningEvent,
+  selectWeightedRareFind,
   xpRequiredForLevel,
 } from './incrementalContent.js';
 import {
@@ -145,6 +147,44 @@ export class IncrementalGame {
         changed = true;
       }
     });
+    const resourceMaps = [
+      state.materials,
+      state.employment.companyResources,
+      state.statistics.resourceTotals,
+    ];
+    this.config.resources.forEach((resource) => {
+      resourceMaps.forEach((map) => {
+        if (!Number.isFinite(map[resource.id])) {
+          map[resource.id] = 0;
+          changed = true;
+        }
+      });
+    });
+    this.config.mines.forEach((mine) => {
+      if (!state.mineProgress[mine.id]) {
+        state.mineProgress[mine.id] = { depositsBroken: 0, oreMined: 0 };
+        changed = true;
+      }
+    });
+    if (!state.unlockedMines.includes(this.config.start.mineId)) {
+      state.unlockedMines.unshift(this.config.start.mineId);
+      changed = true;
+    }
+    if (state.statistics.minesUnlocked < state.unlockedMines.length) {
+      state.statistics.minesUnlocked = state.unlockedMines.length;
+      changed = true;
+    }
+    const activeEvent = state.activeMiningEvent
+      ? this.config.miningEvents.eventsById[state.activeMiningEvent.id]
+      : null;
+    if (state.activeMiningEvent && (!activeEvent || !this.isEntryEligibleForMine(activeEvent, state.currentMine))) {
+      state.activeMiningEvent = null;
+      changed = true;
+    } else if (state.activeMiningEvent
+      && state.activeMiningEvent.remainingSeconds > activeEvent.durationSeconds) {
+      state.activeMiningEvent.remainingSeconds = activeEvent.durationSeconds;
+      changed = true;
+    }
     const expectedCompanyLevel = state.company.created
       ? this.companyLevelForInvestment(state.company.lifetimeInvestment)
       : 0;
@@ -162,6 +202,7 @@ export class IncrementalGame {
     if (!mine || !deposit || !mine.depositIds.includes(deposit.id)) return false;
     if (snapshot.currentDeposit.maxHp !== deposit.maxHp || snapshot.currentDeposit.hp > deposit.maxHp) return false;
     if (snapshot.unlockedMines.some((id) => !this.config.minesById[id])) return false;
+    if (Object.keys(snapshot.mineProgress).some((id) => !this.config.minesById[id])) return false;
     if (snapshot.employment.companyId !== this.config.employment.companyId) return false;
 
     const knownSlots = new Set(this.config.equipment.slots.map((slot) => slot.id));
@@ -211,7 +252,6 @@ export class IncrementalGame {
     ];
     if (!resourceMaps.every((map) => (
       Object.keys(map).every((id) => knownResources.has(id))
-      && this.config.resources.every((resource) => Number.isFinite(map[resource.id]) && map[resource.id] >= 0)
     ))) return false;
 
     return Object.entries(snapshot.skills).every(([id, rank]) => {
@@ -253,6 +293,26 @@ export class IncrementalGame {
     return this.getSkillBonus(effectType) + this.getEquipmentBonus(effectType);
   }
 
+  isEntryEligibleForMine(entry, mineId = this.state?.currentMine) {
+    return Boolean(entry)
+      && (entry.eligibleMineIds.length === 0 || entry.eligibleMineIds.includes(mineId));
+  }
+
+  getActiveMiningEvent() {
+    if (!this.state?.activeMiningEvent) return null;
+    const event = this.config.miningEvents.eventsById[this.state.activeMiningEvent.id];
+    if (!event || !this.isEntryEligibleForMine(event)) return null;
+    return {
+      ...event,
+      remainingSeconds: this.state.activeMiningEvent.remainingSeconds,
+    };
+  }
+
+  getRareFindChance() {
+    const configured = this.config.rareFinds.baseChance + this.getMiningBonus('rare-find-chance');
+    return Math.max(0, Math.min(this.config.rareFinds.maxChance, configured));
+  }
+
   getMiningStats() {
     return {
       manualPower: this.config.balance.manualPower + this.getMiningBonus('manual-power-flat'),
@@ -260,13 +320,121 @@ export class IncrementalGame {
       criticalChance: Math.min(0.95, this.config.balance.baseCriticalChance + this.getMiningBonus('critical-chance')),
       criticalDamage: Math.max(1, this.config.balance.baseCriticalDamage + this.getMiningBonus('critical-damage')),
       oreYieldChance: Math.min(0.95, this.config.balance.baseOreYieldChance + this.getMiningBonus('ore-yield-chance')),
-      rareFindChance: Math.min(0.95, this.getMiningBonus('rare-find-chance')),
+      rareFindChance: this.getRareFindChance(),
       automationBonus: this.getMiningBonus('automation-bonus'),
     };
   }
 
   getManualPower() {
     return this.getMiningStats().manualPower;
+  }
+
+  getMineProgress(mineId) {
+    return this.state?.mineProgress?.[normalizedId(mineId)] || {
+      depositsBroken: 0,
+      oreMined: 0,
+    };
+  }
+
+  getMineUnlockStatus(mineId) {
+    const id = normalizedId(mineId);
+    const mine = this.config.minesById[id];
+    if (!mine || !this.state) return { ok: false, reason: 'unknown-mine', mineId: id };
+    const unlocked = this.state.unlockedMines.includes(id);
+    const unlock = mine.unlock;
+    const priorProgress = unlock.requiredMineId
+      ? this.getMineProgress(unlock.requiredMineId)
+      : { depositsBroken: 0, oreMined: 0 };
+    const priorUnlocked = !unlock.requiredMineId
+      || this.state.unlockedMines.includes(unlock.requiredMineId);
+    const requirements = {
+      independence: {
+        required: unlock.requiresIndependence,
+        met: !unlock.requiresIndependence || !this.state.employment.active,
+      },
+      characterLevel: {
+        required: unlock.characterLevel,
+        current: this.state.character.level,
+        met: this.state.character.level >= unlock.characterLevel,
+      },
+      companyLevel: {
+        required: unlock.companyLevel,
+        current: this.state.company.level,
+        met: this.state.company.level >= unlock.companyLevel,
+      },
+      previousMine: {
+        mineId: unlock.requiredMineId,
+        required: unlock.requiredDepositsBroken,
+        current: priorProgress.depositsBroken,
+        unlocked: priorUnlocked,
+        met: priorUnlocked && priorProgress.depositsBroken >= unlock.requiredDepositsBroken,
+      },
+      cash: {
+        required: unlock.cost,
+        current: this.state.cash,
+        met: this.state.cash >= unlock.cost,
+      },
+    };
+    const unmet = Object.entries(requirements).find(([, requirement]) => !requirement.met)?.[0] || null;
+    return {
+      ok: true,
+      mineId: id,
+      mine,
+      unlocked,
+      canUnlock: !unlocked && !unmet,
+      reason: unlocked ? 'already-unlocked' : unmet,
+      cost: unlock.cost,
+      requirements,
+    };
+  }
+
+  unlockMine(mineId) {
+    const status = this.getMineUnlockStatus(mineId);
+    if (!status.ok || status.unlocked || !status.canUnlock) return status;
+    this.state.cash = Math.max(0, this.state.cash - status.cost);
+    this.state.unlockedMines.push(status.mineId);
+    this.state.statistics.minesUnlocked = safeAdd(this.state.statistics.minesUnlocked, 1);
+    const result = {
+      ...status,
+      ok: true,
+      unlocked: true,
+      canUnlock: false,
+      reason: null,
+      cash: this.state.cash,
+    };
+    this.saveCheckpoint('mine-unlock');
+    this.emit('mine-unlocked', result);
+    return result;
+  }
+
+  selectNextDeposit(mineId = this.state.currentMine) {
+    const activeEvent = this.getActiveMiningEvent();
+    const multipliers = activeEvent?.effects.depositWeightMultipliers || {};
+    return selectWeightedDeposit(this.config, mineId, this.random, multipliers);
+  }
+
+  selectMine(mineId) {
+    const id = normalizedId(mineId);
+    const mine = this.config.minesById[id];
+    if (!mine || !this.state) return { ok: false, reason: 'unknown-mine', mineId: id };
+    if (!this.state.unlockedMines.includes(id)) {
+      return { ok: false, reason: 'locked-mine', mineId: id };
+    }
+    if (this.state.currentMine === id) {
+      return { ok: true, reason: 'already-active', mineId: id, depositId: this.state.currentDeposit.id };
+    }
+    this.state.currentMine = id;
+    const activeEvent = this.state.activeMiningEvent
+      ? this.config.miningEvents.eventsById[this.state.activeMiningEvent.id]
+      : null;
+    const eventEnded = Boolean(activeEvent && !this.isEntryEligibleForMine(activeEvent, id));
+    if (eventEnded) this.state.activeMiningEvent = null;
+    const deposit = this.selectNextDeposit(id);
+    this.state.currentDeposit = { id: deposit.id, hp: deposit.maxHp, maxHp: deposit.maxHp };
+    const result = { ok: true, reason: null, mineId: id, depositId: deposit.id, eventEnded };
+    this.saveCheckpoint('mine-selected');
+    this.emit('mine-selected', result);
+    return result;
   }
 
   companyLevelForInvestment(investment) {
@@ -820,6 +988,114 @@ export class IncrementalGame {
     return unlocked;
   }
 
+  applyRareFindReward(find) {
+    const reward = find.reward;
+    const result = {
+      id: find.id,
+      name: find.name,
+      description: find.description,
+      icon: find.icon,
+      reward: clone(reward),
+      value: 0,
+      xp: 0,
+      resourceId: '',
+      quantity: 0,
+      destination: 'player',
+    };
+    if (reward.type === 'cash') {
+      this.state.cash = safeAdd(this.state.cash, reward.amount);
+      this.state.statistics.lifetimeEarnings = safeAdd(
+        this.state.statistics.lifetimeEarnings,
+        reward.amount,
+      );
+      result.value = reward.amount;
+    } else if (reward.type === 'xp') {
+      this.state.character.xp = safeAdd(this.state.character.xp, reward.amount);
+      result.xp = reward.amount;
+    } else if (reward.type === 'resource') {
+      const resource = this.config.resourcesById[reward.resourceId];
+      const employeeStage = this.state.storyStage === 'employee' && this.state.employment.active;
+      const destination = employeeStage
+        ? this.state.employment.companyResources
+        : this.state.materials;
+      destination[resource.id] = safeAdd(destination[resource.id], reward.amount);
+      this.state.statistics.totalOreMined = safeAdd(this.state.statistics.totalOreMined, reward.amount);
+      this.state.statistics.resourceTotals[resource.id] = safeAdd(
+        this.state.statistics.resourceTotals[resource.id],
+        reward.amount,
+      );
+      const progress = this.getMineProgress(this.state.currentMine);
+      progress.oreMined = safeAdd(progress.oreMined, reward.amount);
+      result.resourceId = resource.id;
+      result.quantity = reward.amount;
+      result.value = safeMultiply(resource.value, reward.amount);
+      result.destination = employeeStage ? 'employer' : 'player';
+      if (employeeStage) {
+        this.state.employment.companyValue = safeAdd(
+          this.state.employment.companyValue,
+          result.value,
+        );
+      }
+    }
+    this.state.statistics.rareFindsDiscovered = safeAdd(
+      this.state.statistics.rareFindsDiscovered,
+      1,
+    );
+    return result;
+  }
+
+  tryRareFind(source, miningStats = this.getMiningStats()) {
+    if (source === 'automation' && this.config.rareFinds.manualOnly) return null;
+    const eligible = this.config.rareFinds.finds.some((entry) => (
+      this.isEntryEligibleForMine(entry)
+    ));
+    if (!eligible) return null;
+    const chance = source === 'manual'
+      ? miningStats.rareFindChance
+      : this.config.rareFinds.baseChance;
+    if (!rollChance(chance, this.random)) return null;
+    const find = selectWeightedRareFind(this.config, this.state.currentMine, this.random);
+    return find ? this.applyRareFindReward(find) : null;
+  }
+
+  tryTriggerMiningEvent() {
+    if (this.state.activeMiningEvent) return null;
+    const eligible = this.config.miningEvents.events.some((entry) => (
+      this.isEntryEligibleForMine(entry)
+    ));
+    if (!eligible || !rollChance(this.config.miningEvents.triggerChance, this.random)) return null;
+    const event = selectWeightedMiningEvent(this.config, this.state.currentMine, this.random);
+    if (!event) return null;
+    this.state.activeMiningEvent = {
+      id: event.id,
+      remainingSeconds: event.durationSeconds,
+    };
+    this.state.statistics.miningEventsTriggered = safeAdd(
+      this.state.statistics.miningEventsTriggered,
+      1,
+    );
+    return {
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      icon: event.icon,
+      durationSeconds: event.durationSeconds,
+      effects: clone(event.effects),
+    };
+  }
+
+  advanceMiningEvent(deltaSeconds, expectedEventId = null) {
+    const active = this.state?.activeMiningEvent;
+    if (!active || (expectedEventId && active.id !== expectedEventId)) return null;
+    active.remainingSeconds = Math.max(0, active.remainingSeconds - deltaSeconds);
+    if (active.remainingSeconds > 0) return null;
+    const event = this.config.miningEvents.eventsById[active.id];
+    this.state.activeMiningEvent = null;
+    const result = { id: active.id, name: event?.name || active.id };
+    this.emit('mining-event-ended', result);
+    return result;
+  }
+
   mine() {
     if (!this.state) throw new Error('IncrementalGame must be started before mining.');
     const deposit = this.config.depositsById[this.state.currentDeposit.id];
@@ -847,13 +1123,23 @@ export class IncrementalGame {
     const resource = this.config.resourcesById[deposit.resourceId];
     const baseQuantity = rollDepositReward(deposit, this.random);
     const bonusQuantity = !automated && rollChance(hit.miningStats?.oreYieldChance || 0, this.random) ? 1 : 0;
-    const quantity = baseQuantity + bonusQuantity;
-    const grossValue = quantity * resource.value;
+    const quantityBeforeEvent = baseQuantity + bonusQuantity;
+    const activeEvent = this.getActiveMiningEvent();
+    const rewardMultiplier = activeEvent?.effects.rewardMultiplier || 1;
+    const quantity = Math.max(
+      quantityBeforeEvent,
+      Math.floor(safeMultiply(quantityBeforeEvent, rewardMultiplier)),
+    );
+    const eventBonusQuantity = quantity - quantityBeforeEvent;
+    const grossValue = safeMultiply(quantity, resource.value);
     const employeeStage = this.state.storyStage === 'employee' && this.state.employment.active;
     let wage = 0;
 
     if (employeeStage) {
-      this.state.employment.companyResources[resource.id] += quantity;
+      this.state.employment.companyResources[resource.id] = safeAdd(
+        this.state.employment.companyResources[resource.id],
+        quantity,
+      );
       wage = Math.max(
         this.config.balance.minimumWage,
         Math.floor(grossValue * this.config.balance.employeeWageShare),
@@ -869,8 +1155,8 @@ export class IncrementalGame {
       this.state.materials[resource.id] = safeAdd(this.state.materials[resource.id], quantity);
     }
 
-    const xp = automated ? 0 : deposit.xp;
-    this.state.character.xp = safeAdd(this.state.character.xp, xp);
+    const depositXp = automated ? 0 : deposit.xp;
+    this.state.character.xp = safeAdd(this.state.character.xp, depositXp);
     this.state.statistics.totalDepositsBroken = safeAdd(this.state.statistics.totalDepositsBroken, 1);
     this.state.statistics.totalOreMined = safeAdd(this.state.statistics.totalOreMined, quantity);
     this.state.statistics.resourceTotals[resource.id] = safeAdd(
@@ -883,7 +1169,12 @@ export class IncrementalGame {
         quantity,
       );
     }
-    const levelResult = automated
+    const mineProgress = this.getMineProgress(this.state.currentMine);
+    mineProgress.depositsBroken = safeAdd(mineProgress.depositsBroken, 1);
+    mineProgress.oreMined = safeAdd(mineProgress.oreMined, quantity);
+    const rareFind = this.tryRareFind(source, hit.miningStats || this.getMiningStats());
+    const xp = safeAdd(depositXp, rareFind?.xp || 0);
+    const levelResult = automated && xp === 0
       ? {
           levelsGained: 0,
           skillPointsGained: 0,
@@ -893,7 +1184,8 @@ export class IncrementalGame {
         }
       : this.applyLevelProgression();
 
-    const nextDeposit = selectWeightedDeposit(this.config, this.state.currentMine, this.random);
+    const eventStarted = this.tryTriggerMiningEvent();
+    const nextDeposit = this.selectNextDeposit();
     this.state.currentDeposit = {
       id: nextDeposit.id,
       hp: nextDeposit.maxHp,
@@ -912,13 +1204,20 @@ export class IncrementalGame {
       quantity,
       baseQuantity,
       bonusQuantity,
+      eventBonusQuantity,
+      rewardMultiplier,
       grossValue,
       wage,
       xp,
+      depositXp,
+      rareFind,
+      eventStarted,
       levelsGained: levelResult.levelsGained,
       skillPointsGained: levelResult.skillPointsGained,
       level: levelResult.level,
       destination: employeeStage ? 'employer' : 'player',
+      mineId: this.state.currentMine,
+      mineProgress: clone(mineProgress),
       nextDepositId: nextDeposit.id,
       milestones,
     };
@@ -971,14 +1270,18 @@ export class IncrementalGame {
     const delta = Number(deltaSeconds);
     if (!Number.isFinite(delta) || delta <= 0) return null;
     const safeDelta = Math.min(delta, 60);
+    const activeEventId = this.state.activeMiningEvent?.id || null;
     const automation = this.applyAutomation(safeDelta);
+    const eventEnded = activeEventId
+      ? this.advanceMiningEvent(safeDelta, activeEventId)
+      : null;
     this.state.statistics.timePlayed = safeAdd(this.state.statistics.timePlayed, safeDelta);
     this.autosaveElapsed += safeDelta;
     if (this.autosaveElapsed >= this.config.balance.autosaveSeconds) {
       this.autosaveElapsed %= this.config.balance.autosaveSeconds;
       this.saveCheckpoint('autosave');
     }
-    return { deltaSeconds: safeDelta, automation };
+    return { deltaSeconds: safeDelta, automation, eventEnded };
   }
 
   saveCheckpoint(reason = 'manual') {

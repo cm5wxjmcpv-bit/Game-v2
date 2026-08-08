@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeGameManifest } from '../../src/gameManifest.js';
-import { normalizeIncrementalConfig, rollScratchPrize, scaledPurchaseCost } from '../../src/incrementalContent.js';
+import {
+  normalizeIncrementalConfig,
+  rollScratchPrize,
+  scaledPurchaseCost,
+  selectWeightedDeposit,
+  selectWeightedMiningEvent,
+  selectWeightedRareFind,
+} from '../../src/incrementalContent.js';
 import { IncrementalGame } from '../../src/incrementalGame.js';
 import {
   INCREMENTAL_SAVE_VERSION,
@@ -287,6 +294,89 @@ function rawConfig() {
   };
 }
 
+function addMineProgressionContent(raw) {
+  raw.skills.push({
+    id: 'rare-find',
+    name: 'Rare Find',
+    maxRank: 2,
+    effect: { type: 'rare-find-chance', amount: 0.25, label: '+25% rare finds' },
+  });
+  raw.resources.push({ id: 'iron', name: 'Iron Ore', value: 25, color: '#999999', icon: '⬢' });
+  raw.deposits.push({
+    id: 'iron-vein',
+    name: 'Iron Vein',
+    maxHp: 8,
+    resourceId: 'iron',
+    reward: { min: 3, max: 3 },
+    xp: 8,
+    weight: 1,
+  });
+  raw.mines[0].unlock = {
+    cost: 0,
+    characterLevel: 1,
+    companyLevel: 0,
+    requiresIndependence: false,
+    requiredDepositsBroken: 0,
+  };
+  raw.mines.push({
+    id: 'iron-mine',
+    name: 'Iron Mine',
+    description: 'A deeper test mine.',
+    depositIds: ['stone-face', 'iron-vein'],
+    unlock: {
+      cost: 30,
+      characterLevel: 3,
+      companyLevel: 2,
+      requiresIndependence: true,
+      requiredMineId: 'test-mine',
+      requiredDepositsBroken: 2,
+    },
+  });
+  raw.rareFinds = {
+    baseChance: 0.2,
+    maxChance: 0.8,
+    manualOnly: true,
+    finds: [
+      {
+        id: 'old-coin',
+        name: 'Old Coin',
+        weight: 1,
+        reward: { type: 'cash', amount: 15 },
+      },
+      {
+        id: 'iron-specimen',
+        name: 'Iron Specimen',
+        weight: 1,
+        eligibleMineIds: ['iron-mine'],
+        reward: { type: 'resource', resourceId: 'iron', amount: 2 },
+      },
+    ],
+  };
+  raw.miningEvents = {
+    triggerChance: 0.1,
+    events: [
+      {
+        id: 'rich-seam',
+        name: 'Rich Seam',
+        weight: 1,
+        durationSeconds: 10,
+        effects: { rewardMultiplier: 1.5, depositWeightMultipliers: {} },
+      },
+      {
+        id: 'iron-rush',
+        name: 'Iron Rush',
+        weight: 1,
+        durationSeconds: 20,
+        eligibleMineIds: ['iron-mine'],
+        effects: {
+          rewardMultiplier: 2,
+          depositWeightMultipliers: { 'iron-vein': 5 },
+        },
+      },
+    ],
+  };
+}
+
 function config(mutator = null) {
   const raw = rawConfig();
   if (mutator) mutator(raw);
@@ -307,7 +397,7 @@ function createGame(gameConfig = config(), options = {}) {
   const saves = [];
   const game = new IncrementalGame({
     config: gameConfig,
-    gameVersion: '0.4.0',
+    gameVersion: '0.5.0',
     random: options.random || (() => 0),
     clock: options.clock || (() => 1_000),
     saveAdapter: options.saveAdapter || {
@@ -365,6 +455,43 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   assert.throws(
     () => normalizeIncrementalConfig(emptyCompanyLevels, { gameId: 'miner-incremental' }),
     /company\.levels must contain at least one/,
+  );
+});
+
+test('mine, rare-find, and mining-event contracts validate references and select weighted content deterministically', () => {
+  const progression = config(addMineProgressionContent);
+  assert.equal(progression.minesById['iron-mine'].unlock.requiredMineId, 'test-mine');
+  assert.equal(progression.rareFinds.baseChance, 0.2);
+  assert.equal(progression.miningEvents.eventsById['iron-rush'].effects.depositWeightMultipliers['iron-vein'], 5);
+  assert.equal(selectWeightedRareFind(progression, 'test-mine', () => 0.99).id, 'old-coin');
+  assert.equal(selectWeightedRareFind(progression, 'iron-mine', () => 0.75).id, 'iron-specimen');
+  assert.equal(selectWeightedMiningEvent(progression, 'test-mine', () => 0.99).id, 'rich-seam');
+  assert.equal(selectWeightedMiningEvent(progression, 'iron-mine', () => 0.75).id, 'iron-rush');
+  assert.equal(selectWeightedDeposit(progression, 'iron-mine', () => 0.2).id, 'stone-face');
+  assert.equal(selectWeightedDeposit(
+    progression,
+    'iron-mine',
+    () => 0.2,
+    { 'iron-vein': 5 },
+  ).id, 'iron-vein');
+
+  const broken = rawConfig();
+  addMineProgressionContent(broken);
+  broken.mines[1].unlock.requiredMineId = 'missing-mine';
+  broken.rareFinds.finds[1].reward.resourceId = 'missing-resource';
+  broken.miningEvents.events[1].effects.depositWeightMultipliers = { 'missing-deposit': 2 };
+  broken.miningEvents.triggerChance = Number.POSITIVE_INFINITY;
+  assert.throws(
+    () => normalizeIncrementalConfig(broken, { gameId: 'miner-incremental' }),
+    /requires missing mine|missing resource|missing deposit|triggerChance/,
+  );
+
+  const forwardReference = rawConfig();
+  addMineProgressionContent(forwardReference);
+  forwardReference.mines[0].unlock.requiredMineId = 'iron-mine';
+  assert.throws(
+    () => normalizeIncrementalConfig(forwardReference, { gameId: 'miner-incremental' }),
+    /starting mine must be unlocked|must require an earlier mine/,
   );
 });
 
@@ -800,6 +927,7 @@ test('business upgrades and automation damage the active deposit while manual mi
   assert.equal(game.state.statistics.totalAutomatedProduction, 2);
   assert.equal(game.state.statistics.totalDepositsBroken, 1);
   assert.equal(game.state.statistics.totalManualSwings, 0);
+  assert.deepEqual(game.state.mineProgress['test-mine'], { depositsBroken: 1, oreMined: 2 });
   assert.deepEqual(game.state.currentDeposit, { id: 'stone-face', hp: 4, maxHp: 4 });
 
   assert.equal(game.allocateSkill('automation-bonus').ok, true);
@@ -823,6 +951,139 @@ test('business upgrades and automation damage the active deposit while manual mi
   assert.ok(Object.values(game.state.materials).every((quantity) => quantity >= 0));
 });
 
+test('mine unlocks combine independence, character, company, prior-mine, and cash requirements', () => {
+  const progression = config((raw) => {
+    addMineProgressionContent(raw);
+    raw.rareFinds.baseChance = 0;
+    raw.miningEvents.triggerChance = 0;
+  });
+  const { game } = createGame(progression);
+  game.start();
+  assert.equal(game.selectMine('iron-mine').reason, 'locked-mine');
+  assert.equal(game.state.currentMine, 'test-mine');
+
+  game.mine();
+  game.mine();
+  game.mine();
+  game.mine();
+  assert.deepEqual(game.state.mineProgress['test-mine'], { depositsBroken: 2, oreMined: 4 });
+  assert.equal(game.getMineUnlockStatus('iron-mine').reason, 'independence');
+  assert.equal(game.unlockMine('iron-mine').unlocked, false);
+
+  game.state.storyStage = 'independent';
+  game.state.employment.active = false;
+  assert.equal(game.getMineUnlockStatus('iron-mine').reason, 'characterLevel');
+  game.state.character.level = 3;
+  assert.equal(game.getMineUnlockStatus('iron-mine').reason, 'companyLevel');
+  game.state.company = {
+    created: true,
+    name: 'Progression Mining',
+    level: 2,
+    reputation: 0,
+    createdAt: 1_000,
+    lifetimeInvestment: 30,
+  };
+  game.state.storyStage = 'company-owner';
+  assert.equal(game.getMineUnlockStatus('iron-mine').reason, 'cash');
+  game.state.cash = 100;
+
+  const status = game.getMineUnlockStatus('iron-mine');
+  assert.equal(status.canUnlock, true);
+  const unlocked = game.unlockMine('iron-mine');
+  assert.equal(unlocked.ok, true);
+  assert.equal(unlocked.cost, 30);
+  assert.equal(game.state.cash, 70);
+  assert.deepEqual(game.state.unlockedMines, ['test-mine', 'iron-mine']);
+  assert.equal(game.state.statistics.minesUnlocked, 2);
+  assert.equal(game.unlockMine('iron-mine').reason, 'already-unlocked');
+
+  const selected = game.selectMine('iron-mine');
+  assert.equal(selected.ok, true);
+  assert.equal(game.state.currentMine, 'iron-mine');
+  assert.ok(progression.minesById['iron-mine'].depositIds.includes(game.state.currentDeposit.id));
+  assert.equal(game.selectMine('missing').reason, 'unknown-mine');
+});
+
+test('manual rare finds use injected randomness, skill chance, and package-defined rewards', () => {
+  const progression = config((raw) => {
+    addMineProgressionContent(raw);
+    raw.miningEvents.triggerChance = 0;
+  });
+  const { game } = createGame(progression, { random: () => 0 });
+  game.start();
+  assert.equal(game.getMiningStats().rareFindChance, 0.2);
+  game.state.character.skillPoints = 1;
+  assert.equal(game.allocateSkill('rare-find').ok, true);
+  assert.equal(game.getMiningStats().rareFindChance, 0.45);
+
+  game.mine();
+  const result = game.mine();
+  assert.equal(result.type, 'break');
+  assert.equal(result.rareFind.id, 'old-coin');
+  assert.equal(result.rareFind.value, 15);
+  assert.equal(game.state.cash, 17);
+  assert.equal(game.state.statistics.rareFindsDiscovered, 1);
+  assert.equal(game.state.statistics.lifetimeEarnings, 17);
+  assert.equal(game.state.activeMiningEvent, null);
+
+  const resourceConfig = config((raw) => {
+    addMineProgressionContent(raw);
+    raw.deposits[0].maxHp = 2;
+    raw.rareFinds.baseChance = 1;
+    raw.rareFinds.maxChance = 1;
+    raw.rareFinds.finds = [{
+      id: 'iron-specimen',
+      name: 'Iron Specimen',
+      weight: 1,
+      reward: { type: 'resource', resourceId: 'iron', amount: 2 },
+    }];
+    raw.miningEvents.triggerChance = 0;
+  });
+  const { game: resourceGame } = createGame(resourceConfig, { random: () => 0 });
+  resourceGame.start();
+  const employeeFind = resourceGame.mine();
+  assert.equal(employeeFind.rareFind.destination, 'employer');
+  assert.equal(resourceGame.state.employment.companyResources.iron, 2);
+  assert.equal(resourceGame.state.materials.iron, 0);
+  resourceGame.state.storyStage = 'independent';
+  resourceGame.state.employment.active = false;
+  const independentFind = resourceGame.mine();
+  assert.equal(independentFind.rareFind.destination, 'player');
+  assert.equal(resourceGame.state.materials.iron, 2);
+});
+
+test('timed mining events affect subsequent deposit rewards and expire through the game loop', () => {
+  const progression = config((raw) => {
+    addMineProgressionContent(raw);
+    raw.deposits[0].maxHp = 2;
+    raw.rareFinds.baseChance = 0;
+    raw.miningEvents.triggerChance = 1;
+  });
+  const { game } = createGame(progression, { random: () => 0 });
+  const ended = [];
+  game.subscribe((event) => {
+    if (event.type === 'mining-event-ended') ended.push(event.detail.id);
+  });
+  game.start();
+
+  const first = game.mine();
+  assert.equal(first.eventStarted.id, 'rich-seam');
+  assert.equal(first.quantity, 2);
+  assert.equal(game.getActiveMiningEvent().remainingSeconds, 10);
+  assert.equal(game.state.statistics.miningEventsTriggered, 1);
+
+  const second = game.mine();
+  assert.equal(second.rewardMultiplier, 1.5);
+  assert.equal(second.eventBonusQuantity, 1);
+  assert.equal(second.quantity, 3);
+  assert.equal(second.eventStarted, null);
+  game.update(4);
+  assert.equal(game.getActiveMiningEvent().remainingSeconds, 6);
+  game.update(6);
+  assert.equal(game.getActiveMiningEvent(), null);
+  assert.deepEqual(ended, ['rich-seam']);
+});
+
 test('incremental tick support tracks time and autosaves at the configured interval', () => {
   let saveCount = 0;
   const { game } = createGame(config(), {
@@ -840,12 +1101,12 @@ test('incremental tick support tracks time and autosaves at the configured inter
   assert.equal(game.state.statistics.timePlayed, 2);
 });
 
-test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or future data', (t) => {
+test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or future data', (t) => {
   const originalWindow = globalThis.window;
   t.after(() => { globalThis.window = originalWindow; });
   globalThis.window = { location: { href: 'http://localhost/?game=miner-incremental' } };
   const local = storage();
-  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.4.0' });
+  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.5.0' });
 
   assert.equal(saveIncrementalGame(snapshot, 1, { storage: local, now: 1234 }), true);
   assert.ok(local.values.has('pixel_engine_save_miner-incremental_slot_1'));
@@ -857,6 +1118,12 @@ test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or
   const negativeGenerator = JSON.parse(JSON.stringify(snapshot));
   negativeGenerator.generators['hired-miner'] = -1;
   assert.equal(validateIncrementalSnapshot(negativeGenerator), false);
+  const negativeMineProgress = JSON.parse(JSON.stringify(snapshot));
+  negativeMineProgress.mineProgress['test-mine'].depositsBroken = -1;
+  assert.equal(validateIncrementalSnapshot(negativeMineProgress), false);
+  const malformedEvent = JSON.parse(JSON.stringify(snapshot));
+  malformedEvent.activeMiningEvent = { id: 'rich-seam', remainingSeconds: Number.POSITIVE_INFINITY };
+  assert.equal(validateIncrementalSnapshot(malformedEvent), false);
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify({
     version: INCREMENTAL_SAVE_VERSION,
     gameType: 'incremental',
@@ -905,7 +1172,7 @@ test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or
   };
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify(legacyEnvelope));
   const migratedLegacy = loadIncrementalGame(1, { storage: local });
-  assert.equal(migratedLegacy.saveVersion, 4);
+  assert.equal(migratedLegacy.saveVersion, 5);
   assert.deepEqual(migratedLegacy.ownedEquipment, ['starter-pickaxe']);
   assert.equal(migratedLegacy.employment.active, true);
   assert.equal(migratedLegacy.employment.contractBuyoutPaid, 0);
@@ -921,7 +1188,7 @@ test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or
   milestoneTwo.equipment = {};
   delete milestoneTwo.ownedEquipment;
   const migratedMilestoneTwo = migrateIncrementalSnapshot(milestoneTwo);
-  assert.equal(migratedMilestoneTwo.saveVersion, 4);
+  assert.equal(migratedMilestoneTwo.saveVersion, 5);
   assert.deepEqual(migratedMilestoneTwo.ownedEquipment, []);
   let reconciledSave = null;
   const { game: reconciledGame } = createGame(config(), {
@@ -931,7 +1198,7 @@ test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or
     },
   });
   assert.equal(reconciledGame.start().source, 'save');
-  assert.equal(reconciledGame.state.gameVersion, '0.4.0');
+  assert.equal(reconciledGame.state.gameVersion, '0.5.0');
   assert.deepEqual(reconciledGame.state.ownedEquipment, ['starter-pickaxe']);
   assert.equal(reconciledGame.state.equipment.tool, 'starter-pickaxe');
   assert.deepEqual(reconciledSave.ownedEquipment, ['starter-pickaxe']);
@@ -943,7 +1210,7 @@ test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or
   delete milestoneThree.company.createdAt;
   delete milestoneThree.company.lifetimeInvestment;
   const migratedMilestoneThree = migrateIncrementalSnapshot(milestoneThree);
-  assert.equal(migratedMilestoneThree.saveVersion, 4);
+  assert.equal(migratedMilestoneThree.saveVersion, 5);
   assert.equal(migratedMilestoneThree.company.createdAt, null);
   assert.equal(migratedMilestoneThree.company.lifetimeInvestment, 0);
   const { game: milestoneFourGame } = createGame(config(), {
@@ -952,6 +1219,24 @@ test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or
   assert.equal(milestoneFourGame.start().source, 'save');
   assert.deepEqual(milestoneFourGame.state.generators, { 'hired-miner': 0, 'test-crew': 0 });
   assert.deepEqual(milestoneFourGame.state.businessUpgrades, { 'worker-training': 0, 'crew-tools': 0 });
+
+  const milestoneFour = JSON.parse(JSON.stringify(snapshot));
+  milestoneFour.saveVersion = 4;
+  milestoneFour.statistics.totalDepositsBroken = 12;
+  milestoneFour.statistics.totalOreMined = 34;
+  delete milestoneFour.mineProgress;
+  delete milestoneFour.activeMiningEvent;
+  delete milestoneFour.statistics.rareFindsDiscovered;
+  delete milestoneFour.statistics.miningEventsTriggered;
+  const migratedMilestoneFour = migrateIncrementalSnapshot(milestoneFour);
+  assert.equal(migratedMilestoneFour.saveVersion, 5);
+  assert.deepEqual(migratedMilestoneFour.mineProgress['test-mine'], {
+    depositsBroken: 12,
+    oreMined: 34,
+  });
+  assert.equal(migratedMilestoneFour.activeMiningEvent, null);
+  assert.equal(migratedMilestoneFour.statistics.rareFindsDiscovered, 0);
+  assert.equal(migratedMilestoneFour.statistics.miningEventsTriggered, 0);
 
   const cyclic = { ...snapshot };
   cyclic.self = cyclic;
@@ -968,7 +1253,44 @@ test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or
 
   const versionZero = JSON.parse(JSON.stringify(snapshot));
   delete versionZero.saveVersion;
-  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 4);
+  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 5);
+});
+
+test('Milestone 4 saves reconcile new resources, skills, mines, and progress without resetting the player', () => {
+  const oldSnapshot = createInitialIncrementalSnapshot(config(), {
+    now: 1234,
+    gameVersion: '0.4.0',
+  });
+  oldSnapshot.cash = 321;
+  oldSnapshot.statistics.totalDepositsBroken = 7;
+  oldSnapshot.statistics.totalOreMined = 14;
+  oldSnapshot.saveVersion = 4;
+  delete oldSnapshot.mineProgress;
+  delete oldSnapshot.activeMiningEvent;
+  delete oldSnapshot.statistics.rareFindsDiscovered;
+  delete oldSnapshot.statistics.miningEventsTriggered;
+  const migrated = migrateIncrementalSnapshot(oldSnapshot);
+  const expanded = config(addMineProgressionContent);
+  let reconciled = null;
+  const { game } = createGame(expanded, {
+    saveAdapter: {
+      load: () => migrated,
+      save: (state) => {
+        reconciled = JSON.parse(JSON.stringify(state));
+        return true;
+      },
+    },
+  });
+
+  assert.equal(game.start().source, 'save');
+  assert.equal(game.state.cash, 321);
+  assert.equal(game.state.gameVersion, '0.5.0');
+  assert.equal(game.state.materials.iron, 0);
+  assert.equal(game.state.statistics.resourceTotals.iron, 0);
+  assert.equal(game.state.skills['rare-find'], 0);
+  assert.deepEqual(game.state.mineProgress['test-mine'], { depositsBroken: 7, oreMined: 14 });
+  assert.deepEqual(game.state.mineProgress['iron-mine'], { depositsBroken: 0, oreMined: 0 });
+  assert.equal(reconciled.cash, 321);
 });
 
 test('large values use compact readable formatting', () => {

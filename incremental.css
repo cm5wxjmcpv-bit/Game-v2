@@ -213,7 +213,8 @@ body.incremental-game-mode #hud {
 .incremental-view[hidden],
 .incremental-story-overlay[hidden],
 .incremental-primary-button[hidden],
-.incremental-contract-progress-wrap[hidden] {
+.incremental-contract-progress-wrap[hidden],
+.incremental-event-banner[hidden] {
   display: none !important;
 }
 
@@ -268,6 +269,58 @@ body.incremental-game-mode #hud {
   font-size: 13px;
 }
 
+.incremental-event-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #80612e;
+  background: linear-gradient(90deg, rgba(226, 181, 71, 0.23), rgba(68, 170, 120, 0.12));
+}
+
+.incremental-event-banner > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #d2a744;
+  border-radius: 50%;
+  background: #382b18;
+  color: #ffe291;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.incremental-event-banner div {
+  min-width: 0;
+}
+
+.incremental-event-banner small {
+  display: block;
+  color: #e8c96f;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.incremental-event-banner div > strong {
+  display: block;
+  margin-top: 2px;
+  color: #fff0be;
+}
+
+.incremental-event-banner p {
+  margin: 2px 0 0;
+  color: #d5c39e;
+  font-size: 11px;
+}
+
+.incremental-event-banner > strong {
+  color: #ffe291;
+  font-variant-numeric: tabular-nums;
+}
+
 .incremental-mine-stage {
   position: relative;
   display: grid;
@@ -276,8 +329,8 @@ body.incremental-game-mode #hud {
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(6, 5, 5, 0.3), rgba(10, 8, 7, 0.82)),
-    radial-gradient(ellipse at 52% 78%, #43362d 0 8%, transparent 34%),
-    repeating-linear-gradient(125deg, #29221f 0 54px, #1c1816 55px 96px);
+    radial-gradient(ellipse at 52% 78%, color-mix(in srgb, var(--mine-accent, #f0b94d) 18%, #332a24) 0 8%, transparent 34%),
+    repeating-linear-gradient(125deg, var(--mine-background, #29221f) 0 54px, color-mix(in srgb, var(--mine-background, #29221f) 68%, black) 55px 96px);
   isolation: isolate;
 }
 
@@ -523,6 +576,8 @@ body.incremental-game-mode #hud {
 .incremental-float-ore { color: #f0c987; margin-top: 24px; }
 .incremental-float-cash { color: #7fe0a6; margin-top: 48px; }
 .incremental-float-critical { color: #ffd45e; margin-top: -28px; font-size: 15px; }
+.incremental-float-rare { color: #8ef0ba; margin-top: -52px; font-size: 14px; }
+.incremental-float-event { color: #ffe074; margin-top: -76px; font-size: 14px; }
 
 .incremental-deposit-readout {
   display: flex;
@@ -771,6 +826,7 @@ body.incremental-game-mode #hud {
 
 .incremental-store-header,
 .incremental-equipment-header,
+.incremental-mines-header,
 .incremental-company-header {
   display: flex;
   align-items: center;
@@ -780,6 +836,7 @@ body.incremental-game-mode #hud {
 
 .incremental-store-header h2,
 .incremental-equipment-header h2,
+.incremental-mines-header h2,
 .incremental-company-header h2,
 .incremental-owned-heading h2 {
   margin: 4px 0 0;
@@ -789,6 +846,7 @@ body.incremental-game-mode #hud {
 
 .incremental-store-header p,
 .incremental-equipment-header p,
+.incremental-mines-header p,
 .incremental-company-header p,
 .incremental-category-heading p {
   max-width: 720px;
@@ -799,6 +857,7 @@ body.incremental-game-mode #hud {
 
 .incremental-store-cash,
 .incremental-equipment-power,
+.incremental-mines-summary,
 .incremental-company-summary {
   display: grid;
   flex: none;
@@ -811,6 +870,7 @@ body.incremental-game-mode #hud {
 
 .incremental-store-cash span,
 .incremental-equipment-power span,
+.incremental-mines-summary span,
 .incremental-company-summary span {
   color: var(--mine-muted);
   font-size: 11px;
@@ -818,13 +878,15 @@ body.incremental-game-mode #hud {
 
 .incremental-store-cash strong,
 .incremental-equipment-power strong,
+.incremental-mines-summary strong,
 .incremental-company-summary strong {
   margin-top: 3px;
   color: #ffe2ad;
   font-size: 22px;
 }
 
-.incremental-company-summary small {
+.incremental-company-summary small,
+.incremental-mines-summary small {
   margin-top: 4px;
   color: var(--mine-muted);
   font-size: 10px;
@@ -1040,6 +1102,117 @@ body.incremental-game-mode #hud {
   margin: 12px 3px;
   color: #d9c7ad;
   font-size: 13px;
+}
+
+.incremental-mines-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.incremental-mine-option {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 330px;
+  border-color: color-mix(in srgb, var(--mine-card-accent, #f0b94d) 42%, #4b3d33);
+}
+
+.incremental-mine-option.is-active {
+  box-shadow:
+    inset 0 3px 0 var(--mine-card-accent, #f0b94d),
+    0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.incremental-mine-option.is-locked {
+  background: rgba(27, 23, 22, 0.95);
+}
+
+.incremental-mine-option-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.incremental-mine-option-header h3 {
+  margin: 3px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 23px;
+}
+
+.incremental-mine-option-header > strong {
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--mine-card-accent, #f0b94d) 58%, #47392e);
+  border-radius: 999px;
+  color: var(--mine-card-accent, #f0b94d);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+}
+
+.incremental-mine-option > p {
+  margin: 0;
+  color: var(--mine-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.incremental-mine-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.incremental-mine-resources span {
+  padding: 5px 7px;
+  border: 1px solid color-mix(in srgb, var(--resource-color) 54%, #504034);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--resource-color) 11%, #211b18);
+  color: #e8d8c0;
+  font-size: 10px;
+}
+
+.incremental-mine-progress-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 9px;
+  border: 1px solid #4d3e34;
+  border-radius: 7px;
+  color: var(--mine-muted);
+  font-size: 10px;
+}
+
+.incremental-mine-progress-copy strong {
+  color: #ecd4ac;
+  text-align: right;
+}
+
+.incremental-mine-requirements {
+  display: grid;
+  gap: 5px;
+}
+
+.incremental-mine-requirement {
+  display: flex;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 6px 8px;
+  border-left: 3px solid #8b4b45;
+  background: rgba(109, 45, 42, 0.14);
+  color: #c9aaa2;
+  font-size: 10px;
+}
+
+.incremental-mine-requirement.is-met {
+  border-left-color: #57906d;
+  background: rgba(50, 112, 77, 0.12);
+  color: #9fd2af;
+}
+
+.incremental-mine-option > button {
+  align-self: end;
+  margin-top: auto;
 }
 
 .incremental-store-categories {
@@ -1589,6 +1762,7 @@ body.incremental-game-mode #hud {
   }
   .incremental-store-header,
   .incremental-equipment-header,
+  .incremental-mines-header,
   .incremental-company-header,
   .incremental-owned-heading {
     align-items: stretch;
@@ -1596,12 +1770,14 @@ body.incremental-game-mode #hud {
   }
   .incremental-store-cash,
   .incremental-equipment-power,
+  .incremental-mines-summary,
   .incremental-company-summary {
     min-width: 0;
   }
   .incremental-store-grid,
   .incremental-equipment-grid,
   .incremental-equipment-slots,
+  .incremental-mines-grid,
   .incremental-company-grid {
     grid-template-columns: 1fr;
   }
@@ -1629,6 +1805,12 @@ body.incremental-game-mode #hud {
   }
   .incremental-business-card {
     min-height: 0;
+  }
+  .incremental-mine-option {
+    min-height: 0;
+  }
+  .incremental-event-banner p {
+    display: none;
   }
   .incremental-story-dialog {
     padding: 20px;

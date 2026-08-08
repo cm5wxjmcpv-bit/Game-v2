@@ -1,7 +1,7 @@
 import { getActiveGameId } from './gameManifest.js';
 import { getSaveStorageKey } from './saveNamespace.js';
 
-export const INCREMENTAL_SAVE_VERSION = 4;
+export const INCREMENTAL_SAVE_VERSION = 5;
 const DEFAULT_SLOT = 1;
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -40,6 +40,27 @@ function validNumberMap(value, integersOnly = false) {
   ));
 }
 
+function validMineProgressMap(value) {
+  if (!plainObject(value)) return false;
+  return Object.entries(value).every(([mineId, progress]) => (
+    validId(mineId)
+    && plainObject(progress)
+    && Object.keys(progress).every((field) => ['depositsBroken', 'oreMined'].includes(field))
+    && nonnegativeInteger(progress.depositsBroken)
+    && nonnegativeFinite(progress.oreMined)
+  ));
+}
+
+function validActiveMiningEvent(value) {
+  return value === null || (
+    plainObject(value)
+    && Object.keys(value).every((field) => ['id', 'remainingSeconds'].includes(field))
+    && validId(value.id)
+    && Number.isFinite(value.remainingSeconds)
+    && value.remainingSeconds > 0
+  );
+}
+
 function resourceMap(config, initial = 0) {
   return Object.fromEntries(config.resources.map((resource) => [resource.id, initial]));
 }
@@ -54,6 +75,13 @@ function generatorMap(config) {
 
 function businessUpgradeMap(config) {
   return Object.fromEntries((config.businessUpgrades || []).map((upgrade) => [upgrade.id, 0]));
+}
+
+function mineProgressMap(config) {
+  return Object.fromEntries(config.mines.map((mine) => [mine.id, {
+    depositsBroken: 0,
+    oreMined: 0,
+  }]));
 }
 
 function startingEquipment(config) {
@@ -86,6 +114,7 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
     equipment: startingEquipment(config),
     currentMine: config.start.mineId,
     unlockedMines: [config.start.mineId],
+    mineProgress: mineProgressMap(config),
     currentDeposit: {
       id: deposit.id,
       hp: deposit.maxHp,
@@ -116,6 +145,7 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
       scratchTickets: [],
       drawingTickets: [],
     },
+    activeMiningEvent: null,
     statistics: {
       totalManualSwings: 0,
       totalDepositsBroken: 0,
@@ -127,6 +157,8 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
       largestLotteryWin: 0,
       workersHired: 0,
       minesUnlocked: 1,
+      rareFindsDiscovered: 0,
+      miningEventsTriggered: 0,
       totalAutomatedProduction: 0,
       timePlayed: 0,
       resourceTotals: resourceMap(config),
@@ -192,6 +224,29 @@ export function migrateIncrementalSnapshot(snapshot) {
     migrated.saveVersion = 4;
   }
 
+  if (migrated.saveVersion === 4) {
+    const statistics = plainObject(migrated.statistics) ? migrated.statistics : {};
+    const currentMine = validId(migrated.currentMine) ? migrated.currentMine : null;
+    migrated.mineProgress = plainObject(migrated.mineProgress) ? migrated.mineProgress : {};
+    if (currentMine && !plainObject(migrated.mineProgress[currentMine])) {
+      migrated.mineProgress[currentMine] = {
+        depositsBroken: nonnegativeInteger(statistics.totalDepositsBroken)
+          ? statistics.totalDepositsBroken
+          : 0,
+        oreMined: nonnegativeFinite(statistics.totalOreMined) ? statistics.totalOreMined : 0,
+      };
+    }
+    migrated.activeMiningEvent = null;
+    statistics.rareFindsDiscovered = nonnegativeFinite(statistics.rareFindsDiscovered)
+      ? statistics.rareFindsDiscovered
+      : 0;
+    statistics.miningEventsTriggered = nonnegativeFinite(statistics.miningEventsTriggered)
+      ? statistics.miningEventsTriggered
+      : 0;
+    migrated.statistics = statistics;
+    migrated.saveVersion = 5;
+  }
+
   return migrated;
 }
 
@@ -213,6 +268,7 @@ export function validateIncrementalSnapshot(snapshot) {
     validId(slot) && (itemId === null || (validId(itemId) && snapshot.ownedEquipment.includes(itemId)))
   ))) return false;
   if (!validId(snapshot.currentMine) || !validIdList(snapshot.unlockedMines) || !snapshot.unlockedMines.includes(snapshot.currentMine)) return false;
+  if (!validMineProgressMap(snapshot.mineProgress)) return false;
 
   const deposit = snapshot.currentDeposit;
   if (!plainObject(deposit) || !validId(deposit.id)) return false;
@@ -240,6 +296,7 @@ export function validateIncrementalSnapshot(snapshot) {
   if (!plainObject(snapshot.lotteryState)) return false;
   if (!Array.isArray(snapshot.lotteryState.scratchTickets) || !snapshot.lotteryState.scratchTickets.every(validId)) return false;
   if (!Array.isArray(snapshot.lotteryState.drawingTickets) || !snapshot.lotteryState.drawingTickets.every(validId)) return false;
+  if (!validActiveMiningEvent(snapshot.activeMiningEvent)) return false;
 
   const statistics = snapshot.statistics;
   if (!plainObject(statistics) || !validNumberMap(statistics.resourceTotals)) return false;
@@ -254,6 +311,8 @@ export function validateIncrementalSnapshot(snapshot) {
     'largestLotteryWin',
     'workersHired',
     'minesUnlocked',
+    'rareFindsDiscovered',
+    'miningEventsTriggered',
     'totalAutomatedProduction',
     'timePlayed',
   ];

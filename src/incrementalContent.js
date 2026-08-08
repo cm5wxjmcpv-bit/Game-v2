@@ -10,6 +10,7 @@ const SKILL_EFFECT_TYPES = new Set([
   'automation-bonus',
 ]);
 const LOTTERY_REWARD_TYPES = new Set(['none', 'cash', 'resource', 'free-ticket']);
+const RARE_FIND_REWARD_TYPES = new Set(['cash', 'resource', 'xp']);
 const BUSINESS_EFFECT_TYPES = new Set(['automation-multiplier', 'generator-multiplier']);
 const STORY_TRIGGER_TYPES = new Set(['start', 'level', 'cash', 'stage', 'contract-affordable']);
 const PROBABILITY_EPSILON = 1e-9;
@@ -638,6 +639,204 @@ function normalizeBusinessUpgrades(rawUpgrades, company, generatorsById, errors)
   };
 }
 
+function normalizeMineUnlock(rawUnlock, label, errors) {
+  if (rawUnlock !== undefined
+    && (!rawUnlock || typeof rawUnlock !== 'object' || Array.isArray(rawUnlock))) {
+    errors.push(`${label}.unlock must be an object when provided`);
+  }
+  const source = rawUnlock && typeof rawUnlock === 'object' && !Array.isArray(rawUnlock)
+    ? rawUnlock
+    : {};
+  if (source.cost !== undefined && (!isFiniteNumber(source.cost) || source.cost < 0)) {
+    errors.push(`${label}.unlock.cost must be a finite nonnegative number`);
+  }
+  if (source.characterLevel !== undefined
+    && (!Number.isInteger(source.characterLevel) || source.characterLevel < 1)) {
+    errors.push(`${label}.unlock.characterLevel must be a positive integer`);
+  }
+  if (source.companyLevel !== undefined
+    && (!Number.isInteger(source.companyLevel) || source.companyLevel < 0)) {
+    errors.push(`${label}.unlock.companyLevel must be a nonnegative integer`);
+  }
+  if (source.requiredDepositsBroken !== undefined
+    && (!Number.isInteger(source.requiredDepositsBroken) || source.requiredDepositsBroken < 0)) {
+    errors.push(`${label}.unlock.requiredDepositsBroken must be a nonnegative integer`);
+  }
+  if (source.requiresIndependence !== undefined && typeof source.requiresIndependence !== 'boolean') {
+    errors.push(`${label}.unlock.requiresIndependence must be a boolean when provided`);
+  }
+  if (source.requiredMineId !== undefined && source.requiredMineId !== '' && !normalizedId(source.requiredMineId)) {
+    errors.push(`${label}.unlock.requiredMineId must be a safe id when provided`);
+  }
+  return {
+    cost: nonnegative(source.cost),
+    characterLevel: integer(source.characterLevel, 1, 1),
+    companyLevel: integer(source.companyLevel, 0),
+    requiresIndependence: source.requiresIndependence === true,
+    requiredMineId: normalizedId(source.requiredMineId),
+    requiredDepositsBroken: integer(source.requiredDepositsBroken, 0),
+  };
+}
+
+function normalizeEligibleMineIds(value, label, mineIds, errors) {
+  if (value !== undefined && !Array.isArray(value)) {
+    errors.push(`${label} must be an array when provided`);
+  }
+  const ids = (Array.isArray(value) ? value : []).map(normalizedId).filter(Boolean);
+  if (ids.length !== (Array.isArray(value) ? value.length : 0)) {
+    errors.push(`${label} must contain only safe mine ids`);
+  }
+  if (new Set(ids).size !== ids.length) errors.push(`${label} contains duplicate mine ids`);
+  ids.forEach((id) => {
+    if (!mineIds.has(id)) errors.push(`${label} references missing mine "${id}"`);
+  });
+  return ids;
+}
+
+function normalizeRareFinds(rawRareFinds, resourcesById, mineIds, errors) {
+  if (rawRareFinds !== undefined
+    && (!rawRareFinds || typeof rawRareFinds !== 'object' || Array.isArray(rawRareFinds))) {
+    errors.push('rareFinds must be an object when provided');
+  }
+  const source = rawRareFinds && typeof rawRareFinds === 'object' && !Array.isArray(rawRareFinds)
+    ? rawRareFinds
+    : {};
+  if (source.finds !== undefined && !Array.isArray(source.finds)) {
+    errors.push('rareFinds.finds must be an array when provided');
+  }
+  if (source.baseChance !== undefined
+    && (!isFiniteNumber(source.baseChance) || source.baseChance < 0 || source.baseChance > 1)) {
+    errors.push('rareFinds.baseChance must be between 0 and 1');
+  }
+  if (source.maxChance !== undefined
+    && (!isFiniteNumber(source.maxChance) || source.maxChance < 0 || source.maxChance > 1)) {
+    errors.push('rareFinds.maxChance must be between 0 and 1');
+  }
+  if (source.manualOnly !== undefined && typeof source.manualOnly !== 'boolean') {
+    errors.push('rareFinds.manualOnly must be a boolean when provided');
+  }
+  const baseChance = finite(source.baseChance, 0);
+  const maxChance = finite(source.maxChance, 0.5);
+  if (maxChance < baseChance) errors.push('rareFinds.maxChance must be at least rareFinds.baseChance');
+
+  const finds = (Array.isArray(source.finds) ? source.finds : []).map((entry, index) => {
+    const label = `rareFinds.finds[${index}]`;
+    const rewardType = normalizedId(entry?.reward?.type);
+    if (!isFiniteNumber(entry?.weight) || entry.weight <= 0) {
+      errors.push(`${label}.weight must be a finite positive number`);
+    }
+    if (!RARE_FIND_REWARD_TYPES.has(rewardType)) {
+      errors.push(`${label}.reward.type is unsupported`);
+    }
+    if (rewardType === 'resource') {
+      if (!resourcesById[normalizedId(entry?.reward?.resourceId)]) {
+        errors.push(`${label}.reward.resourceId references a missing resource`);
+      }
+      if (!Number.isInteger(entry?.reward?.amount) || entry.reward.amount < 1) {
+        errors.push(`${label}.reward.amount must be a positive integer for resource rewards`);
+      }
+    } else if (!isFiniteNumber(entry?.reward?.amount) || entry.reward.amount <= 0) {
+      errors.push(`${label}.reward.amount must be a finite positive number`);
+    }
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Rare Find', 100),
+      description: text(entry?.description, '', 240),
+      icon: text(entry?.icon, '★', 8),
+      weight: finite(entry?.weight, 0),
+      eligibleMineIds: normalizeEligibleMineIds(entry?.eligibleMineIds, `${label}.eligibleMineIds`, mineIds, errors),
+      reward: {
+        type: rewardType,
+        resourceId: rewardType === 'resource' ? normalizedId(entry?.reward?.resourceId) : '',
+        amount: rewardType === 'resource'
+          ? integer(entry?.reward?.amount, 1, 1)
+          : nonnegative(entry?.reward?.amount),
+      },
+    };
+  });
+  uniqueIds(finds, 'rareFinds.finds', errors);
+  if (baseChance > 0 && finds.length < 1) {
+    errors.push('rareFinds.finds must contain at least one entry when baseChance is positive');
+  }
+  return {
+    baseChance: Math.max(0, Math.min(1, baseChance)),
+    maxChance: Math.max(0, Math.min(1, maxChance)),
+    manualOnly: source.manualOnly !== false,
+    finds,
+    findsById: Object.fromEntries(finds.map((entry) => [entry.id, entry])),
+  };
+}
+
+function normalizeMiningEvents(rawEvents, mineIds, depositsById, errors) {
+  if (rawEvents !== undefined
+    && (!rawEvents || typeof rawEvents !== 'object' || Array.isArray(rawEvents))) {
+    errors.push('miningEvents must be an object when provided');
+  }
+  const source = rawEvents && typeof rawEvents === 'object' && !Array.isArray(rawEvents)
+    ? rawEvents
+    : {};
+  if (source.events !== undefined && !Array.isArray(source.events)) {
+    errors.push('miningEvents.events must be an array when provided');
+  }
+  if (source.triggerChance !== undefined
+    && (!isFiniteNumber(source.triggerChance) || source.triggerChance < 0 || source.triggerChance > 1)) {
+    errors.push('miningEvents.triggerChance must be between 0 and 1');
+  }
+  const triggerChance = finite(source.triggerChance, 0);
+  const events = (Array.isArray(source.events) ? source.events : []).map((entry, index) => {
+    const label = `miningEvents.events[${index}]`;
+    if (!isFiniteNumber(entry?.weight) || entry.weight <= 0) {
+      errors.push(`${label}.weight must be a finite positive number`);
+    }
+    if (!isFiniteNumber(entry?.durationSeconds) || entry.durationSeconds <= 0) {
+      errors.push(`${label}.durationSeconds must be a finite positive number`);
+    }
+    if (!isFiniteNumber(entry?.effects?.rewardMultiplier) || entry.effects.rewardMultiplier < 1) {
+      errors.push(`${label}.effects.rewardMultiplier must be a finite number of at least 1`);
+    }
+    const rawMultipliers = entry?.effects?.depositWeightMultipliers;
+    if (rawMultipliers !== undefined
+      && (!rawMultipliers || typeof rawMultipliers !== 'object' || Array.isArray(rawMultipliers))) {
+      errors.push(`${label}.effects.depositWeightMultipliers must be an object when provided`);
+    }
+    const multipliers = {};
+    if (rawMultipliers && typeof rawMultipliers === 'object' && !Array.isArray(rawMultipliers)) {
+      Object.entries(rawMultipliers).forEach(([rawId, multiplier]) => {
+        const depositId = normalizedId(rawId);
+        if (!depositId || !depositsById[depositId]) {
+          errors.push(`${label}.effects.depositWeightMultipliers references missing deposit "${rawId}"`);
+        } else if (!isFiniteNumber(multiplier) || multiplier <= 0) {
+          errors.push(`${label}.effects.depositWeightMultipliers.${depositId} must be a finite positive number`);
+        } else {
+          multipliers[depositId] = multiplier;
+        }
+      });
+    }
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Mining Event', 100),
+      description: text(entry?.description, '', 240),
+      icon: text(entry?.icon, '!', 8),
+      weight: finite(entry?.weight, 0),
+      durationSeconds: finite(entry?.durationSeconds, 0),
+      eligibleMineIds: normalizeEligibleMineIds(entry?.eligibleMineIds, `${label}.eligibleMineIds`, mineIds, errors),
+      effects: {
+        rewardMultiplier: finite(entry?.effects?.rewardMultiplier, 1),
+        depositWeightMultipliers: multipliers,
+      },
+    };
+  });
+  uniqueIds(events, 'miningEvents.events', errors);
+  if (triggerChance > 0 && events.length < 1) {
+    errors.push('miningEvents.events must contain at least one entry when triggerChance is positive');
+  }
+  return {
+    triggerChance: Math.max(0, Math.min(1, triggerChance)),
+    events,
+    eventsById: Object.fromEntries(events.map((entry) => [entry.id, entry])),
+  };
+}
+
 export function normalizeIncrementalConfig(raw, options = {}) {
   const errors = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -669,6 +868,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     };
   });
   const resourceIds = uniqueIds(resources, 'resources', errors);
+  const resourcesById = Object.fromEntries(resources.map((entry) => [entry.id, entry]));
 
   const rawDeposits = Array.isArray(raw.deposits) ? raw.deposits : [];
   if (!rawDeposits.length) errors.push('deposits must contain at least one entry');
@@ -713,24 +913,43 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     if (!(deposit.weight > 0)) errors.push(`deposit "${deposit.id || '(invalid)'}" weight must be positive`);
   });
   const depositIds = new Set(deposits.map((entry) => entry.id).filter(Boolean));
+  const depositsById = Object.fromEntries(deposits.map((entry) => [entry.id, entry]));
 
   const rawMines = Array.isArray(raw.mines) ? raw.mines : [];
   if (!rawMines.length) errors.push('mines must contain at least one entry');
-  const mines = rawMines.map((entry) => ({
+  const mines = rawMines.map((entry, index) => ({
     id: normalizedId(entry?.id),
     name: text(entry?.name, entry?.id || 'Mine', 80),
     description: text(entry?.description, '', 240),
+    order: index + 1,
     depositIds: Array.isArray(entry?.depositIds)
       ? entry.depositIds.map(normalizedId).filter(Boolean)
       : [],
+    unlock: normalizeMineUnlock(entry?.unlock, `mines[${index}]`, errors),
+    visual: {
+      background: color(entry?.visual?.background, '#29221f'),
+      accent: color(entry?.visual?.accent, '#f0b94d'),
+    },
   }));
   const mineIds = uniqueIds(mines, 'mines', errors);
-  mines.forEach((mine) => {
+  const mineIndexes = Object.fromEntries(mines.map((mine, index) => [mine.id, index]));
+  mines.forEach((mine, index) => {
     if (!mine.depositIds.length) errors.push(`mine "${mine.id || '(invalid)'}" must reference at least one deposit`);
     if (new Set(mine.depositIds).size !== mine.depositIds.length) errors.push(`mine "${mine.id || '(invalid)'}" contains duplicate deposit references`);
     mine.depositIds.forEach((depositId) => {
       if (!depositIds.has(depositId)) errors.push(`mine "${mine.id || '(invalid)'}" references missing deposit "${depositId}"`);
     });
+    const requiredMineId = mine.unlock.requiredMineId;
+    if (mine.unlock.requiredDepositsBroken > 0 && !requiredMineId) {
+      errors.push(`mine "${mine.id || '(invalid)'}" requires deposits broken but has no requiredMineId`);
+    }
+    if (requiredMineId && !mineIds.has(requiredMineId)) {
+      errors.push(`mine "${mine.id || '(invalid)'}" requires missing mine "${requiredMineId}"`);
+    } else if (requiredMineId === mine.id) {
+      errors.push(`mine "${mine.id || '(invalid)'}" cannot require itself`);
+    } else if (requiredMineId && mineIndexes[requiredMineId] >= index) {
+      errors.push(`mine "${mine.id || '(invalid)'}" must require an earlier mine`);
+    }
   });
 
   const startMineId = normalizedId(raw.start?.mineId);
@@ -745,6 +964,13 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   if (!isFiniteNumber(raw.start?.xp) || raw.start.xp < 0) errors.push('start.xp must be a finite nonnegative number');
   const storyStage = normalizedId(raw.start?.storyStage);
   if (!storyStage) errors.push('start.storyStage must be a safe non-empty identifier');
+  if (startMine && (startMine.unlock.cost > 0
+    || startMine.unlock.characterLevel > integer(raw.start?.level, 1, 1)
+    || startMine.unlock.companyLevel > 0
+    || startMine.unlock.requiresIndependence
+    || startMine.unlock.requiredMineId)) {
+    errors.push('the starting mine must be unlocked by the starting state');
+  }
 
   const employerId = normalizedId(raw.employment?.companyId);
   if (!employerId) errors.push('employment.companyId must be a safe non-empty identifier');
@@ -800,7 +1026,6 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   const skills = normalizeSkills(raw.skills, errors);
   const milestones = normalizeMilestones(raw.story, errors);
   const equipment = normalizeEquipment(raw.equipment, errors);
-  const resourcesById = Object.fromEntries(resources.map((entry) => [entry.id, entry]));
   const lottery = normalizeLottery(raw.lottery, resourcesById, errors);
   const store = normalizeStore(raw.store, equipment, lottery, errors);
   const company = normalizeCompany(raw.company, errors);
@@ -811,6 +1036,13 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     generatorsById,
     errors,
   );
+  mines.forEach((mine) => {
+    if (mine.unlock.companyLevel > company.maxLevel) {
+      errors.push(`mine "${mine.id || '(invalid)'}" requires company level ${mine.unlock.companyLevel}, above the configured maximum`);
+    }
+  });
+  const rareFinds = normalizeRareFinds(raw.rareFinds, resourcesById, mineIds, errors);
+  const miningEvents = normalizeMiningEvents(raw.miningEvents, mineIds, depositsById, errors);
   if ((equipment.items.length || lottery.scratchTickets.length || store.categories.length) && !store.id) {
     errors.push('store.id must be a safe non-empty identifier when store content is provided');
   }
@@ -873,12 +1105,14 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     generatorsById,
     businessUpgrades,
     businessUpgradesById,
+    rareFinds,
+    miningEvents,
     resources,
     deposits,
     mines,
     skillsById: Object.fromEntries(skills.map((entry) => [entry.id, entry])),
     resourcesById,
-    depositsById: Object.fromEntries(deposits.map((entry) => [entry.id, entry])),
+    depositsById,
     minesById: Object.fromEntries(mines.map((entry) => [entry.id, entry])),
   };
 }
@@ -894,17 +1128,43 @@ export function rollChance(chance, random = Math.random) {
   return probability > 0 && safeRandom(random) < probability;
 }
 
-export function selectWeightedDeposit(config, mineId, random = Math.random) {
+function eligibleForMine(entry, mineId) {
+  return entry.eligibleMineIds.length === 0 || entry.eligibleMineIds.includes(mineId);
+}
+
+function selectWeightedEntry(entries, random, weightFor = (entry) => entry.weight) {
+  const weighted = entries.map((entry) => ({
+    entry,
+    weight: Math.max(0, finite(weightFor(entry), 0)),
+  }));
+  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
+  if (!(totalWeight > 0)) return null;
+  let roll = safeRandom(random) * totalWeight;
+  for (const item of weighted) {
+    roll -= item.weight;
+    if (roll < 0) return item.entry;
+  }
+  return weighted.at(-1)?.entry || null;
+}
+
+export function selectWeightedDeposit(config, mineId, random = Math.random, weightMultipliers = {}) {
   const mine = config.minesById[mineId];
   if (!mine) throw new Error(`Unknown mine "${mineId}".`);
   const deposits = mine.depositIds.map((id) => config.depositsById[id]);
-  const totalWeight = deposits.reduce((sum, deposit) => sum + deposit.weight, 0);
-  let roll = safeRandom(random) * totalWeight;
-  for (const deposit of deposits) {
-    roll -= deposit.weight;
-    if (roll < 0) return deposit;
-  }
-  return deposits.at(-1);
+  return selectWeightedEntry(deposits, random, (deposit) => {
+    const multiplier = finite(weightMultipliers?.[deposit.id], 1);
+    return deposit.weight * Math.max(0, multiplier);
+  }) || deposits[0];
+}
+
+export function selectWeightedRareFind(config, mineId, random = Math.random) {
+  const eligible = config.rareFinds.finds.filter((entry) => eligibleForMine(entry, mineId));
+  return selectWeightedEntry(eligible, random);
+}
+
+export function selectWeightedMiningEvent(config, mineId, random = Math.random) {
+  const eligible = config.miningEvents.events.filter((entry) => eligibleForMine(entry, mineId));
+  return selectWeightedEntry(eligible, random);
 }
 
 export function rollDepositReward(deposit, random = Math.random) {
