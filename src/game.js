@@ -4,7 +4,13 @@ import { createEnemy, createPlayer } from './entityFactory.js';
 import { updateEnemies } from './enemyAI.js';
 import { getEquippedWeapon, tryUseSpecialAttack, updateAutoAttack } from './combat.js';
 import { applyTileEffect } from './tileEffects.js';
-import { getNearbyPortal, getUnlockedPortalLevels } from './portalSystem.js';
+import {
+  getNearbyPortal,
+  getPortalArrival,
+  getPortalLockReason,
+  getPortalTarget,
+  getUnlockedPortalLevels,
+} from './portalSystem.js';
 import { buyFromShop, getShopInventory, sellToShop } from './shops.js';
 import { saveGame, loadGame } from './saveSystem.js';
 import { updateStatusEffects } from './statusEffects.js';
@@ -66,6 +72,7 @@ export class Game {
     this.groundLoot = [];
     this.timeSeconds = 0;
     this.combatActiveRemaining = 0;
+    this.portalCooldownRemaining = 0;
     this.sceneCompletionAwarded = false;
     this.battleSystem = new BattleSystem(this);
     this.randomEncounter = {
@@ -132,7 +139,7 @@ export class Game {
       null;
   }
 
-  loadScene(sceneId) {
+  loadScene(sceneId, options = {}) {
     const sourceScene = this.findScene(sceneId);
     if (!sourceScene) {
       this.ui.flash(`Scene not found: ${sceneId}`);
@@ -170,8 +177,11 @@ export class Game {
       }
     }
 
-    this.player.x = this.currentMap.spawn.x;
-    this.player.y = this.currentMap.spawn.y;
+    const arrival = options.arrival && isInsideMapBounds(this.currentMap, Number(options.arrival.x), Number(options.arrival.y))
+      ? { x: Number(options.arrival.x), y: Number(options.arrival.y) }
+      : this.currentMap.spawn;
+    this.player.x = arrival.x;
+    this.player.y = arrival.y;
     this.resetRandomEncounterTimer(true);
     if (sceneIsAdventure(this.currentMap)) {
       this.randomEncounter.graceRemainingSeconds = 5;
@@ -180,20 +190,20 @@ export class Game {
     return true;
   }
 
-  loadTown(townId) {
+  loadTown(townId, options = {}) {
     if (!this.db.townsById?.[townId]) {
       this.ui.flash(`Town not found: ${townId}`);
       return false;
     }
-    return this.loadScene(townId);
+    return this.loadScene(townId, options);
   }
 
-  loadLevel(levelId) {
+  loadLevel(levelId, options = {}) {
     if (!this.db.levelsById?.[levelId]) {
       this.ui.flash(`Level not found: ${levelId}`);
       return false;
     }
-    return this.loadScene(levelId);
+    return this.loadScene(levelId, options);
   }
 
   getCurrentSceneState() {
@@ -220,6 +230,7 @@ export class Game {
 
     this.timeSeconds += dt;
     this.combatActiveRemaining = Math.max(0, this.combatActiveRemaining - dt);
+    this.portalCooldownRemaining = Math.max(0, this.portalCooldownRemaining - dt);
     updateWeaponTimers(this.player, dt, this.db.settings, { safeScene: sceneIsSafe(this.currentMap) });
 
     if (this.input.wasActionPressed('debug')) this.debug.toggle();
@@ -249,7 +260,8 @@ export class Game {
         this.updatePlayerAnimation(dt, 0, 0);
       }
 
-      this.updateInteraction();
+      const touchedPortal = this.updateTouchPortal();
+      if (!touchedPortal) this.updateInteraction();
 
       if (this.isAdventureScene() && this.isSystemEnabled('combat')) {
         this.tryStartBattleFromTrigger();
@@ -548,21 +560,44 @@ export class Game {
     if (sourceType === 'random') this.resetRandomEncounterTimer(true);
   }
 
+  activatePortal(portal) {
+    const lockReason = getPortalLockReason(this.player, portal);
+    if (lockReason) {
+      this.portalCooldownRemaining = 0.5;
+      this.ui.flash(lockReason);
+      return false;
+    }
+
+    const arrival = getPortalArrival(portal);
+    const target = getPortalTarget(portal);
+    let changedScene = false;
+    if (target?.type === 'scene') changedScene = this.loadScene(target.id, { arrival });
+    else if (target?.type === 'town') changedScene = this.loadTown(target.id, { arrival });
+    else if (target?.type === 'level') changedScene = this.loadLevel(target.id, { arrival });
+    else if (Array.isArray(portal.levels)) {
+      const unlocked = getUnlockedPortalLevels(this.player, portal);
+      this.ui.showLevelSelect(unlocked, this.player.completedLevels, (levelId) => this.loadLevel(levelId, { arrival }));
+      return true;
+    }
+
+    if (changedScene) this.portalCooldownRemaining = 0.5;
+    return changedScene;
+  }
+
+  updateTouchPortal() {
+    if (this.portalCooldownRemaining > 0 || !this.playerMovedThisFrame) return false;
+    const portal = getNearbyPortal(this.player, this.currentMap, { trigger: 'touch' });
+    if (!portal) return false;
+    this.activatePortal(portal);
+    return true;
+  }
+
   updateInteraction() {
     if (!this.input.wasActionPressed('interact')) return;
 
-    const nearbyPortal = getNearbyPortal(this.player, this.currentMap);
+    const nearbyPortal = getNearbyPortal(this.player, this.currentMap, { trigger: 'interact' });
     if (nearbyPortal) {
-      if (nearbyPortal.targetScene) {
-        this.loadScene(nearbyPortal.targetScene);
-      } else if (nearbyPortal.targetTown) {
-        this.loadTown(nearbyPortal.targetTown);
-      } else if (nearbyPortal.targetLevel) {
-        this.loadLevel(nearbyPortal.targetLevel);
-      } else if (Array.isArray(nearbyPortal.levels)) {
-        const unlocked = getUnlockedPortalLevels(this.player, nearbyPortal);
-        this.ui.showLevelSelect(unlocked, this.player.completedLevels, (levelId) => this.loadLevel(levelId));
-      }
+      this.activatePortal(nearbyPortal);
       return;
     }
 

@@ -17,6 +17,7 @@ import {
 } from './workspace-return-model.js';
 import './workspace-publish-ui.js';
 import './testing-add-to-game-workspace.js';
+import './portal-builder-launcher.js';
 
 const publishStyles = document.createElement('link');
 publishStyles.rel = 'stylesheet';

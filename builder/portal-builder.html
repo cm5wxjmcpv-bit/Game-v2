@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Engine Portal Builder</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="portal-builder.css" />
+</head>
+<body>
+  <header class="site-header portal-builder-header">
+    <div>
+      <h1>Portal Builder</h1>
+      <p>Connect towns, levels, buildings, and scenes. Pick the exact destination tile and assign each portal's appearance.</p>
+    </div>
+    <a id="backToWorkspaceLink" class="file-label portal-back-link" href="workspace.html">← Back to Game Workspace</a>
+  </header>
+
+  <main class="portal-shell">
+    <section class="panel portal-toolbar">
+      <div>
+        <strong id="portalProjectLabel">Loading game draft…</strong>
+        <p id="portalStatus" class="message" role="status" aria-live="polite"></p>
+      </div>
+      <div class="portal-toolbar-actions">
+        <button id="newPortalBtn" type="button">New Portal</button>
+        <button id="deletePortalBtn" type="button" class="danger-btn">Delete Portal</button>
+      </div>
+    </section>
+
+    <section class="portal-layout">
+      <aside class="panel portal-list-panel">
+        <h2>Source Map</h2>
+        <label class="field-label" for="sourceSceneSelect">Scene</label>
+        <select id="sourceSceneSelect" class="text-input"></select>
+        <h3>Portals</h3>
+        <div id="portalList" class="portal-list"></div>
+      </aside>
+
+      <section class="panel portal-editor-panel">
+        <div class="portal-section-heading">
+          <div>
+            <h2>Portal Settings</h2>
+            <p class="small">Old portals keep working. New settings are added only to the portal you edit.</p>
+          </div>
+          <div id="portalAppearanceSample" class="portal-appearance-sample" aria-label="Portal appearance preview"></div>
+        </div>
+
+        <form id="portalForm" class="item-form" novalidate>
+          <div class="portal-three-column">
+            <div><label class="field-label" for="portalIdInput">Portal ID</label><input id="portalIdInput" class="text-input" type="text" required /></div>
+            <div><label class="field-label" for="portalXInput">Source X</label><input id="portalXInput" class="text-input" type="number" min="0" step="1" /></div>
+            <div><label class="field-label" for="portalYInput">Source Y</label><input id="portalYInput" class="text-input" type="number" min="0" step="1" /></div>
+          </div>
+
+          <h3>Destination</h3>
+          <label class="field-label" for="destinationSceneSelect">Destination Map</label>
+          <select id="destinationSceneSelect" class="text-input"></select>
+          <div class="portal-three-column">
+            <div><label class="field-label" for="arrivalXInput">Arrival X</label><input id="arrivalXInput" class="text-input" type="number" min="0" step="1" /></div>
+            <div><label class="field-label" for="arrivalYInput">Arrival Y</label><input id="arrivalYInput" class="text-input" type="number" min="0" step="1" /></div>
+            <div class="portal-field-action"><button id="useDestinationSpawnBtn" type="button" class="secondary-btn">Use Map Spawn</button></div>
+          </div>
+          <label class="checkbox-row"><input id="twoWayInput" type="checkbox" /> Create and maintain a return portal automatically (two-way)</label>
+
+          <h3>Activation</h3>
+          <div class="portal-two-column">
+            <div>
+              <label class="field-label" for="portalTriggerSelect">Trigger</label>
+              <select id="portalTriggerSelect" class="text-input"><option value="interact">Press Interact</option><option value="touch">Touch / Walk Into</option></select>
+            </div>
+            <div><label class="field-label" for="portalRangeInput">Range</label><input id="portalRangeInput" class="text-input" type="number" min="0.2" max="3" step="0.05" value="1.1" /></div>
+          </div>
+
+          <h3>Appearance</h3>
+          <div class="portal-two-column">
+            <div>
+              <label class="field-label" for="appearanceModeSelect">Visual Source</label>
+              <select id="appearanceModeSelect" class="text-input"><option value="style">Built-in Shape</option><option value="texture">Game / Custom Texture</option><option value="image">Image Path</option></select>
+            </div>
+            <div>
+              <label class="field-label" for="portalSizeInput">Size</label>
+              <input id="portalSizeInput" class="text-input" type="number" min="8" max="32" step="1" value="24" />
+            </div>
+          </div>
+          <div id="styleAppearanceFields" class="portal-two-column">
+            <div><label class="field-label" for="portalShapeSelect">Shape</label><select id="portalShapeSelect" class="text-input"><option value="square">Square</option><option value="circle">Circle</option><option value="diamond">Diamond</option><option value="ring">Ring</option></select></div>
+            <div><label class="field-label" for="portalColorInput">Color</label><input id="portalColorInput" class="text-input portal-color-input" type="color" value="#8d7bff" /></div>
+          </div>
+          <div id="textureAppearanceFields" hidden>
+            <label class="field-label" for="portalTextureSelect">Texture</label>
+            <select id="portalTextureSelect" class="text-input"><option value="">Choose a texture…</option></select>
+            <label class="field-label" for="portalTextureIdInput">Or enter Texture ID</label>
+            <input id="portalTextureIdInput" class="text-input" type="text" placeholder="custom_texture_portal_blue" />
+          </div>
+          <div id="imageAppearanceFields" hidden>
+            <label class="field-label" for="portalImagePathInput">Image Path</label>
+            <input id="portalImagePathInput" class="text-input" type="text" placeholder="assets/portals/blue-gate.png" />
+          </div>
+
+          <h3>Lock / Requirement</h3>
+          <label class="field-label" for="portalRequirementSelect">Requirement</label>
+          <select id="portalRequirementSelect" class="text-input">
+            <option value="none">None</option>
+            <option value="level_unlocked">Level must be unlocked</option>
+            <option value="town_unlocked">Town must be unlocked</option>
+            <option value="level_completed">Level must be completed</option>
+          </select>
+          <div id="portalRequirementFields" hidden>
+            <label class="field-label" for="portalRequirementIdInput">Required ID</label>
+            <input id="portalRequirementIdInput" class="text-input" type="text" />
+            <label class="field-label" for="portalRequirementMessageInput">Locked Message</label>
+            <input id="portalRequirementMessageInput" class="text-input" type="text" value="This portal is locked." />
+          </div>
+
+          <div class="portal-form-actions">
+            <button id="validatePortalBtn" type="button" class="secondary-btn">Validate Link</button>
+            <button id="savePortalBtn" type="submit">Save Portal to Draft</button>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <section class="portal-map-pair">
+      <section class="panel portal-map-panel">
+        <div class="portal-map-heading"><div><h2>Source Placement</h2><p class="small">Click a tile to move the portal.</p></div><span id="sourceMapDimensions" class="portal-chip"></span></div>
+        <div id="sourceMapPreview" class="portal-map-grid" aria-label="Source map portal placement"></div>
+      </section>
+      <section class="panel portal-map-panel">
+        <div class="portal-map-heading"><div><h2>Destination Arrival</h2><p class="small">Click a tile to choose exactly where the player appears.</p></div><span id="destinationMapDimensions" class="portal-chip"></span></div>
+        <div id="destinationMapPreview" class="portal-map-grid" aria-label="Destination map arrival placement"></div>
+      </section>
+    </section>
+
+    <section class="panel portal-route-panel">
+      <h2>Connection</h2>
+      <div id="portalRouteSummary" class="portal-route-summary">Choose or create a portal to see its route.</div>
+      <div id="portalValidationList" class="portal-validation-list"></div>
+    </section>
+  </main>
+
+  <script type="module" src="portal-builder-ui.js"></script>
+</body>
+</html>
