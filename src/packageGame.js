@@ -42,8 +42,8 @@ export class PackageGame extends Game {
     this.saveCheckpoint();
   }
 
-  loadScene(sceneId) {
-    const loaded = super.loadScene(sceneId);
+  loadScene(sceneId, options = {}) {
+    const loaded = super.loadScene(sceneId, options);
     if (!loaded) return false;
     this.currentEntities = normalizeSceneEntities(this.currentMap.entities);
     return true;
