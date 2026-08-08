@@ -297,6 +297,7 @@ export class Game {
       this.state.pause();
     }
   }
+
   isGameplayState() {
     return GAMEPLAY_STATES.includes(this.state.current);
   }
@@ -623,7 +624,7 @@ export class Game {
                 reason: 'This item is equipped, favorited, Epic, or Legendary. Sell it anyway?',
               };
             }
-            const result = sellToShop(this.player, itemId, sourceShop, offer, this.db, instanceId);
+            const result = sellToShop(this.player, itemId, sourceShop, this.db, instanceId);
             if (result.ok && slot?.instanceId) {
               for (const [equipmentSlot, equippedId] of Object.entries(this.player.equipmentInstances || {})) {
                 if (equippedId !== slot.instanceId) continue;
