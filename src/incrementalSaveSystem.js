@@ -1,7 +1,7 @@
 import { getActiveGameId } from './gameManifest.js';
 import { getSaveStorageKey } from './saveNamespace.js';
 
-export const INCREMENTAL_SAVE_VERSION = 5;
+export const INCREMENTAL_SAVE_VERSION = 6;
 const DEFAULT_SLOT = 1;
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -160,6 +160,9 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
       rareFindsDiscovered: 0,
       miningEventsTriggered: 0,
       totalAutomatedProduction: 0,
+      totalOfflineProduction: 0,
+      totalOfflineTime: 0,
+      offlineSessions: 0,
       timePlayed: 0,
       resourceTotals: resourceMap(config),
     },
@@ -247,6 +250,21 @@ export function migrateIncrementalSnapshot(snapshot) {
     migrated.saveVersion = 5;
   }
 
+  if (migrated.saveVersion === 5) {
+    const statistics = plainObject(migrated.statistics) ? migrated.statistics : {};
+    statistics.totalOfflineProduction = nonnegativeFinite(statistics.totalOfflineProduction)
+      ? statistics.totalOfflineProduction
+      : 0;
+    statistics.totalOfflineTime = nonnegativeFinite(statistics.totalOfflineTime)
+      ? statistics.totalOfflineTime
+      : 0;
+    statistics.offlineSessions = nonnegativeInteger(statistics.offlineSessions)
+      ? statistics.offlineSessions
+      : 0;
+    migrated.statistics = statistics;
+    migrated.saveVersion = 6;
+  }
+
   return migrated;
 }
 
@@ -314,9 +332,13 @@ export function validateIncrementalSnapshot(snapshot) {
     'rareFindsDiscovered',
     'miningEventsTriggered',
     'totalAutomatedProduction',
+    'totalOfflineProduction',
+    'totalOfflineTime',
+    'offlineSessions',
     'timePlayed',
   ];
   if (!statisticFields.every((field) => nonnegativeFinite(statistics[field]))) return false;
+  if (!nonnegativeInteger(statistics.offlineSessions)) return false;
   return nonnegativeFinite(snapshot.lastPlayed);
 }
 

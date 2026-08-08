@@ -18,6 +18,11 @@
     "skillPointsPerLevel": 1,
     "skillResetCostPerPoint": 25
   },
+  "offlineProgress": {
+    "minimumAwaySeconds": 60,
+    "capSeconds": 36000,
+    "maxBreaks": 100000
+  },
   "start": {
     "cash": 0,
     "level": 1,

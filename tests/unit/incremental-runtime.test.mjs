@@ -11,6 +11,7 @@ import {
   selectWeightedRareFind,
 } from '../../src/incrementalContent.js';
 import { IncrementalGame } from '../../src/incrementalGame.js';
+import { calculateOfflineWindow } from '../../src/incrementalOffline.js';
 import {
   INCREMENTAL_SAVE_VERSION,
   createInitialIncrementalSnapshot,
@@ -42,6 +43,11 @@ function rawConfig() {
       xpGrowth: 1.25,
       skillPointsPerLevel: 1,
       skillResetCostPerPoint: 25,
+    },
+    offlineProgress: {
+      minimumAwaySeconds: 60,
+      capSeconds: 36_000,
+      maxBreaks: 100_000,
     },
     start: {
       cash: 0,
@@ -397,7 +403,7 @@ function createGame(gameConfig = config(), options = {}) {
   const saves = [];
   const game = new IncrementalGame({
     config: gameConfig,
-    gameVersion: '0.5.0',
+    gameVersion: '0.6.0',
     random: options.random || (() => 0),
     clock: options.clock || (() => 1_000),
     saveAdapter: options.saveAdapter || {
@@ -433,6 +439,11 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   assert.equal(normalized.store.categories[0].equipmentIds.length, 4);
   assert.equal(normalized.lottery.scratchTicketsById['test-scratch'].probabilityTotal, 1);
   assert.equal(normalized.lottery.scratchTicketsById['test-scratch'].expectedPayout, 3.5);
+  assert.deepEqual(normalized.offlineProgress, {
+    minimumAwaySeconds: 60,
+    capSeconds: 36_000,
+    maxBreaks: 100_000,
+  });
 
   const broken = rawConfig();
   broken.deposits[0].resourceId = 'missing';
@@ -445,9 +456,10 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   broken.generators[1].unlock.requiredGeneratorId = 'missing';
   broken.businessUpgrades[1].effect.generatorId = 'missing';
   broken.generators[0].growthRate = Number.POSITIVE_INFINITY;
+  broken.offlineProgress.capSeconds = Number.POSITIVE_INFINITY;
   assert.throws(
     () => normalizeIncrementalConfig(broken, { gameId: 'miner-incremental' }),
-    /missing resource|reward\.max|effect\.amount|trigger\.type|missing item|missing scratch ticket|total exactly 1|missing generator|growthRate/,
+    /missing resource|reward\.max|effect\.amount|trigger\.type|missing item|missing scratch ticket|total exactly 1|missing generator|growthRate|offlineProgress\.capSeconds/,
   );
 
   const emptyCompanyLevels = rawConfig();
@@ -455,6 +467,15 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   assert.throws(
     () => normalizeIncrementalConfig(emptyCompanyLevels, { gameId: 'miner-incremental' }),
     /company\.levels must contain at least one/,
+  );
+
+  const invalidOfflineLimits = rawConfig();
+  invalidOfflineLimits.offlineProgress.minimumAwaySeconds = 500;
+  invalidOfflineLimits.offlineProgress.capSeconds = 300;
+  invalidOfflineLimits.offlineProgress.maxBreaks = 1_000_001;
+  assert.throws(
+    () => normalizeIncrementalConfig(invalidOfflineLimits, { gameId: 'miner-incremental' }),
+    /capSeconds must be at least|maxBreaks must not exceed/,
   );
 });
 
@@ -1101,12 +1122,172 @@ test('incremental tick support tracks time and autosaves at the configured inter
   assert.equal(game.state.statistics.timePlayed, 2);
 });
 
-test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or future data', (t) => {
+test('offline time windows ignore short and future gaps while capping enormous elapsed time', () => {
+  const settings = { minimumAwaySeconds: 60, capSeconds: 36_000 };
+  assert.deepEqual(calculateOfflineWindow(1_000, 60_000, settings), {
+    timeAwaySeconds: 59,
+    creditedSeconds: 0,
+    minimumAwaySeconds: 60,
+    capSeconds: 36_000,
+    eligible: false,
+    capped: false,
+    reason: 'below-minimum',
+  });
+  assert.deepEqual(calculateOfflineWindow(10_000, 9_000, settings), {
+    timeAwaySeconds: 0,
+    creditedSeconds: 0,
+    minimumAwaySeconds: 60,
+    capSeconds: 36_000,
+    eligible: false,
+    capped: false,
+    reason: 'future-timestamp',
+  });
+  const capped = calculateOfflineWindow(1_000, 1_000 + (10_000_000 * 1000), settings);
+  assert.equal(capped.timeAwaySeconds, 10_000_000);
+  assert.equal(capped.creditedSeconds, 36_000);
+  assert.equal(capped.eligible, true);
+  assert.equal(capped.capped, true);
+});
+
+test('offline automation resumes through deposits once, expires events, and records a return summary', () => {
+  const progression = config(addMineProgressionContent);
+  const now = 1_000_000;
+  const snapshot = createInitialIncrementalSnapshot(progression, {
+    now: now - 120_000,
+    gameVersion: '0.6.0',
+  });
+  snapshot.storyStage = 'company-owner';
+  snapshot.employment.active = false;
+  snapshot.employment.contractBuyoutPaid = 50;
+  snapshot.employment.endedAt = now - 500_000;
+  snapshot.company = {
+    created: true,
+    name: 'Offline Test Mining',
+    level: 1,
+    reputation: 0,
+    createdAt: now - 400_000,
+    lifetimeInvestment: 0,
+  };
+  snapshot.generators['hired-miner'] = 1;
+  snapshot.activeMiningEvent = { id: 'rich-seam', remainingSeconds: 10 };
+  const saved = [];
+  const { game } = createGame(progression, {
+    clock: () => now,
+    saveAdapter: {
+      load: () => snapshot,
+      save: (state) => {
+        saved.push(JSON.parse(JSON.stringify(state)));
+        return true;
+      },
+    },
+  });
+
+  const started = game.start();
+  const offline = started.offlineProgress;
+  assert.equal(started.source, 'save');
+  assert.equal(offline.showSummary, true);
+  assert.equal(offline.timeAwaySeconds, 120);
+  assert.equal(offline.creditedSeconds, 120);
+  assert.equal(offline.productionPower, 1);
+  assert.equal(offline.damage, 120);
+  assert.equal(offline.depositsBroken, 30);
+  assert.deepEqual(offline.resources, { stone: 60 });
+  assert.equal(offline.producedQuantity, 60);
+  assert.equal(offline.estimatedValue, 600);
+  assert.equal(offline.eventExpired.id, 'rich-seam');
+  assert.equal(game.state.activeMiningEvent, null);
+  assert.equal(game.state.materials.stone, 60);
+  assert.equal(game.state.statistics.totalAutomatedProduction, 60);
+  assert.equal(game.state.statistics.totalOfflineProduction, 60);
+  assert.equal(game.state.statistics.totalOfflineTime, 120);
+  assert.equal(game.state.statistics.offlineSessions, 1);
+  assert.equal(game.state.statistics.miningEventsTriggered, 0);
+  assert.equal(game.state.statistics.timePlayed, 0);
+  assert.equal(game.state.lastPlayed, now);
+  assert.equal(saved.at(-1).statistics.totalOfflineProduction, 60);
+
+  const repeated = game.processOfflineProgress();
+  assert.equal(repeated.processed, false);
+  assert.equal(game.state.materials.stone, 60);
+  assert.equal(game.state.statistics.offlineSessions, 1);
+});
+
+test('offline production obeys both the configured time cap and simulation break safety limit', () => {
+  const limitedConfig = config((raw) => {
+    raw.offlineProgress.capSeconds = 300;
+    raw.offlineProgress.maxBreaks = 2;
+  });
+  const now = 20_000_000;
+  const snapshot = createInitialIncrementalSnapshot(limitedConfig, {
+    now: now - 10_000_000,
+    gameVersion: '0.6.0',
+  });
+  snapshot.storyStage = 'company-owner';
+  snapshot.employment.active = false;
+  snapshot.company = {
+    created: true,
+    name: 'Limited Test Mining',
+    level: 1,
+    reputation: 0,
+    createdAt: now - 11_000_000,
+    lifetimeInvestment: 0,
+  };
+  snapshot.generators['hired-miner'] = 1;
+  const { game } = createGame(limitedConfig, {
+    clock: () => now,
+    saveAdapter: { load: () => snapshot, save: () => true },
+  });
+
+  const offline = game.start().offlineProgress;
+  assert.equal(offline.capped, true);
+  assert.equal(offline.capSeconds, 300);
+  assert.equal(offline.limited, true);
+  assert.equal(offline.depositsBroken, 2);
+  assert.equal(offline.damage, 8);
+  assert.equal(offline.creditedSeconds, 8);
+  assert.deepEqual(offline.resources, { stone: 4 });
+  assert.equal(game.state.statistics.totalOfflineTime, 8);
+});
+
+test('future save timestamps reset safely without granting offline production', () => {
+  const gameConfig = config();
+  const now = 1_000_000;
+  const snapshot = createInitialIncrementalSnapshot(gameConfig, {
+    now: now + 60_000,
+    gameVersion: '0.6.0',
+  });
+  snapshot.storyStage = 'company-owner';
+  snapshot.employment.active = false;
+  snapshot.company = {
+    created: true,
+    name: 'Clock Test Mining',
+    level: 1,
+    reputation: 0,
+    createdAt: now - 1_000,
+    lifetimeInvestment: 0,
+  };
+  snapshot.generators['hired-miner'] = 1;
+  const { game } = createGame(gameConfig, {
+    clock: () => now,
+    saveAdapter: { load: () => snapshot, save: () => true },
+  });
+
+  const offline = game.start().offlineProgress;
+  assert.equal(offline.reason, 'future-timestamp');
+  assert.equal(offline.timestampReset, true);
+  assert.equal(offline.showSummary, false);
+  assert.equal(game.state.lastPlayed, now);
+  assert.equal(game.state.materials.stone, 0);
+  assert.equal(game.state.statistics.totalOfflineProduction, 0);
+  assert.equal(game.state.statistics.offlineSessions, 0);
+});
+
+test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or future data', (t) => {
   const originalWindow = globalThis.window;
   t.after(() => { globalThis.window = originalWindow; });
   globalThis.window = { location: { href: 'http://localhost/?game=miner-incremental' } };
   const local = storage();
-  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.5.0' });
+  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.6.0' });
 
   assert.equal(saveIncrementalGame(snapshot, 1, { storage: local, now: 1234 }), true);
   assert.ok(local.values.has('pixel_engine_save_miner-incremental_slot_1'));
@@ -1124,6 +1305,12 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
   const malformedEvent = JSON.parse(JSON.stringify(snapshot));
   malformedEvent.activeMiningEvent = { id: 'rich-seam', remainingSeconds: Number.POSITIVE_INFINITY };
   assert.equal(validateIncrementalSnapshot(malformedEvent), false);
+  const negativeOfflineProduction = JSON.parse(JSON.stringify(snapshot));
+  negativeOfflineProduction.statistics.totalOfflineProduction = -1;
+  assert.equal(validateIncrementalSnapshot(negativeOfflineProduction), false);
+  const fractionalOfflineSessions = JSON.parse(JSON.stringify(snapshot));
+  fractionalOfflineSessions.statistics.offlineSessions = 0.5;
+  assert.equal(validateIncrementalSnapshot(fractionalOfflineSessions), false);
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify({
     version: INCREMENTAL_SAVE_VERSION,
     gameType: 'incremental',
@@ -1172,7 +1359,7 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
   };
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify(legacyEnvelope));
   const migratedLegacy = loadIncrementalGame(1, { storage: local });
-  assert.equal(migratedLegacy.saveVersion, 5);
+  assert.equal(migratedLegacy.saveVersion, 6);
   assert.deepEqual(migratedLegacy.ownedEquipment, ['starter-pickaxe']);
   assert.equal(migratedLegacy.employment.active, true);
   assert.equal(migratedLegacy.employment.contractBuyoutPaid, 0);
@@ -1188,7 +1375,7 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
   milestoneTwo.equipment = {};
   delete milestoneTwo.ownedEquipment;
   const migratedMilestoneTwo = migrateIncrementalSnapshot(milestoneTwo);
-  assert.equal(migratedMilestoneTwo.saveVersion, 5);
+  assert.equal(migratedMilestoneTwo.saveVersion, 6);
   assert.deepEqual(migratedMilestoneTwo.ownedEquipment, []);
   let reconciledSave = null;
   const { game: reconciledGame } = createGame(config(), {
@@ -1198,7 +1385,7 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
     },
   });
   assert.equal(reconciledGame.start().source, 'save');
-  assert.equal(reconciledGame.state.gameVersion, '0.5.0');
+  assert.equal(reconciledGame.state.gameVersion, '0.6.0');
   assert.deepEqual(reconciledGame.state.ownedEquipment, ['starter-pickaxe']);
   assert.equal(reconciledGame.state.equipment.tool, 'starter-pickaxe');
   assert.deepEqual(reconciledSave.ownedEquipment, ['starter-pickaxe']);
@@ -1210,7 +1397,7 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
   delete milestoneThree.company.createdAt;
   delete milestoneThree.company.lifetimeInvestment;
   const migratedMilestoneThree = migrateIncrementalSnapshot(milestoneThree);
-  assert.equal(migratedMilestoneThree.saveVersion, 5);
+  assert.equal(migratedMilestoneThree.saveVersion, 6);
   assert.equal(migratedMilestoneThree.company.createdAt, null);
   assert.equal(migratedMilestoneThree.company.lifetimeInvestment, 0);
   const { game: milestoneFourGame } = createGame(config(), {
@@ -1229,7 +1416,7 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
   delete milestoneFour.statistics.rareFindsDiscovered;
   delete milestoneFour.statistics.miningEventsTriggered;
   const migratedMilestoneFour = migrateIncrementalSnapshot(milestoneFour);
-  assert.equal(migratedMilestoneFour.saveVersion, 5);
+  assert.equal(migratedMilestoneFour.saveVersion, 6);
   assert.deepEqual(migratedMilestoneFour.mineProgress['test-mine'], {
     depositsBroken: 12,
     oreMined: 34,
@@ -1237,6 +1424,17 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
   assert.equal(migratedMilestoneFour.activeMiningEvent, null);
   assert.equal(migratedMilestoneFour.statistics.rareFindsDiscovered, 0);
   assert.equal(migratedMilestoneFour.statistics.miningEventsTriggered, 0);
+
+  const milestoneFive = JSON.parse(JSON.stringify(snapshot));
+  milestoneFive.saveVersion = 5;
+  delete milestoneFive.statistics.totalOfflineProduction;
+  delete milestoneFive.statistics.totalOfflineTime;
+  delete milestoneFive.statistics.offlineSessions;
+  const migratedMilestoneFive = migrateIncrementalSnapshot(milestoneFive);
+  assert.equal(migratedMilestoneFive.saveVersion, 6);
+  assert.equal(migratedMilestoneFive.statistics.totalOfflineProduction, 0);
+  assert.equal(migratedMilestoneFive.statistics.totalOfflineTime, 0);
+  assert.equal(migratedMilestoneFive.statistics.offlineSessions, 0);
 
   const cyclic = { ...snapshot };
   cyclic.self = cyclic;
@@ -1253,7 +1451,7 @@ test('incremental saves round trip, migrate v1-v4 saves, and reject malformed or
 
   const versionZero = JSON.parse(JSON.stringify(snapshot));
   delete versionZero.saveVersion;
-  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 5);
+  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 6);
 });
 
 test('Milestone 4 saves reconcile new resources, skills, mines, and progress without resetting the player', () => {
@@ -1269,6 +1467,9 @@ test('Milestone 4 saves reconcile new resources, skills, mines, and progress wit
   delete oldSnapshot.activeMiningEvent;
   delete oldSnapshot.statistics.rareFindsDiscovered;
   delete oldSnapshot.statistics.miningEventsTriggered;
+  delete oldSnapshot.statistics.totalOfflineProduction;
+  delete oldSnapshot.statistics.totalOfflineTime;
+  delete oldSnapshot.statistics.offlineSessions;
   const migrated = migrateIncrementalSnapshot(oldSnapshot);
   const expanded = config(addMineProgressionContent);
   let reconciled = null;
@@ -1284,12 +1485,15 @@ test('Milestone 4 saves reconcile new resources, skills, mines, and progress wit
 
   assert.equal(game.start().source, 'save');
   assert.equal(game.state.cash, 321);
-  assert.equal(game.state.gameVersion, '0.5.0');
+  assert.equal(game.state.gameVersion, '0.6.0');
   assert.equal(game.state.materials.iron, 0);
   assert.equal(game.state.statistics.resourceTotals.iron, 0);
   assert.equal(game.state.skills['rare-find'], 0);
   assert.deepEqual(game.state.mineProgress['test-mine'], { depositsBroken: 7, oreMined: 14 });
   assert.deepEqual(game.state.mineProgress['iron-mine'], { depositsBroken: 0, oreMined: 0 });
+  assert.equal(game.state.statistics.totalOfflineProduction, 0);
+  assert.equal(game.state.statistics.totalOfflineTime, 0);
+  assert.equal(game.state.statistics.offlineSessions, 0);
   assert.equal(reconciled.cash, 321);
 });
 

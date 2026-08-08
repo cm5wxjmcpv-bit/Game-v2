@@ -14,6 +14,7 @@ import {
   saveIncrementalGame,
   validateIncrementalSnapshot,
 } from './incrementalSaveSystem.js';
+import { calculateOfflineWindow } from './incrementalOffline.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -56,6 +57,7 @@ export class IncrementalGame {
     this.state = null;
     this.listeners = new Set();
     this.autosaveElapsed = 0;
+    this.lastOfflineProgress = null;
   }
 
   subscribe(listener) {
@@ -89,15 +91,28 @@ export class IncrementalGame {
       });
     }
     this.autosaveElapsed = 0;
+    const offlineProgress = source === 'save'
+      ? this.processOfflineProgress({ now: this.clock(), save: false, emit: false })
+      : null;
+    this.lastOfflineProgress = offlineProgress;
 
     const levelResult = this.applyLevelProgression();
-    this.emit('ready', { source });
+    this.emit('ready', { source, offlineProgress });
     if (levelResult.levelsGained > 0) this.emit('level-up', levelResult);
     const milestones = this.evaluateMilestones();
-    if (source !== 'save' || reconciled || levelResult.levelsGained > 0 || milestones.length > 0) {
-      this.saveCheckpoint(source === 'save' ? 'progression-migration' : 'new-game');
+    if (source !== 'save'
+      || reconciled
+      || offlineProgress?.processed
+      || levelResult.levelsGained > 0
+      || milestones.length > 0) {
+      const reason = source !== 'save'
+        ? 'new-game'
+        : offlineProgress?.processed
+          ? 'offline-progress'
+          : 'progression-migration';
+      this.saveCheckpoint(reason);
     }
-    return { source, state: this.state };
+    return { source, state: this.state, offlineProgress };
   }
 
   startNew() {
@@ -407,8 +422,8 @@ export class IncrementalGame {
     return result;
   }
 
-  selectNextDeposit(mineId = this.state.currentMine) {
-    const activeEvent = this.getActiveMiningEvent();
+  selectNextDeposit(mineId = this.state.currentMine, options = {}) {
+    const activeEvent = options.applyMiningEvent === false ? null : this.getActiveMiningEvent();
     const multipliers = activeEvent?.effects.depositWeightMultipliers || {};
     return selectWeightedDeposit(this.config, mineId, this.random, multipliers);
   }
@@ -1084,7 +1099,7 @@ export class IncrementalGame {
     };
   }
 
-  advanceMiningEvent(deltaSeconds, expectedEventId = null) {
+  advanceMiningEvent(deltaSeconds, expectedEventId = null, options = {}) {
     const active = this.state?.activeMiningEvent;
     if (!active || (expectedEventId && active.id !== expectedEventId)) return null;
     active.remainingSeconds = Math.max(0, active.remainingSeconds - deltaSeconds);
@@ -1092,7 +1107,7 @@ export class IncrementalGame {
     const event = this.config.miningEvents.eventsById[active.id];
     this.state.activeMiningEvent = null;
     const result = { id: active.id, name: event?.name || active.id };
-    this.emit('mining-event-ended', result);
+    if (options.emit !== false) this.emit('mining-event-ended', result);
     return result;
   }
 
@@ -1124,7 +1139,7 @@ export class IncrementalGame {
     const baseQuantity = rollDepositReward(deposit, this.random);
     const bonusQuantity = !automated && rollChance(hit.miningStats?.oreYieldChance || 0, this.random) ? 1 : 0;
     const quantityBeforeEvent = baseQuantity + bonusQuantity;
-    const activeEvent = this.getActiveMiningEvent();
+    const activeEvent = hit.applyMiningEvent === false ? null : this.getActiveMiningEvent();
     const rewardMultiplier = activeEvent?.effects.rewardMultiplier || 1;
     const quantity = Math.max(
       quantityBeforeEvent,
@@ -1184,8 +1199,10 @@ export class IncrementalGame {
         }
       : this.applyLevelProgression();
 
-    const eventStarted = this.tryTriggerMiningEvent();
-    const nextDeposit = this.selectNextDeposit();
+    const eventStarted = hit.triggerMiningEvent === false ? null : this.tryTriggerMiningEvent();
+    const nextDeposit = this.selectNextDeposit(this.state.currentMine, {
+      applyMiningEvent: hit.applyMiningEvent,
+    });
     this.state.currentDeposit = {
       id: nextDeposit.id,
       hp: nextDeposit.maxHp,
@@ -1226,21 +1243,41 @@ export class IncrementalGame {
     return result;
   }
 
-  applyAutomation(deltaSeconds) {
+  applyAutomation(deltaSeconds, options = {}) {
     if (!this.state?.company?.created) {
-      return { damage: 0, depositsBroken: 0, resources: {}, productionPower: 0 };
+      return {
+        damage: 0,
+        depositsBroken: 0,
+        resources: {},
+        productionPower: 0,
+        breaks: [],
+        limited: false,
+        remainingDamage: 0,
+      };
     }
     const productionPower = this.getAutomationPower();
     let remainingDamage = safeMultiply(productionPower, deltaSeconds);
     if (!(remainingDamage > 0)) {
-      return { damage: 0, depositsBroken: 0, resources: {}, productionPower };
+      return {
+        damage: 0,
+        depositsBroken: 0,
+        resources: {},
+        productionPower,
+        breaks: [],
+        limited: false,
+        remainingDamage: 0,
+      };
     }
 
+    const maxBreaks = Number.isInteger(options.maxBreaks) && options.maxBreaks > 0
+      ? options.maxBreaks
+      : this.config.balance.maxAutomationBreaksPerTick;
+    const collectBreaks = options.collectBreaks !== false;
     let damage = 0;
     let depositsBroken = 0;
     const resources = {};
     const breaks = [];
-    while (remainingDamage > 0 && depositsBroken < this.config.balance.maxAutomationBreaksPerTick) {
+    while (remainingDamage > 0 && depositsBroken < maxBreaks) {
       const deposit = this.config.depositsById[this.state.currentDeposit.id];
       if (!deposit) break;
       const appliedDamage = Math.min(remainingDamage, this.state.currentDeposit.hp);
@@ -1252,16 +1289,126 @@ export class IncrementalGame {
       const result = this.breakDeposit(deposit, appliedDamage, {
         source: 'automation',
         miningStats: { oreYieldChance: 0 },
+        applyMiningEvent: options.applyMiningEvent,
+        triggerMiningEvent: options.triggerMiningEvent,
         save: false,
         emit: false,
       });
       depositsBroken += 1;
       resources[result.resourceId] = safeAdd(resources[result.resourceId] || 0, result.quantity);
-      breaks.push(result);
+      if (collectBreaks) breaks.push(result);
     }
 
-    const result = { damage, depositsBroken, resources, productionPower, breaks };
-    if (depositsBroken > 0) this.emit('automation', result);
+    const result = {
+      damage,
+      depositsBroken,
+      resources,
+      productionPower,
+      breaks,
+      limited: remainingDamage > 0 && depositsBroken >= maxBreaks,
+      remainingDamage,
+    };
+    if (depositsBroken > 0 && options.emit !== false) this.emit('automation', result);
+    return result;
+  }
+
+  processOfflineProgress(options = {}) {
+    if (!this.state) {
+      return { processed: false, showSummary: false, reason: 'not-started' };
+    }
+    const now = Number.isFinite(options.now) ? options.now : this.clock();
+    const window = calculateOfflineWindow(
+      this.state.lastPlayed,
+      now,
+      this.config.offlineProgress,
+    );
+    const result = {
+      ...window,
+      processed: false,
+      showSummary: false,
+      timestampReset: false,
+      eventExpired: null,
+      productionPower: 0,
+      damage: 0,
+      depositsBroken: 0,
+      resources: {},
+      producedQuantity: 0,
+      estimatedValue: 0,
+      limited: false,
+    };
+
+    if (window.reason === 'future-timestamp') {
+      this.state.lastPlayed = now;
+      result.processed = true;
+      result.timestampReset = true;
+    } else {
+      const activeEventId = this.state.activeMiningEvent?.id || null;
+      if (activeEventId && window.timeAwaySeconds > 0) {
+        const previousRemaining = this.state.activeMiningEvent.remainingSeconds;
+        result.eventExpired = this.advanceMiningEvent(
+          window.timeAwaySeconds,
+          activeEventId,
+          { emit: options.emit },
+        );
+        if (result.eventExpired
+          || this.state.activeMiningEvent?.remainingSeconds !== previousRemaining) {
+          result.processed = true;
+        }
+      }
+
+      if (window.eligible) {
+        const automation = this.applyAutomation(window.creditedSeconds, {
+          maxBreaks: this.config.offlineProgress.maxBreaks,
+          applyMiningEvent: false,
+          triggerMiningEvent: false,
+          emit: false,
+          collectBreaks: false,
+        });
+        const producedQuantity = Object.values(automation.resources)
+          .reduce((total, quantity) => safeAdd(total, quantity), 0);
+        const estimatedValue = Object.entries(automation.resources)
+          .reduce((total, [resourceId, quantity]) => safeAdd(
+            total,
+            safeMultiply(this.config.resourcesById[resourceId]?.value || 0, quantity),
+          ), 0);
+        const simulatedSeconds = automation.limited && automation.productionPower > 0
+          ? Math.min(window.creditedSeconds, automation.damage / automation.productionPower)
+          : window.creditedSeconds;
+
+        Object.assign(result, {
+          processed: true,
+          showSummary: automation.productionPower > 0,
+          creditedSeconds: simulatedSeconds,
+          productionPower: automation.productionPower,
+          damage: automation.damage,
+          depositsBroken: automation.depositsBroken,
+          resources: automation.resources,
+          producedQuantity,
+          estimatedValue,
+          limited: automation.limited,
+        });
+        if (automation.productionPower > 0) {
+          this.state.statistics.totalOfflineProduction = safeAdd(
+            this.state.statistics.totalOfflineProduction,
+            producedQuantity,
+          );
+          this.state.statistics.totalOfflineTime = safeAdd(
+            this.state.statistics.totalOfflineTime,
+            simulatedSeconds,
+          );
+          this.state.statistics.offlineSessions = safeAdd(
+            this.state.statistics.offlineSessions,
+            1,
+          );
+        }
+      }
+
+      if (result.processed) this.state.lastPlayed = now;
+    }
+
+    if (result.processed && options.save !== false) this.saveCheckpoint('offline-progress');
+    if (result.showSummary && options.emit !== false) this.emit('offline-progress', result);
+    this.lastOfflineProgress = result;
     return result;
   }
 

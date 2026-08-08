@@ -310,12 +310,46 @@ function createRuntimeRoot() {
         <p id="incremental-story-text"></p>
         <button id="incremental-story-continue" class="incremental-primary-button" type="button">Continue</button>
       </section>
+    </div>
+
+    <div id="incremental-offline-overlay" class="incremental-story-overlay incremental-offline-overlay" hidden>
+      <section class="incremental-story-dialog incremental-offline-dialog" role="dialog" aria-modal="true" aria-labelledby="incremental-offline-title">
+        <span class="incremental-label">WHILE YOU WERE AWAY</span>
+        <h2 id="incremental-offline-title">Your Operation Kept Working</h2>
+        <div class="incremental-offline-time-grid">
+          <div><span>Time away</span><strong id="incremental-offline-time-away">0s</strong></div>
+          <div><span>Production credited</span><strong id="incremental-offline-time-credited">0s</strong></div>
+        </div>
+        <div class="incremental-offline-production-row">
+          <span>Operation output</span>
+          <strong id="incremental-offline-production">0 deposits</strong>
+        </div>
+        <div id="incremental-offline-resources" class="incremental-offline-resources"></div>
+        <div class="incremental-offline-value-row">
+          <span>Estimated sale value</span>
+          <strong id="incremental-offline-value">$0</strong>
+        </div>
+        <p id="incremental-offline-note" class="incremental-offline-note"></p>
+        <button id="incremental-offline-continue" class="incremental-primary-button" type="button">Continue Mining</button>
+      </section>
     </div>`;
   return root;
 }
 
 function percent(value) {
   return `${formatNumber(Number(value) * 100, { decimals: 1 })}%`;
+}
+
+function formatDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${remainder}s`;
+  return `${remainder}s`;
 }
 
 function businessRequirementTextForResult(result, config) {
@@ -438,9 +472,18 @@ function buildUi(root, database) {
     story_title: byId('incremental-story-title'),
     story_text: byId('incremental-story-text'),
     story_continue: byId('incremental-story-continue'),
+    offline_overlay: byId('incremental-offline-overlay'),
+    offline_time_away: byId('incremental-offline-time-away'),
+    offline_time_credited: byId('incremental-offline-time-credited'),
+    offline_production: byId('incremental-offline-production'),
+    offline_resources: byId('incremental-offline-resources'),
+    offline_value: byId('incremental-offline-value'),
+    offline_note: byId('incremental-offline-note'),
+    offline_continue: byId('incremental-offline-continue'),
   };
   const storyQueue = [];
   let activeStory = null;
+  let storyPausedForOffline = false;
   let lastLotteryResult = null;
 
   nodes.title.textContent = config.ui.title || database.game.name;
@@ -1244,8 +1287,9 @@ function buildUi(root, database) {
     nodes.story_speaker.textContent = activeStory.speaker;
     nodes.story_title.textContent = activeStory.title;
     nodes.story_text.textContent = activeStory.text;
-    nodes.story_overlay.hidden = false;
-    nodes.story_continue.focus();
+    storyPausedForOffline = !nodes.offline_overlay.hidden;
+    nodes.story_overlay.hidden = storyPausedForOffline;
+    if (!storyPausedForOffline) nodes.story_continue.focus();
   }
 
   function showMilestone(milestone) {
@@ -1260,8 +1304,62 @@ function buildUi(root, database) {
       : `${result.label} revealed. Mining remains the reliable way forward.`;
   }
 
+  function showOfflineProgress(result) {
+    if (!result?.showSummary) return false;
+    storyPausedForOffline = Boolean(activeStory);
+    if (storyPausedForOffline) nodes.story_overlay.hidden = true;
+    nodes.offline_time_away.textContent = formatDuration(result.timeAwaySeconds);
+    nodes.offline_time_credited.textContent = formatDuration(result.creditedSeconds);
+    nodes.offline_production.textContent = `${formatNumber(result.depositsBroken)} deposit${result.depositsBroken === 1 ? '' : 's'} · ${formatNumber(result.damage)} mining damage`;
+    nodes.offline_resources.replaceChildren();
+    const produced = Object.entries(result.resources).filter(([, quantity]) => quantity > 0);
+    if (produced.length) {
+      produced.forEach(([resourceId, quantity]) => {
+        const resource = config.resourcesById[resourceId];
+        const row = document.createElement('div');
+        const label = document.createElement('span');
+        label.textContent = resource?.name || resourceId;
+        const amount = document.createElement('strong');
+        amount.textContent = `+${formatNumber(quantity)}`;
+        row.append(label, amount);
+        nodes.offline_resources.appendChild(row);
+      });
+    } else {
+      const empty = document.createElement('p');
+      empty.textContent = 'Your crew weakened the current deposit but did not finish one yet.';
+      nodes.offline_resources.appendChild(empty);
+    }
+    nodes.offline_value.textContent = formatCurrency(result.estimatedValue);
+    const notes = ['Offline automation uses the same active mine and deposit rewards as live company production. Timed mining events do not boost offline rewards.'];
+    if (result.capped) {
+      notes.push(`This return was capped at ${formatDuration(result.capSeconds)} of production.`);
+    }
+    if (result.limited) {
+      notes.push('The package simulation safety limit was reached; only completed simulation time was credited.');
+    }
+    if (result.eventExpired) {
+      notes.push(`${result.eventExpired.name} expired while you were away and did not boost offline rewards.`);
+    }
+    nodes.offline_note.textContent = notes.join(' ');
+    nodes.offline_overlay.hidden = false;
+    nodes.offline_continue.focus();
+    return true;
+  }
+
+  function dismissOfflineProgress() {
+    nodes.offline_overlay.hidden = true;
+    if (storyPausedForOffline && activeStory) {
+      nodes.story_overlay.hidden = false;
+      nodes.story_continue.focus();
+    } else {
+      nodes.mining_target.focus();
+    }
+    storyPausedForOffline = false;
+  }
+
   function dismissStory() {
     activeStory = null;
+    storyPausedForOffline = false;
     nodes.story_overlay.hidden = true;
     advanceStory();
   }
@@ -1269,7 +1367,9 @@ function buildUi(root, database) {
   function resetStoryQueue() {
     storyQueue.length = 0;
     activeStory = null;
+    storyPausedForOffline = false;
     nodes.story_overlay.hidden = true;
+    nodes.offline_overlay.hidden = true;
     lastLotteryResult = null;
     nodes.company_name.value = '';
     nodes.store_status.textContent = 'Miller keeps the counter open from your first shift onward.';
@@ -1289,6 +1389,8 @@ function buildUi(root, database) {
     showAutomation,
     showMilestone,
     showLotteryResult,
+    showOfflineProgress,
+    dismissOfflineProgress,
     dismissStory,
     resetStoryQueue,
   };
@@ -1310,6 +1412,7 @@ async function bootstrap() {
     if (event.type === 'automation') ui.showAutomation(event.detail);
     if (event.type === 'milestone') ui.showMilestone(event.detail);
     if (event.type === 'lottery') ui.showLotteryResult(event.detail);
+    if (event.type === 'offline-progress') ui.showOfflineProgress(event.detail);
     if (event.type === 'save') {
       ui.setSaveStatus(event.detail.saved ? 'Saved locally' : 'Local save failed', !event.detail.saved);
     }
@@ -1322,6 +1425,7 @@ async function bootstrap() {
   ui.setSaveStatus(startResult.source === 'save' ? 'Local save loaded' : 'New local save created');
   ui.setView('mine');
   ui.render(game);
+  ui.showOfflineProgress(startResult.offlineProgress);
 
   ui.nodes.mining_target.addEventListener('click', () => game.mine());
   const tabDefinitions = [
@@ -1354,7 +1458,15 @@ async function bootstrap() {
   ui.nodes.story_overlay.addEventListener('click', (event) => {
     if (event.target === ui.nodes.story_overlay) ui.dismissStory();
   });
+  ui.nodes.offline_continue.addEventListener('click', () => ui.dismissOfflineProgress());
+  ui.nodes.offline_overlay.addEventListener('click', (event) => {
+    if (event.target === ui.nodes.offline_overlay) ui.dismissOfflineProgress();
+  });
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !ui.nodes.offline_overlay.hidden) {
+      ui.dismissOfflineProgress();
+      return;
+    }
     if (event.key === 'Escape' && !ui.nodes.story_overlay.hidden) ui.dismissStory();
   });
 
@@ -1526,6 +1638,11 @@ async function bootstrap() {
   let lastFrame = performance.now();
   let lastAutomationRender = 0;
   function loop(now) {
+    if (document.visibilityState === 'hidden') {
+      lastFrame = now;
+      window.requestAnimationFrame(loop);
+      return;
+    }
     const result = game.update(Math.min(1, (now - lastFrame) / 1000));
     if ((result?.automation?.damage > 0 || game.state.activeMiningEvent) && now - lastAutomationRender >= 100) {
       ui.renderTick(game);
@@ -1537,8 +1654,20 @@ async function bootstrap() {
   window.requestAnimationFrame(loop);
 
   window.addEventListener('pagehide', () => game.saveCheckpoint('pagehide'));
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    lastFrame = performance.now();
+    game.processOfflineProgress();
+    ui.render(game);
+  });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') game.saveCheckpoint('visibility');
+    if (document.visibilityState === 'hidden') {
+      game.saveCheckpoint('visibility');
+      return;
+    }
+    lastFrame = performance.now();
+    game.processOfflineProgress();
+    ui.render(game);
   });
 }
 

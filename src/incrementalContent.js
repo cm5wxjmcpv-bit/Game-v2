@@ -14,6 +14,8 @@ const RARE_FIND_REWARD_TYPES = new Set(['cash', 'resource', 'xp']);
 const BUSINESS_EFFECT_TYPES = new Set(['automation-multiplier', 'generator-multiplier']);
 const STORY_TRIGGER_TYPES = new Set(['start', 'level', 'cash', 'stage', 'contract-affordable']);
 const PROBABILITY_EPSILON = 1e-9;
+const MAX_OFFLINE_CAP_SECONDS = 7 * 24 * 60 * 60;
+const MAX_OFFLINE_BREAKS = 1_000_000;
 
 export class IncrementalConfigError extends Error {
   constructor(errors) {
@@ -837,6 +839,45 @@ function normalizeMiningEvents(rawEvents, mineIds, depositsById, errors) {
   };
 }
 
+function normalizeOfflineProgress(rawOfflineProgress, errors) {
+  if (rawOfflineProgress !== undefined
+    && (!rawOfflineProgress || typeof rawOfflineProgress !== 'object' || Array.isArray(rawOfflineProgress))) {
+    errors.push('offlineProgress must be an object when provided');
+  }
+  const source = rawOfflineProgress
+    && typeof rawOfflineProgress === 'object'
+    && !Array.isArray(rawOfflineProgress)
+    ? rawOfflineProgress
+    : {};
+  const minimumAwaySeconds = integer(source.minimumAwaySeconds, 60, 0);
+  const capSeconds = integer(source.capSeconds, 36_000, 1);
+  const maxBreaks = integer(source.maxBreaks, 100_000, 1);
+
+  if (source.minimumAwaySeconds !== undefined
+    && (!Number.isInteger(source.minimumAwaySeconds) || source.minimumAwaySeconds < 0)) {
+    errors.push('offlineProgress.minimumAwaySeconds must be a nonnegative integer');
+  }
+  if (source.capSeconds !== undefined
+    && (!Number.isInteger(source.capSeconds) || source.capSeconds < 1)) {
+    errors.push('offlineProgress.capSeconds must be a positive integer');
+  }
+  if (source.maxBreaks !== undefined
+    && (!Number.isInteger(source.maxBreaks) || source.maxBreaks < 1)) {
+    errors.push('offlineProgress.maxBreaks must be a positive integer');
+  }
+  if (capSeconds < minimumAwaySeconds) {
+    errors.push('offlineProgress.capSeconds must be at least minimumAwaySeconds');
+  }
+  if (capSeconds > MAX_OFFLINE_CAP_SECONDS) {
+    errors.push(`offlineProgress.capSeconds must not exceed ${MAX_OFFLINE_CAP_SECONDS}`);
+  }
+  if (maxBreaks > MAX_OFFLINE_BREAKS) {
+    errors.push(`offlineProgress.maxBreaks must not exceed ${MAX_OFFLINE_BREAKS}`);
+  }
+
+  return { minimumAwaySeconds, capSeconds, maxBreaks };
+}
+
 export function normalizeIncrementalConfig(raw, options = {}) {
   const errors = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -1043,6 +1084,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   });
   const rareFinds = normalizeRareFinds(raw.rareFinds, resourcesById, mineIds, errors);
   const miningEvents = normalizeMiningEvents(raw.miningEvents, mineIds, depositsById, errors);
+  const offlineProgress = normalizeOfflineProgress(raw.offlineProgress, errors);
   if ((equipment.items.length || lottery.scratchTickets.length || store.categories.length) && !store.id) {
     errors.push('store.id must be a safe non-empty identifier when store content is provided');
   }
@@ -1107,6 +1149,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     businessUpgradesById,
     rareFinds,
     miningEvents,
+    offlineProgress,
     resources,
     deposits,
     mines,

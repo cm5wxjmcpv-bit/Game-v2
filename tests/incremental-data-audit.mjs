@@ -61,7 +61,7 @@ for (const entry of catalog.games || []) {
   if (!payload) continue;
   try {
     const normalized = normalizeIncrementalConfig(payload, { gameId });
-    console.log(`Incremental contract ${gameId}: ${normalized.resources.length} resource(s), ${normalized.deposits.length} deposit(s), ${normalized.mines.length} mine(s), ${normalized.rareFinds.finds.length} rare find(s), ${normalized.miningEvents.events.length} mining event(s), ${normalized.equipment.items.length} equipment item(s), ${normalized.lottery.scratchTickets.length} scratch ticket(s), ${normalized.generators.length} generator(s), ${normalized.businessUpgrades.length} business upgrade(s).`);
+    console.log(`Incremental contract ${gameId}: ${normalized.resources.length} resource(s), ${normalized.deposits.length} deposit(s), ${normalized.mines.length} mine(s), ${normalized.rareFinds.finds.length} rare find(s), ${normalized.miningEvents.events.length} mining event(s), ${normalized.equipment.items.length} equipment item(s), ${normalized.lottery.scratchTickets.length} scratch ticket(s), ${normalized.generators.length} generator(s), ${normalized.businessUpgrades.length} business upgrade(s), ${normalized.offlineProgress.capSeconds}s offline cap.`);
   } catch (error) {
     fail(`${gameId}: ${error.message}`);
   }

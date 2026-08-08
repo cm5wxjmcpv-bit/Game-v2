@@ -1622,6 +1622,103 @@ body.incremental-game-mode #hud {
   line-height: 1.55;
 }
 
+.incremental-offline-overlay {
+  z-index: 1250;
+  background: rgba(6, 9, 8, 0.8);
+}
+
+.incremental-offline-dialog {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  border-color: #63846e;
+  background:
+    linear-gradient(145deg, rgba(81, 135, 101, 0.22), transparent 52%),
+    #17201b;
+}
+
+.incremental-offline-time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.incremental-offline-time-grid > div,
+.incremental-offline-production-row,
+.incremental-offline-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(130, 165, 143, 0.24);
+  border-radius: 8px;
+  background: rgba(10, 16, 12, 0.46);
+}
+
+.incremental-offline-time-grid > div {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.incremental-offline-time-grid span,
+.incremental-offline-production-row span,
+.incremental-offline-value-row span {
+  color: #aebead;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.incremental-offline-time-grid strong,
+.incremental-offline-production-row strong,
+.incremental-offline-value-row strong {
+  color: #edf7ec;
+}
+
+.incremental-offline-production-row {
+  margin-top: 10px;
+}
+
+.incremental-offline-resources {
+  display: grid;
+  gap: 7px;
+  max-height: min(260px, 34vh);
+  margin: 10px 0;
+  overflow-y: auto;
+}
+
+.incremental-offline-resources > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-left: 3px solid #76b78c;
+  border-radius: 5px;
+  background: rgba(37, 60, 44, 0.56);
+}
+
+.incremental-offline-resources > div strong,
+.incremental-offline-value-row strong {
+  color: #a7e2b6;
+}
+
+.incremental-offline-resources > p {
+  margin: 0;
+  padding: 10px 12px;
+  color: #c4d1c3;
+  font-size: 14px;
+}
+
+.incremental-offline-note {
+  margin: 12px 0 18px !important;
+  color: #b9c9b8 !important;
+  font-size: 13px !important;
+}
+
 .incremental-foundation-panel ul {
   margin: 12px 0 0;
   padding-left: 20px;
@@ -1814,6 +1911,15 @@ body.incremental-game-mode #hud {
   }
   .incremental-story-dialog {
     padding: 20px;
+  }
+  .incremental-offline-time-grid {
+    grid-template-columns: 1fr;
+  }
+  .incremental-offline-production-row,
+  .incremental-offline-value-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }
 

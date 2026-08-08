@@ -31,7 +31,7 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-cash')).not.toHaveText('$0');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
   expect(saved.gameType).toBe('incremental');
-  expect(saved.version).toBe(5);
+  expect(saved.version).toBe(6);
   expect(saved.payload.statistics.totalManualSwings).toBe(10);
   expect(saved.payload.statistics.totalDepositsBroken).toBe(1);
   expect(saved.payload.statistics.totalOreMined).toBeGreaterThan(0);
@@ -179,7 +179,7 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
   await expect(ticket.locator('.incremental-lottery-reveal')).toBeVisible();
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(5);
+  expect(saved.version).toBe(6);
   expect(saved.payload.materials.stone).toBe(2);
   expect(saved.payload.statistics.totalOreSold).toBe(10);
   expect(saved.payload.ownedEquipment).toContain('iron-pickaxe');
@@ -266,7 +266,7 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
   await expect(page.locator('#incremental-company-production')).toHaveText('3.45/sec');
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(5);
+  expect(saved.version).toBe(6);
   expect(saved.payload.storyStage).toBe('company-owner');
   expect(saved.payload.company.name).toBe('Freedom Forge Mining');
   expect(saved.payload.company.level).toBe(2);
@@ -353,7 +353,7 @@ test('mine progression shows combined requirements, pays a one-time unlock cost,
   await expect(page.locator('#incremental-deposit-name')).toHaveText(/Coal Seam|Copper Vein|Iron Vein/);
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(5);
+  expect(saved.version).toBe(6);
   expect(saved.payload.currentMine).toBe('old-iron-mine');
   expect(saved.payload.unlockedMines).toContain('old-iron-mine');
   expect(saved.payload.statistics.minesUnlocked).toBe(2);
@@ -366,6 +366,83 @@ test('mine progression shows combined requirements, pays a one-time unlock cost,
   await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
   await expect(page.locator('#incremental-mine-name')).toHaveText('Old Iron Mine');
   await expect(page.locator('#incremental-event-banner')).toBeVisible();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test('offline company production is capped, summarized, saved once, and excludes expired mining events', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+
+  await page.goto('/?game=miner-incremental');
+  await page.locator('#incremental-story-continue').click();
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('milestone-six-seeded')) return;
+    const key = 'pixel_engine_save_miner-incremental_slot_1';
+    const save = JSON.parse(localStorage.getItem(key));
+    if (!save) return;
+    const now = Date.now();
+    save.payload.cash = 5000;
+    save.payload.character.level = 3;
+    save.payload.storyStage = 'company-owner';
+    save.payload.employment.active = false;
+    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.endedAt = now - 10_000;
+    save.payload.company = {
+      created: true,
+      name: 'Away Shift Mining',
+      level: 1,
+      reputation: 0,
+      createdAt: now - 10_000,
+      lifetimeInvestment: 0,
+    };
+    save.payload.generators['hired-miner'] = 2;
+    save.payload.activeMiningEvent = { id: 'rich-seam', remainingSeconds: 20 };
+    save.payload.lastPlayed = now - (2 * 60 * 60 * 1000);
+    save.payload.milestones = [
+      'blackstone-first-shift',
+      'blackstone-level-two',
+      'contract-within-reach',
+      'contract-bought',
+      'company-founded',
+    ];
+    localStorage.setItem(key, JSON.stringify(save));
+    sessionStorage.setItem('milestone-six-seeded', 'true');
+  });
+  await page.reload();
+
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-offline-overlay')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your Operation Kept Working' })).toBeVisible();
+  await expect(page.locator('#incremental-offline-time-away')).toContainText('2h');
+  await expect(page.locator('#incremental-offline-time-credited')).toContainText('2h');
+  await expect(page.locator('#incremental-offline-production')).toContainText('deposits');
+  await expect(page.locator('#incremental-offline-resources > div')).not.toHaveCount(0);
+  await expect(page.locator('#incremental-offline-value')).not.toHaveText('$0');
+  await expect(page.locator('#incremental-offline-note')).toContainText('expired while you were away');
+  await page.locator('#incremental-offline-continue').click();
+  await expect(page.locator('#incremental-offline-overlay')).toBeHidden();
+  await expect(page.locator('#incremental-event-banner')).toBeHidden();
+
+  const firstReturn = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
+  expect(firstReturn.version).toBe(6);
+  expect(firstReturn.payload.statistics.totalOfflineProduction).toBeGreaterThan(0);
+  expect(firstReturn.payload.statistics.totalOfflineTime).toBeGreaterThanOrEqual(7200);
+  expect(firstReturn.payload.statistics.offlineSessions).toBe(1);
+  expect(firstReturn.payload.activeMiningEvent).toBeNull();
+  expect(Object.values(firstReturn.payload.materials).every((quantity) => quantity >= 0)).toBe(true);
+
+  const offlineProduction = firstReturn.payload.statistics.totalOfflineProduction;
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-offline-overlay')).toBeHidden();
+  const secondReturn = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
+  expect(secondReturn.payload.statistics.totalOfflineProduction).toBe(offlineProduction);
+  expect(secondReturn.payload.statistics.offlineSessions).toBe(1);
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
@@ -411,6 +488,8 @@ test.describe('touch viewport', () => {
         createdAt: Date.now(),
         lifetimeInvestment: 0,
       };
+      save.payload.generators['hired-miner'] = 1;
+      save.payload.lastPlayed = Date.now() - (60 * 60 * 1000);
       save.payload.milestones = [
         'blackstone-first-shift',
         'blackstone-level-two',
@@ -422,6 +501,11 @@ test.describe('touch viewport', () => {
       sessionStorage.setItem('mobile-company-seeded', 'true');
     });
     await page.reload();
+    await expect(page.locator('#incremental-offline-overlay')).toBeVisible();
+    const offlineDialogBox = await page.locator('.incremental-offline-dialog').boundingBox();
+    expect(offlineDialogBox.x).toBeGreaterThanOrEqual(0);
+    expect(offlineDialogBox.x + offlineDialogBox.width).toBeLessThanOrEqual(390);
+    await page.locator('#incremental-offline-continue').tap();
     await page.locator('#incremental-tab-company').tap();
     await expect(page.getByRole('heading', { name: 'Pocket Mine Co.' })).toBeVisible();
     const companyCard = page.locator('.incremental-business-card').first();
