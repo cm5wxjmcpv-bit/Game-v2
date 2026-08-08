@@ -1,6 +1,6 @@
 const DEFAULT_CONFIG = Object.freeze({
   url: 'https://irgtpkqkeiacgtbewpzn.supabase.co',
-  publishableKey: '',
+  publishableKey: 'sb_publishable_nl7aTsLXfpK6XJ0EGBSmQQ_3WhoCp1_',
 });
 
 /**
