@@ -1000,6 +1000,152 @@ body.incremental-game-mode #hud {
   line-height: 1.45;
 }
 
+.incremental-competition-panel[hidden] {
+  display: none !important;
+}
+
+.incremental-competition-panel {
+  border-color: #765a33;
+  background:
+    linear-gradient(135deg, rgba(226, 181, 71, 0.09), transparent 48%),
+    var(--mine-panel);
+}
+
+.incremental-competition-header,
+.incremental-acquisition-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.incremental-competition-header h2,
+.incremental-acquisition-heading h3 {
+  margin: 4px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.incremental-competition-header > strong {
+  flex: none;
+  padding: 6px 9px;
+  border: 1px solid #906936;
+  border-radius: 999px;
+  color: #e9c06b;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.incremental-competition-header > strong.is-acquired {
+  border-color: #4c8a65;
+  background: rgba(61, 126, 85, 0.16);
+  color: #9fddb5;
+}
+
+.incremental-competition-panel > p,
+.incremental-acquisition-card > p {
+  margin: 9px 0 0;
+  color: var(--mine-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.incremental-competition-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.incremental-competition-stats > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 11px;
+  border: 1px solid #544331;
+  border-radius: 7px;
+  background: rgba(18, 15, 13, 0.48);
+}
+
+.incremental-competition-stats span {
+  color: var(--mine-muted);
+  font-size: 10px;
+}
+
+.incremental-competition-stats strong {
+  color: #f2ce83;
+  font-size: 15px;
+}
+
+.incremental-competition-milestones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.incremental-competition-milestone {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 9px;
+  border-left: 3px solid #64574a;
+  background: rgba(22, 19, 17, 0.54);
+  color: #a99b8c;
+  font-size: 10px;
+}
+
+.incremental-competition-milestone strong {
+  flex: none;
+  color: #8f8174;
+  text-align: right;
+}
+
+.incremental-competition-milestone.is-complete {
+  border-left-color: #4f956b;
+  color: #cce4d4;
+}
+
+.incremental-competition-milestone.is-complete strong {
+  color: #8fd0a6;
+}
+
+.incremental-acquisition-card {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px solid #8a6637;
+  border-radius: 9px;
+  background: rgba(75, 50, 24, 0.2);
+}
+
+.incremental-acquisition-card.is-acquired {
+  border-color: #4f8d67;
+  background: rgba(37, 91, 59, 0.16);
+}
+
+.incremental-acquisition-heading > strong {
+  flex: none;
+  color: #f2ca72;
+  font-size: 16px;
+}
+
+.incremental-acquisition-requirements {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 13px 0;
+}
+
+.incremental-acquisition-card > .incremental-primary-button {
+  width: 100%;
+}
+
+.incremental-acquisition-card.is-acquired > .incremental-primary-button:disabled {
+  border-color: #5f9a72;
+  background: #2f6545;
+  color: #e2f5e8;
+  opacity: 1;
+}
+
 .incremental-company-section {
   padding: 2px;
 }
@@ -1893,6 +2039,20 @@ body.incremental-game-mode #hud {
     min-height: 0;
   }
   .incremental-company-setup {
+    grid-template-columns: 1fr;
+  }
+  .incremental-competition-header,
+  .incremental-acquisition-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .incremental-competition-header > strong,
+  .incremental-acquisition-heading > strong {
+    align-self: flex-start;
+  }
+  .incremental-competition-stats,
+  .incremental-competition-milestones,
+  .incremental-acquisition-requirements {
     grid-template-columns: 1fr;
   }
   .incremental-company-form,

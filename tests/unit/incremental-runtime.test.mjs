@@ -187,6 +187,76 @@ function rawConfig() {
         { level: 3, name: 'Test Producer', requiredInvestment: 200 },
       ],
     },
+    competition: {
+      rival: {
+        id: 'blackstone',
+        name: 'Blackstone Mining Co.',
+        statusLabel: 'Former Employer & Rival',
+        description: 'The test rival remains visible throughout company progression.',
+      },
+      milestones: [
+        {
+          id: 'rival-company-formed',
+          title: 'Rival Responds',
+          speaker: 'Blackstone',
+          text: 'Your company has been noticed.',
+          reputationAward: 5,
+          trigger: { type: 'company-level', value: 1 },
+        },
+        {
+          id: 'rival-mine-presence',
+          title: 'A Mining Presence',
+          speaker: 'Trade Bulletin',
+          text: 'Your first mine is producing.',
+          reputationAward: 5,
+          trigger: { type: 'mines-unlocked', value: 1 },
+        },
+        {
+          id: 'rival-lifetime-ore',
+          title: 'Proven Output',
+          speaker: 'Trade Bulletin',
+          text: 'Your lifetime ore total is recognized.',
+          reputationAward: 5,
+          trigger: { type: 'total-ore', value: 20 },
+        },
+        {
+          id: 'rival-automated-output',
+          title: 'Automation Recognized',
+          speaker: 'Trade Bulletin',
+          text: 'Your automated operation is established.',
+          reputationAward: 5,
+          trigger: { type: 'total-automated-production', value: 10 },
+        },
+        {
+          id: 'rival-production-surpassed',
+          title: 'Production Surpassed',
+          speaker: 'Trade Bulletin',
+          text: 'Your production rate now leads the region.',
+          reputationAward: 10,
+          trigger: { type: 'automation-power', value: 5 },
+        },
+      ],
+      acquisition: {
+        id: 'blackstone-acquisition',
+        title: 'Acquire Blackstone',
+        description: 'Meet every business requirement before buying the rival.',
+        price: 1000,
+        requirements: {
+          companyLevel: 3,
+          ownedMines: 1,
+          lifetimeOre: 20,
+          reputation: 30,
+          automationPower: 5,
+        },
+        productionMultiplier: 2,
+        completion: {
+          storyStage: 'blackstone-owner',
+          title: 'Blackstone Acquired',
+          speaker: 'Former Foreman',
+          text: 'The company where you started now belongs to you.',
+        },
+      },
+    },
     generators: [
       {
         id: 'hired-miner',
@@ -403,7 +473,7 @@ function createGame(gameConfig = config(), options = {}) {
   const saves = [];
   const game = new IncrementalGame({
     config: gameConfig,
-    gameVersion: '0.6.0',
+    gameVersion: '0.7.0',
     random: options.random || (() => 0),
     clock: options.clock || (() => 1_000),
     saveAdapter: options.saveAdapter || {
@@ -439,11 +509,25 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   assert.equal(normalized.store.categories[0].equipmentIds.length, 4);
   assert.equal(normalized.lottery.scratchTicketsById['test-scratch'].probabilityTotal, 1);
   assert.equal(normalized.lottery.scratchTicketsById['test-scratch'].expectedPayout, 3.5);
+  assert.equal(normalized.competition.rival.id, 'blackstone');
+  assert.equal(normalized.competition.milestones.length, 5);
+  assert.equal(normalized.competition.acquisition.productionMultiplier, 2);
   assert.deepEqual(normalized.offlineProgress, {
     minimumAwaySeconds: 60,
     capSeconds: 36_000,
     maxBreaks: 100_000,
   });
+
+  const preCompetition = rawConfig();
+  delete preCompetition.competition;
+  const normalizedPreCompetition = normalizeIncrementalConfig(preCompetition, {
+    gameId: 'miner-incremental',
+  });
+  assert.equal(normalizedPreCompetition.competition.enabled, false);
+  assert.equal(normalizedPreCompetition.competition.rival.id, 'blackstone');
+  const { game: preCompetitionGame } = createGame(normalizedPreCompetition);
+  preCompetitionGame.start();
+  assert.equal(preCompetitionGame.getAcquisitionStatus().reason, 'competition-disabled');
 
   const broken = rawConfig();
   broken.deposits[0].resourceId = 'missing';
@@ -476,6 +560,18 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   assert.throws(
     () => normalizeIncrementalConfig(invalidOfflineLimits, { gameId: 'miner-incremental' }),
     /capSeconds must be at least|maxBreaks must not exceed/,
+  );
+
+  const invalidCompetition = rawConfig();
+  invalidCompetition.competition.milestones[0].trigger.type = 'javascript';
+  invalidCompetition.competition.milestones[1].id = 'first-shift';
+  invalidCompetition.competition.acquisition.price = Number.POSITIVE_INFINITY;
+  invalidCompetition.competition.acquisition.requirements.ownedMines = 2;
+  invalidCompetition.competition.acquisition.requirements.reputation = 1000;
+  invalidCompetition.competition.acquisition.productionMultiplier = 0.5;
+  assert.throws(
+    () => normalizeIncrementalConfig(invalidCompetition, { gameId: 'miner-incremental' }),
+    /competition.*trigger\.type|ids must be unique|price must be|attainable mine count|reputation awards|productionMultiplier/,
   );
 });
 
@@ -972,6 +1068,80 @@ test('business upgrades and automation damage the active deposit while manual mi
   assert.ok(Object.values(game.state.materials).every((quantity) => quantity >= 0));
 });
 
+test('competition milestones award reputation once and multi-factor acquisition permanently multiplies automation', () => {
+  const seen = [];
+  const { game } = createGame(config(), { clock: () => 5_000 });
+  game.subscribe((event) => {
+    if (event.type === 'milestone') seen.push(event.detail.id);
+  });
+  game.start();
+  assert.equal(game.getAcquisitionStatus().reason, 'company');
+
+  game.state.storyStage = 'independent';
+  game.state.employment.active = false;
+  game.state.character.level = 2;
+  game.state.cash = 1_100;
+  const created = game.createCompany('Acquisition Test Mining');
+  assert.equal(created.ok, true);
+  assert.equal(game.state.company.reputation, 10);
+  assert.deepEqual(
+    created.milestones
+      .filter((milestone) => milestone.category === 'competition')
+      .map((milestone) => milestone.id),
+    ['rival-company-formed', 'rival-mine-presence'],
+  );
+  assert.equal(game.getAcquisitionStatus().reason, 'companyLevel');
+
+  game.state.company.lifetimeInvestment = 200;
+  game.state.company.level = 3;
+  game.state.cash = 999;
+  game.state.generators['hired-miner'] = 2;
+  game.state.generators['test-crew'] = 1;
+  game.state.statistics.totalOreMined = 20;
+  game.state.statistics.totalAutomatedProduction = 10;
+  const competitionUpdates = game.evaluateMilestones();
+  assert.deepEqual(
+    competitionUpdates.map((milestone) => milestone.id),
+    ['rival-lifetime-ore', 'rival-automated-output', 'rival-production-surpassed'],
+  );
+  assert.equal(game.state.company.reputation, 30);
+  assert.deepEqual(game.evaluateMilestones(), []);
+  assert.equal(game.state.company.reputation, 30);
+  assert.equal(game.getAutomationPower(), 7);
+  assert.equal(game.getAcquisitionStatus().reason, 'cash');
+  assert.equal(game.acquireRivalCompany().canAcquire, false);
+  assert.equal(game.state.cash, 999);
+  game.state.cash = 1_000;
+
+  const status = game.getAcquisitionStatus();
+  assert.equal(status.canAcquire, true);
+  assert.equal(Object.values(status.requirements).every((requirement) => requirement.met), true);
+  const acquired = game.acquireRivalCompany();
+  assert.equal(acquired.ok, true);
+  assert.equal(acquired.price, 1_000);
+  assert.equal(acquired.productionMultiplier, 2);
+  assert.equal(acquired.automation.totalPower, 14);
+  assert.equal(game.state.cash, 0);
+  assert.equal(game.state.storyStage, 'blackstone-owner');
+  assert.equal(game.state.competition.rivalId, 'blackstone');
+  assert.equal(game.state.competition.acquired, true);
+  assert.equal(game.state.competition.acquiredAt, 5_000);
+  assert.equal(game.state.competition.acquisitionPricePaid, 1_000);
+  assert.equal(game.state.statistics.companiesAcquired, 1);
+  assert.equal(game.state.milestones.includes('blackstone-acquisition'), true);
+  assert.equal(game.acquireRivalCompany().reason, 'already-acquired');
+  const acquiredProduction = game.applyAutomation(1);
+  assert.equal(acquiredProduction.productionPower, 14);
+  assert.equal(acquiredProduction.damage, 14);
+  assert.equal(acquiredProduction.depositsBroken, 3);
+
+  game.state.materials.stone = 1;
+  assert.equal(game.sellResource('stone', 1).ok, true);
+  assert.equal(game.state.materials.stone, 0);
+  assert.equal(seen.includes('blackstone-acquisition'), true);
+  assert.equal(validateIncrementalSnapshot(game.state), true);
+});
+
 test('mine unlocks combine independence, character, company, prior-mine, and cash requirements', () => {
   const progression = config((raw) => {
     addMineProgressionContent(raw);
@@ -1154,7 +1324,7 @@ test('offline automation resumes through deposits once, expires events, and reco
   const now = 1_000_000;
   const snapshot = createInitialIncrementalSnapshot(progression, {
     now: now - 120_000,
-    gameVersion: '0.6.0',
+    gameVersion: '0.7.0',
   });
   snapshot.storyStage = 'company-owner';
   snapshot.employment.active = false;
@@ -1220,7 +1390,7 @@ test('offline production obeys both the configured time cap and simulation break
   const now = 20_000_000;
   const snapshot = createInitialIncrementalSnapshot(limitedConfig, {
     now: now - 10_000_000,
-    gameVersion: '0.6.0',
+    gameVersion: '0.7.0',
   });
   snapshot.storyStage = 'company-owner';
   snapshot.employment.active = false;
@@ -1254,7 +1424,7 @@ test('future save timestamps reset safely without granting offline production', 
   const now = 1_000_000;
   const snapshot = createInitialIncrementalSnapshot(gameConfig, {
     now: now + 60_000,
-    gameVersion: '0.6.0',
+    gameVersion: '0.7.0',
   });
   snapshot.storyStage = 'company-owner';
   snapshot.employment.active = false;
@@ -1282,12 +1452,12 @@ test('future save timestamps reset safely without granting offline production', 
   assert.equal(game.state.statistics.offlineSessions, 0);
 });
 
-test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or future data', (t) => {
+test('incremental saves round trip, migrate v1-v6 saves, and reject malformed or future data', (t) => {
   const originalWindow = globalThis.window;
   t.after(() => { globalThis.window = originalWindow; });
   globalThis.window = { location: { href: 'http://localhost/?game=miner-incremental' } };
   const local = storage();
-  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.6.0' });
+  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.7.0' });
 
   assert.equal(saveIncrementalGame(snapshot, 1, { storage: local, now: 1234 }), true);
   assert.ok(local.values.has('pixel_engine_save_miner-incremental_slot_1'));
@@ -1311,6 +1481,15 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
   const fractionalOfflineSessions = JSON.parse(JSON.stringify(snapshot));
   fractionalOfflineSessions.statistics.offlineSessions = 0.5;
   assert.equal(validateIncrementalSnapshot(fractionalOfflineSessions), false);
+  const malformedAcquisition = JSON.parse(JSON.stringify(snapshot));
+  malformedAcquisition.competition.acquired = true;
+  assert.equal(validateIncrementalSnapshot(malformedAcquisition), false);
+  const unpaidAcquisition = JSON.parse(JSON.stringify(snapshot));
+  unpaidAcquisition.competition.acquisitionPricePaid = 1;
+  assert.equal(validateIncrementalSnapshot(unpaidAcquisition), false);
+  const fractionalAcquisitions = JSON.parse(JSON.stringify(snapshot));
+  fractionalAcquisitions.statistics.companiesAcquired = 0.5;
+  assert.equal(validateIncrementalSnapshot(fractionalAcquisitions), false);
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify({
     version: INCREMENTAL_SAVE_VERSION,
     gameType: 'incremental',
@@ -1344,12 +1523,26 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
   });
   assert.equal(incompatibleGame.start().source, 'invalid-save');
 
+  const forgedAcquisition = JSON.parse(JSON.stringify(businessSnapshot));
+  forgedAcquisition.storyStage = 'blackstone-owner';
+  forgedAcquisition.competition.acquired = true;
+  forgedAcquisition.competition.acquiredAt = 1234;
+  forgedAcquisition.competition.acquisitionPricePaid = 1000;
+  forgedAcquisition.statistics.companiesAcquired = 1;
+  assert.equal(validateIncrementalSnapshot(forgedAcquisition), true);
+  const { game: forgedAcquisitionGame } = createGame(config(), {
+    saveAdapter: { load: () => forgedAcquisition, save: () => true },
+  });
+  assert.equal(forgedAcquisitionGame.start().source, 'invalid-save');
+
   const legacy = JSON.parse(JSON.stringify(snapshot));
   legacy.saveVersion = 1;
   delete legacy.ownedEquipment;
   delete legacy.employment.active;
   delete legacy.employment.contractBuyoutPaid;
   delete legacy.employment.endedAt;
+  delete legacy.competition;
+  delete legacy.statistics.companiesAcquired;
   const legacyEnvelope = {
     version: 1,
     gameType: 'incremental',
@@ -1359,13 +1552,20 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
   };
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify(legacyEnvelope));
   const migratedLegacy = loadIncrementalGame(1, { storage: local });
-  assert.equal(migratedLegacy.saveVersion, 6);
+  assert.equal(migratedLegacy.saveVersion, 7);
   assert.deepEqual(migratedLegacy.ownedEquipment, ['starter-pickaxe']);
   assert.equal(migratedLegacy.employment.active, true);
   assert.equal(migratedLegacy.employment.contractBuyoutPaid, 0);
   assert.equal(migratedLegacy.employment.endedAt, null);
   assert.equal(migratedLegacy.company.createdAt, null);
   assert.equal(migratedLegacy.company.lifetimeInvestment, 0);
+  assert.deepEqual(migratedLegacy.competition, {
+    rivalId: 'blackstone',
+    acquired: false,
+    acquiredAt: null,
+    acquisitionPricePaid: 0,
+  });
+  assert.equal(migratedLegacy.statistics.companiesAcquired, 0);
   assert.ok(normalizeIncrementalSaveEnvelope(legacyEnvelope, {
     gameId: 'miner-incremental', slot: 1,
   }));
@@ -1375,7 +1575,7 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
   milestoneTwo.equipment = {};
   delete milestoneTwo.ownedEquipment;
   const migratedMilestoneTwo = migrateIncrementalSnapshot(milestoneTwo);
-  assert.equal(migratedMilestoneTwo.saveVersion, 6);
+  assert.equal(migratedMilestoneTwo.saveVersion, 7);
   assert.deepEqual(migratedMilestoneTwo.ownedEquipment, []);
   let reconciledSave = null;
   const { game: reconciledGame } = createGame(config(), {
@@ -1385,7 +1585,7 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
     },
   });
   assert.equal(reconciledGame.start().source, 'save');
-  assert.equal(reconciledGame.state.gameVersion, '0.6.0');
+  assert.equal(reconciledGame.state.gameVersion, '0.7.0');
   assert.deepEqual(reconciledGame.state.ownedEquipment, ['starter-pickaxe']);
   assert.equal(reconciledGame.state.equipment.tool, 'starter-pickaxe');
   assert.deepEqual(reconciledSave.ownedEquipment, ['starter-pickaxe']);
@@ -1397,7 +1597,7 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
   delete milestoneThree.company.createdAt;
   delete milestoneThree.company.lifetimeInvestment;
   const migratedMilestoneThree = migrateIncrementalSnapshot(milestoneThree);
-  assert.equal(migratedMilestoneThree.saveVersion, 6);
+  assert.equal(migratedMilestoneThree.saveVersion, 7);
   assert.equal(migratedMilestoneThree.company.createdAt, null);
   assert.equal(migratedMilestoneThree.company.lifetimeInvestment, 0);
   const { game: milestoneFourGame } = createGame(config(), {
@@ -1416,7 +1616,7 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
   delete milestoneFour.statistics.rareFindsDiscovered;
   delete milestoneFour.statistics.miningEventsTriggered;
   const migratedMilestoneFour = migrateIncrementalSnapshot(milestoneFour);
-  assert.equal(migratedMilestoneFour.saveVersion, 6);
+  assert.equal(migratedMilestoneFour.saveVersion, 7);
   assert.deepEqual(migratedMilestoneFour.mineProgress['test-mine'], {
     depositsBroken: 12,
     oreMined: 34,
@@ -1431,10 +1631,24 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
   delete milestoneFive.statistics.totalOfflineTime;
   delete milestoneFive.statistics.offlineSessions;
   const migratedMilestoneFive = migrateIncrementalSnapshot(milestoneFive);
-  assert.equal(migratedMilestoneFive.saveVersion, 6);
+  assert.equal(migratedMilestoneFive.saveVersion, 7);
   assert.equal(migratedMilestoneFive.statistics.totalOfflineProduction, 0);
   assert.equal(migratedMilestoneFive.statistics.totalOfflineTime, 0);
   assert.equal(migratedMilestoneFive.statistics.offlineSessions, 0);
+
+  const milestoneSix = JSON.parse(JSON.stringify(snapshot));
+  milestoneSix.saveVersion = 6;
+  delete milestoneSix.competition;
+  delete milestoneSix.statistics.companiesAcquired;
+  const migratedMilestoneSix = migrateIncrementalSnapshot(milestoneSix);
+  assert.equal(migratedMilestoneSix.saveVersion, 7);
+  assert.deepEqual(migratedMilestoneSix.competition, {
+    rivalId: 'blackstone',
+    acquired: false,
+    acquiredAt: null,
+    acquisitionPricePaid: 0,
+  });
+  assert.equal(migratedMilestoneSix.statistics.companiesAcquired, 0);
 
   const cyclic = { ...snapshot };
   cyclic.self = cyclic;
@@ -1451,7 +1665,7 @@ test('incremental saves round trip, migrate v1-v5 saves, and reject malformed or
 
   const versionZero = JSON.parse(JSON.stringify(snapshot));
   delete versionZero.saveVersion;
-  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 6);
+  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 7);
 });
 
 test('Milestone 4 saves reconcile new resources, skills, mines, and progress without resetting the player', () => {
@@ -1470,6 +1684,8 @@ test('Milestone 4 saves reconcile new resources, skills, mines, and progress wit
   delete oldSnapshot.statistics.totalOfflineProduction;
   delete oldSnapshot.statistics.totalOfflineTime;
   delete oldSnapshot.statistics.offlineSessions;
+  delete oldSnapshot.competition;
+  delete oldSnapshot.statistics.companiesAcquired;
   const migrated = migrateIncrementalSnapshot(oldSnapshot);
   const expanded = config(addMineProgressionContent);
   let reconciled = null;
@@ -1485,7 +1701,7 @@ test('Milestone 4 saves reconcile new resources, skills, mines, and progress wit
 
   assert.equal(game.start().source, 'save');
   assert.equal(game.state.cash, 321);
-  assert.equal(game.state.gameVersion, '0.6.0');
+  assert.equal(game.state.gameVersion, '0.7.0');
   assert.equal(game.state.materials.iron, 0);
   assert.equal(game.state.statistics.resourceTotals.iron, 0);
   assert.equal(game.state.skills['rare-find'], 0);
@@ -1494,6 +1710,9 @@ test('Milestone 4 saves reconcile new resources, skills, mines, and progress wit
   assert.equal(game.state.statistics.totalOfflineProduction, 0);
   assert.equal(game.state.statistics.totalOfflineTime, 0);
   assert.equal(game.state.statistics.offlineSessions, 0);
+  assert.equal(game.state.competition.rivalId, 'blackstone');
+  assert.equal(game.state.competition.acquired, false);
+  assert.equal(game.state.statistics.companiesAcquired, 0);
   assert.equal(reconciled.cash, 321);
 });
 

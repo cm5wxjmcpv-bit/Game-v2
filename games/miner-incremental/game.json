@@ -3,9 +3,9 @@
   "id": "miner-incremental",
   "gameType": "incremental",
   "name": "Blackstone Breakaway",
-  "version": "0.6.0",
-  "engineVersion": "0.6.0",
-  "description": "A mining incremental game about earning independence, building a company, advancing through data-driven mines, and growing the operation while away.",
+  "version": "0.7.0",
+  "engineVersion": "0.7.0",
+  "description": "A mining incremental game about earning independence, building a company, surpassing a former employer, and acquiring the regional rival.",
   "contentRoot": "./",
   "data": {
     "incremental": "data/incremental.json"

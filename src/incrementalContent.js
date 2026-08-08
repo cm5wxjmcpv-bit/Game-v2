@@ -13,6 +13,13 @@ const LOTTERY_REWARD_TYPES = new Set(['none', 'cash', 'resource', 'free-ticket']
 const RARE_FIND_REWARD_TYPES = new Set(['cash', 'resource', 'xp']);
 const BUSINESS_EFFECT_TYPES = new Set(['automation-multiplier', 'generator-multiplier']);
 const STORY_TRIGGER_TYPES = new Set(['start', 'level', 'cash', 'stage', 'contract-affordable']);
+const COMPETITION_TRIGGER_TYPES = new Set([
+  'company-level',
+  'mines-unlocked',
+  'total-ore',
+  'total-automated-production',
+  'automation-power',
+]);
 const PROBABILITY_EPSILON = 1e-9;
 const MAX_OFFLINE_CAP_SECONDS = 7 * 24 * 60 * 60;
 const MAX_OFFLINE_BREAKS = 1_000_000;
@@ -496,6 +503,174 @@ function normalizeCompany(rawCompany, errors) {
     levels,
     levelsByLevel: Object.fromEntries(levels.map((entry) => [entry.level, entry])),
     maxLevel: levels.at(-1)?.level || 1,
+  };
+}
+
+function normalizeCompetition(rawCompetition, context, errors) {
+  const fallback = {
+    enabled: false,
+    rival: {
+      id: context.employerId,
+      name: 'Rival Mining Company',
+      statusLabel: 'Former Employer',
+      description: '',
+    },
+    milestones: [],
+    acquisition: {
+      id: 'rival-acquisition',
+      title: 'Acquire Rival Company',
+      description: '',
+      price: 0,
+      requirements: {
+        companyLevel: 1,
+        ownedMines: 1,
+        lifetimeOre: 0,
+        reputation: 0,
+        automationPower: 0,
+      },
+      productionMultiplier: 1,
+      completion: {
+        storyStage: 'company-owner',
+        title: 'Acquisition Complete',
+        speaker: '',
+        text: '',
+      },
+    },
+  };
+  if (rawCompetition === undefined) return fallback;
+  if (!rawCompetition || typeof rawCompetition !== 'object' || Array.isArray(rawCompetition)) {
+    errors.push('competition must be an object when provided');
+    return fallback;
+  }
+
+  const rivalSource = rawCompetition.rival;
+  if (!rivalSource || typeof rivalSource !== 'object' || Array.isArray(rivalSource)) {
+    errors.push('competition.rival must be an object');
+  }
+  const rival = {
+    id: normalizedId(rivalSource?.id),
+    name: text(rivalSource?.name, 'Rival Mining Company', 100),
+    statusLabel: text(rivalSource?.statusLabel, 'Former Employer', 80),
+    description: text(rivalSource?.description, '', 300),
+  };
+  if (!rival.id) errors.push('competition.rival.id must be a safe non-empty identifier');
+
+  if (!Array.isArray(rawCompetition.milestones)) {
+    errors.push('competition.milestones must be an array');
+  }
+  const milestones = (Array.isArray(rawCompetition.milestones) ? rawCompetition.milestones : [])
+    .map((entry, index) => {
+      const label = `competition.milestones[${index}]`;
+      const triggerType = normalizedId(entry?.trigger?.type);
+      const rawValue = entry?.trigger?.value;
+      if (!COMPETITION_TRIGGER_TYPES.has(triggerType)) {
+        errors.push(`${label}.trigger.type is unsupported`);
+      } else if (['company-level', 'mines-unlocked'].includes(triggerType)
+        && (!Number.isInteger(rawValue) || rawValue < 1)) {
+        errors.push(`${label}.trigger.value must be a positive integer`);
+      } else if (!['company-level', 'mines-unlocked'].includes(triggerType)
+        && (!isFiniteNumber(rawValue) || rawValue < 0)) {
+        errors.push(`${label}.trigger.value must be finite and nonnegative`);
+      }
+      if (triggerType === 'company-level' && Number.isInteger(rawValue) && rawValue > context.company.maxLevel) {
+        errors.push(`${label}.trigger.value exceeds the configured company level maximum`);
+      }
+      if (triggerType === 'mines-unlocked' && Number.isInteger(rawValue) && rawValue > context.mineCount) {
+        errors.push(`${label}.trigger.value exceeds the configured mine count`);
+      }
+      if (!isFiniteNumber(entry?.reputationAward) || entry.reputationAward < 0) {
+        errors.push(`${label}.reputationAward must be a finite nonnegative number`);
+      }
+      return {
+        id: normalizedId(entry?.id),
+        title: text(entry?.title, 'Competition Update', 100),
+        speaker: text(entry?.speaker, rival.name, 100),
+        text: text(entry?.text, '', 360),
+        reputationAward: nonnegative(entry?.reputationAward),
+        trigger: {
+          type: triggerType,
+          value: ['company-level', 'mines-unlocked'].includes(triggerType)
+            ? integer(rawValue, 1, 1)
+            : nonnegative(rawValue),
+        },
+      };
+    });
+  uniqueIds(milestones, 'competition.milestones', errors);
+
+  const acquisitionSource = rawCompetition.acquisition;
+  if (!acquisitionSource || typeof acquisitionSource !== 'object' || Array.isArray(acquisitionSource)) {
+    errors.push('competition.acquisition must be an object');
+  }
+  const requirementSource = acquisitionSource?.requirements;
+  if (!requirementSource || typeof requirementSource !== 'object' || Array.isArray(requirementSource)) {
+    errors.push('competition.acquisition.requirements must be an object');
+  }
+  const completionSource = acquisitionSource?.completion;
+  if (!completionSource || typeof completionSource !== 'object' || Array.isArray(completionSource)) {
+    errors.push('competition.acquisition.completion must be an object');
+  }
+
+  const price = finite(acquisitionSource?.price, -1);
+  const companyLevel = integer(requirementSource?.companyLevel, 1, 1);
+  const ownedMines = integer(requirementSource?.ownedMines, 1, 1);
+  const lifetimeOre = finite(requirementSource?.lifetimeOre, -1);
+  const reputation = finite(requirementSource?.reputation, -1);
+  const automationPower = finite(requirementSource?.automationPower, -1);
+  const productionMultiplier = finite(acquisitionSource?.productionMultiplier, 0);
+  if (!isFiniteNumber(acquisitionSource?.price) || acquisitionSource.price < 0) {
+    errors.push('competition.acquisition.price must be a finite nonnegative number');
+  }
+  if (!Number.isInteger(requirementSource?.companyLevel)
+    || requirementSource.companyLevel < 1
+    || requirementSource.companyLevel > context.company.maxLevel) {
+    errors.push('competition.acquisition.requirements.companyLevel must reference a configured company level');
+  }
+  if (!Number.isInteger(requirementSource?.ownedMines)
+    || requirementSource.ownedMines < 1
+    || requirementSource.ownedMines > context.mineCount) {
+    errors.push('competition.acquisition.requirements.ownedMines must reference an attainable mine count');
+  }
+  for (const field of ['lifetimeOre', 'reputation', 'automationPower']) {
+    if (!isFiniteNumber(requirementSource?.[field]) || requirementSource[field] < 0) {
+      errors.push(`competition.acquisition.requirements.${field} must be a finite nonnegative number`);
+    }
+  }
+  if (!isFiniteNumber(acquisitionSource?.productionMultiplier) || acquisitionSource.productionMultiplier < 1) {
+    errors.push('competition.acquisition.productionMultiplier must be a finite number of at least 1');
+  }
+  const acquisitionId = normalizedId(acquisitionSource?.id);
+  const completionStage = normalizedId(completionSource?.storyStage);
+  if (!acquisitionId) errors.push('competition.acquisition.id must be a safe non-empty identifier');
+  if (!completionStage) errors.push('competition.acquisition.completion.storyStage must be a safe non-empty identifier');
+  const availableReputation = milestones.reduce((total, milestone) => total + milestone.reputationAward, 0);
+  if (Number.isFinite(reputation) && availableReputation < reputation) {
+    errors.push('competition milestone reputation awards must satisfy the acquisition reputation requirement');
+  }
+
+  return {
+    enabled: true,
+    rival,
+    milestones,
+    acquisition: {
+      id: acquisitionId,
+      title: text(acquisitionSource?.title, `Acquire ${rival.name}`, 120),
+      description: text(acquisitionSource?.description, '', 360),
+      price: nonnegative(price),
+      requirements: {
+        companyLevel,
+        ownedMines,
+        lifetimeOre: nonnegative(lifetimeOre),
+        reputation: nonnegative(reputation),
+        automationPower: nonnegative(automationPower),
+      },
+      productionMultiplier: Math.max(1, productionMultiplier),
+      completion: {
+        storyStage: completionStage,
+        title: text(completionSource?.title, 'Acquisition Complete', 100),
+        speaker: text(completionSource?.speaker, rival.name, 100),
+        text: text(completionSource?.text, '', 360),
+      },
+    },
   };
 }
 
@@ -1070,6 +1245,11 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   const lottery = normalizeLottery(raw.lottery, resourcesById, errors);
   const store = normalizeStore(raw.store, equipment, lottery, errors);
   const company = normalizeCompany(raw.company, errors);
+  const competition = normalizeCompetition(raw.competition, {
+    company,
+    employerId,
+    mineCount: mines.length,
+  }, errors);
   const { generators, generatorsById } = normalizeGenerators(raw.generators, company, errors);
   const { businessUpgrades, businessUpgradesById } = normalizeBusinessUpgrades(
     raw.businessUpgrades,
@@ -1085,6 +1265,14 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   const rareFinds = normalizeRareFinds(raw.rareFinds, resourcesById, mineIds, errors);
   const miningEvents = normalizeMiningEvents(raw.miningEvents, mineIds, depositsById, errors);
   const offlineProgress = normalizeOfflineProgress(raw.offlineProgress, errors);
+  const narrativeIds = [
+    ...milestones.map((milestone) => milestone.id),
+    ...competition.milestones.map((milestone) => milestone.id),
+    ...(competition.enabled ? [competition.acquisition.id] : []),
+  ];
+  if (narrativeIds.some((id, index) => id && narrativeIds.indexOf(id) !== index)) {
+    errors.push('story, competition milestone, and acquisition ids must be unique');
+  }
   if ((equipment.items.length || lottery.scratchTickets.length || store.categories.length) && !store.id) {
     errors.push('store.id must be a safe non-empty identifier when store content is provided');
   }
@@ -1143,6 +1331,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     lottery,
     store,
     company,
+    competition,
     generators,
     generatorsById,
     businessUpgrades,

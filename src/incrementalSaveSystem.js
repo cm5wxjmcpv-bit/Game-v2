@@ -1,7 +1,7 @@
 import { getActiveGameId } from './gameManifest.js';
 import { getSaveStorageKey } from './saveNamespace.js';
 
-export const INCREMENTAL_SAVE_VERSION = 6;
+export const INCREMENTAL_SAVE_VERSION = 7;
 const DEFAULT_SLOT = 1;
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -130,6 +130,12 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
       createdAt: null,
       lifetimeInvestment: 0,
     },
+    competition: {
+      rivalId: config.competition.rival.id,
+      acquired: false,
+      acquiredAt: null,
+      acquisitionPricePaid: 0,
+    },
     employment: {
       companyId: config.employment.companyId,
       active: config.start.storyStage === 'employee',
@@ -163,6 +169,7 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
       totalOfflineProduction: 0,
       totalOfflineTime: 0,
       offlineSessions: 0,
+      companiesAcquired: 0,
       timePlayed: 0,
       resourceTotals: resourceMap(config),
     },
@@ -265,6 +272,33 @@ export function migrateIncrementalSnapshot(snapshot) {
     migrated.saveVersion = 6;
   }
 
+  if (migrated.saveVersion === 6) {
+    const employment = plainObject(migrated.employment) ? migrated.employment : {};
+    const competition = plainObject(migrated.competition) ? migrated.competition : {};
+    competition.rivalId = validId(competition.rivalId)
+      ? competition.rivalId
+      : validId(employment.companyId)
+        ? employment.companyId
+        : 'rival-company';
+    competition.acquired = competition.acquired === true;
+    competition.acquiredAt = competition.acquired && nonnegativeFinite(competition.acquiredAt)
+      ? competition.acquiredAt
+      : null;
+    competition.acquisitionPricePaid = competition.acquired
+      && nonnegativeFinite(competition.acquisitionPricePaid)
+      ? competition.acquisitionPricePaid
+      : 0;
+    migrated.competition = competition;
+    const statistics = plainObject(migrated.statistics) ? migrated.statistics : {};
+    statistics.companiesAcquired = nonnegativeInteger(statistics.companiesAcquired)
+      ? statistics.companiesAcquired
+      : competition.acquired
+        ? 1
+        : 0;
+    migrated.statistics = statistics;
+    migrated.saveVersion = 7;
+  }
+
   return migrated;
 }
 
@@ -302,6 +336,15 @@ export function validateIncrementalSnapshot(snapshot) {
   if (company.createdAt !== null && !nonnegativeFinite(company.createdAt)) return false;
   if (!nonnegativeFinite(company.lifetimeInvestment)) return false;
 
+  const competition = snapshot.competition;
+  if (!plainObject(competition) || !validId(competition.rivalId)) return false;
+  if (typeof competition.acquired !== 'boolean') return false;
+  if (competition.acquiredAt !== null && !nonnegativeFinite(competition.acquiredAt)) return false;
+  if (!nonnegativeFinite(competition.acquisitionPricePaid)) return false;
+  if (!competition.acquired
+    && (competition.acquiredAt !== null || competition.acquisitionPricePaid !== 0)) return false;
+  if (competition.acquired && competition.acquiredAt === null) return false;
+
   const employment = snapshot.employment;
   if (!plainObject(employment) || !validId(employment.companyId)) return false;
   if (typeof employment.active !== 'boolean') return false;
@@ -335,10 +378,12 @@ export function validateIncrementalSnapshot(snapshot) {
     'totalOfflineProduction',
     'totalOfflineTime',
     'offlineSessions',
+    'companiesAcquired',
     'timePlayed',
   ];
   if (!statisticFields.every((field) => nonnegativeFinite(statistics[field]))) return false;
-  if (!nonnegativeInteger(statistics.offlineSessions)) return false;
+  if (!nonnegativeInteger(statistics.offlineSessions)
+    || !nonnegativeInteger(statistics.companiesAcquired)) return false;
   return nonnegativeFinite(snapshot.lastPlayed);
 }
 

@@ -433,6 +433,91 @@
       }
     ]
   },
+  "competition": {
+    "rival": {
+      "id": "blackstone-mining",
+      "name": "Blackstone Mining Co.",
+      "statusLabel": "Former Employer & Rival",
+      "description": "Blackstone remains the region's established operator. Its notices mark your rise from dismissed former employee to serious competitor."
+    },
+    "milestones": [
+      {
+        "id": "blackstone-new-shaft",
+        "title": "Blackstone Expands",
+        "speaker": "Regional Mining Bulletin",
+        "text": "Blackstone Mining opened another shaft. Foreman Cole calls your new company a temporary distraction.",
+        "reputationAward": 10,
+        "trigger": {
+          "type": "company-level",
+          "value": 1
+        }
+      },
+      {
+        "id": "blackstone-major-contract",
+        "title": "A Major Ore Contract",
+        "speaker": "Regional Mining Bulletin",
+        "text": "Blackstone secured a major ore contract, but buyers have started asking whether your operation can provide a second supply line.",
+        "reputationAward": 15,
+        "trigger": {
+          "type": "company-level",
+          "value": 2
+        }
+      },
+      {
+        "id": "blackstone-notices-operation",
+        "title": "Blackstone Has Noticed",
+        "speaker": "Foreman Cole",
+        "text": "Three productive mines? You have Blackstone's attention now. Do not mistake attention for respect.",
+        "reputationAward": 20,
+        "trigger": {
+          "type": "mines-unlocked",
+          "value": 3
+        }
+      },
+      {
+        "id": "blackstone-purchase-offer",
+        "title": "An Offer From Blackstone",
+        "speaker": "Blackstone Executive Office",
+        "text": "Blackstone Mining has offered to purchase your company. The offer is profitable, final, and declined on your behalf.",
+        "reputationAward": 25,
+        "trigger": {
+          "type": "total-automated-production",
+          "value": 250000
+        }
+      },
+      {
+        "id": "blackstone-production-surpassed",
+        "title": "The Region's Largest Producer",
+        "speaker": "Regional Mining Bulletin",
+        "text": "Your company has surpassed Blackstone's production rate. The company that once owned every rock you broke is now the smaller operation.",
+        "reputationAward": 30,
+        "trigger": {
+          "type": "automation-power",
+          "value": 1000
+        }
+      }
+    ],
+    "acquisition": {
+      "id": "blackstone-acquisition",
+      "title": "Acquire Blackstone Mining Co.",
+      "description": "Purchase your former employer only after your company has the scale, production, mining history, and industry reputation to absorb it.",
+      "price": 250000000,
+      "requirements": {
+        "companyLevel": 4,
+        "ownedMines": 5,
+        "lifetimeOre": 1000000,
+        "reputation": 100,
+        "automationPower": 1000
+      },
+      "productionMultiplier": 2.5,
+      "completion": {
+        "storyStage": "blackstone-owner",
+        "title": "The Company Is Yours",
+        "speaker": "Foreman Cole",
+        "text": "Blackstone Mining Co. now belongs to you. The shaft where you started is one operation in your company, and this acquisition is only the beginning."
+      }
+    }
+  },
   "generators": [
     {
       "id": "hired-miner",

@@ -207,6 +207,21 @@ export class IncrementalGame {
       state.company.level = expectedCompanyLevel;
       changed = true;
     }
+    const expectedReputation = this.config.competition.milestones.reduce(
+      (total, milestone) => (state.milestones.includes(milestone.id)
+        ? safeAdd(total, milestone.reputationAward)
+        : total),
+      0,
+    );
+    if (state.company.reputation !== expectedReputation) {
+      state.company.reputation = expectedReputation;
+      changed = true;
+    }
+    const expectedAcquisitions = state.competition.acquired ? 1 : 0;
+    if (state.statistics.companiesAcquired !== expectedAcquisitions) {
+      state.statistics.companiesAcquired = expectedAcquisitions;
+      changed = true;
+    }
     return { state, changed };
   }
 
@@ -219,6 +234,7 @@ export class IncrementalGame {
     if (snapshot.unlockedMines.some((id) => !this.config.minesById[id])) return false;
     if (Object.keys(snapshot.mineProgress).some((id) => !this.config.minesById[id])) return false;
     if (snapshot.employment.companyId !== this.config.employment.companyId) return false;
+    if (snapshot.competition.rivalId !== this.config.competition.rival.id) return false;
 
     const knownSlots = new Set(this.config.equipment.slots.map((slot) => slot.id));
     const knownItems = new Set(this.config.equipment.items.map((item) => item.id));
@@ -245,19 +261,28 @@ export class IncrementalGame {
         || snapshot.company.level !== 0
         || snapshot.company.createdAt !== null
         || snapshot.company.lifetimeInvestment !== 0
+        || snapshot.competition.acquired
         || Object.values(snapshot.generators).some((owned) => owned > 0)
         || Object.values(snapshot.businessUpgrades).some((rank) => rank > 0))) return false;
     if (snapshot.company.created) {
       const name = normalizedCompanyName(snapshot.company.name);
       const limits = this.config.company.creation;
+      const expectedStage = snapshot.competition.acquired
+        ? this.config.competition.acquisition.completion.storyStage
+        : 'company-owner';
       if (name !== snapshot.company.name
         || name.length < limits.minimumNameLength
         || name.length > limits.maximumNameLength
         || snapshot.company.createdAt === null
         || snapshot.company.level > this.config.company.maxLevel
-        || snapshot.storyStage !== 'company-owner'
+        || snapshot.storyStage !== expectedStage
         || snapshot.employment.active) return false;
     }
+    if (snapshot.competition.acquired && !this.config.competition.enabled) return false;
+    if (this.config.competition.enabled
+      && (snapshot.milestones.includes(this.config.competition.acquisition.id)
+        !== snapshot.competition.acquired)) return false;
+    if (snapshot.statistics.companiesAcquired !== (snapshot.competition.acquired ? 1 : 0)) return false;
 
     const knownResources = new Set(this.config.resources.map((resource) => resource.id));
     const resourceMaps = [
@@ -409,6 +434,7 @@ export class IncrementalGame {
     this.state.cash = Math.max(0, this.state.cash - status.cost);
     this.state.unlockedMines.push(status.mineId);
     this.state.statistics.minesUnlocked = safeAdd(this.state.statistics.minesUnlocked, 1);
+    const milestones = this.evaluateMilestones();
     const result = {
       ...status,
       ok: true,
@@ -416,6 +442,7 @@ export class IncrementalGame {
       canUnlock: false,
       reason: null,
       cash: this.state.cash,
+      milestones,
     };
     this.saveCheckpoint('mine-unlock');
     this.emit('mine-unlocked', result);
@@ -524,6 +551,107 @@ export class IncrementalGame {
     return result;
   }
 
+  getAcquisitionStatus() {
+    if (!this.state) return { ok: false, reason: 'not-started' };
+    const competition = this.config.competition;
+    if (!competition.enabled) return { ok: false, reason: 'competition-disabled' };
+    const acquisition = competition.acquisition;
+    const automationPower = this.getAutomationPower();
+    const requirements = {
+      company: {
+        required: true,
+        current: this.state.company.created,
+        met: this.state.company.created,
+      },
+      cash: {
+        required: acquisition.price,
+        current: this.state.cash,
+        met: this.state.cash >= acquisition.price,
+      },
+      companyLevel: {
+        required: acquisition.requirements.companyLevel,
+        current: this.state.company.level,
+        met: this.state.company.level >= acquisition.requirements.companyLevel,
+      },
+      ownedMines: {
+        required: acquisition.requirements.ownedMines,
+        current: this.state.unlockedMines.length,
+        met: this.state.unlockedMines.length >= acquisition.requirements.ownedMines,
+      },
+      lifetimeOre: {
+        required: acquisition.requirements.lifetimeOre,
+        current: this.state.statistics.totalOreMined,
+        met: this.state.statistics.totalOreMined >= acquisition.requirements.lifetimeOre,
+      },
+      reputation: {
+        required: acquisition.requirements.reputation,
+        current: this.state.company.reputation,
+        met: this.state.company.reputation >= acquisition.requirements.reputation,
+      },
+      automationPower: {
+        required: acquisition.requirements.automationPower,
+        current: automationPower,
+        met: automationPower >= acquisition.requirements.automationPower,
+      },
+    };
+    const unmet = Object.entries(requirements).find(([, requirement]) => !requirement.met)?.[0] || null;
+    return {
+      ok: true,
+      rival: clone(competition.rival),
+      acquisition: clone(acquisition),
+      acquired: this.state.competition.acquired,
+      canAcquire: !this.state.competition.acquired && !unmet,
+      reason: this.state.competition.acquired ? 'already-acquired' : unmet,
+      requirements,
+    };
+  }
+
+  acquireRivalCompany() {
+    if (!this.state) throw new Error('IncrementalGame must be started before acquiring a rival company.');
+    const status = this.getAcquisitionStatus();
+    if (!status.ok || status.acquired || !status.canAcquire) return status;
+    const { acquisition, rival } = this.config.competition;
+
+    this.state.cash = Math.max(0, this.state.cash - acquisition.price);
+    this.state.company.lifetimeInvestment = safeAdd(
+      this.state.company.lifetimeInvestment,
+      acquisition.price,
+    );
+    this.state.company.level = this.companyLevelForInvestment(this.state.company.lifetimeInvestment);
+    this.state.competition.acquired = true;
+    this.state.competition.acquiredAt = this.clock();
+    this.state.competition.acquisitionPricePaid = acquisition.price;
+    this.state.statistics.companiesAcquired = safeAdd(this.state.statistics.companiesAcquired, 1);
+    this.state.storyStage = acquisition.completion.storyStage;
+
+    const milestone = {
+      id: acquisition.id,
+      title: acquisition.completion.title,
+      speaker: acquisition.completion.speaker,
+      text: acquisition.completion.text,
+      category: 'acquisition',
+      reputationAward: 0,
+    };
+    if (!this.state.milestones.includes(milestone.id)) {
+      this.state.milestones.push(milestone.id);
+      this.emit('milestone', clone(milestone));
+    }
+    const result = {
+      ok: true,
+      rivalId: rival.id,
+      rivalName: rival.name,
+      price: acquisition.price,
+      productionMultiplier: acquisition.productionMultiplier,
+      storyStage: this.state.storyStage,
+      acquisition: clone(this.state.competition),
+      automation: this.getAutomationStats(),
+      milestone: clone(milestone),
+    };
+    this.saveCheckpoint('company-acquisition');
+    this.emit('acquisition', result);
+    return result;
+  }
+
   getGeneratorOwned(generatorId) {
     return this.state?.generators?.[normalizedId(generatorId)] || 0;
   }
@@ -611,6 +739,7 @@ export class IncrementalGame {
       generator.workersPerUnit,
     );
     const companyProgress = this.recordCompanyInvestment(cost);
+    const milestones = this.evaluateMilestones();
     const result = {
       ok: true,
       generatorId: id,
@@ -619,6 +748,7 @@ export class IncrementalGame {
       nextCost: this.getGeneratorCost(id),
       companyProgress,
       automation: this.getAutomationStats(),
+      milestones,
     };
     this.saveCheckpoint('generator-purchase');
     this.emit('generator', result);
@@ -642,6 +772,7 @@ export class IncrementalGame {
     this.state.cash = Math.max(0, this.state.cash - cost);
     this.state.businessUpgrades[id] = rank + 1;
     const companyProgress = this.recordCompanyInvestment(cost);
+    const milestones = this.evaluateMilestones();
     const result = {
       ok: true,
       upgradeId: id,
@@ -650,6 +781,7 @@ export class IncrementalGame {
       nextCost: this.getBusinessUpgradeCost(id),
       companyProgress,
       automation: this.getAutomationStats(),
+      milestones,
     };
     this.saveCheckpoint('business-upgrade-purchase');
     this.emit('business-upgrade', result);
@@ -675,12 +807,16 @@ export class IncrementalGame {
       return { id: generator.id, owned, basePower, generatorBonus, power };
     });
     const subtotalPower = generators.reduce((total, entry) => safeAdd(total, entry.power), 0);
+    const acquisitionMultiplier = this.state?.competition?.acquired
+      ? this.config.competition.acquisition.productionMultiplier
+      : 1;
     return {
       skillBonus,
       globalUpgradeBonus,
       globalMultiplier,
+      acquisitionMultiplier,
       subtotalPower,
-      totalPower: safeMultiply(subtotalPower, globalMultiplier),
+      totalPower: safeMultiply(safeMultiply(subtotalPower, globalMultiplier), acquisitionMultiplier),
       generators,
     };
   }
@@ -751,7 +887,7 @@ export class IncrementalGame {
 
   sellResource(resourceId, requestedQuantity = 'all') {
     if (!this.state) throw new Error('IncrementalGame must be started before selling resources.');
-    if (!['independent', 'company-owner'].includes(this.state.storyStage) || this.state.employment.active) {
+    if (this.state.storyStage === 'employee' || this.state.employment.active) {
       return { ok: false, reason: 'not-independent' };
     }
     const id = normalizedId(resourceId);
@@ -991,12 +1127,41 @@ export class IncrementalGame {
     return false;
   }
 
+  competitionMilestoneTriggerMet(milestone) {
+    const { type, value } = milestone.trigger;
+    if (!this.state.company.created) return false;
+    if (type === 'company-level') return this.state.company.level >= value;
+    if (type === 'mines-unlocked') return this.state.unlockedMines.length >= value;
+    if (type === 'total-ore') return this.state.statistics.totalOreMined >= value;
+    if (type === 'total-automated-production') {
+      return this.state.statistics.totalAutomatedProduction >= value;
+    }
+    if (type === 'automation-power') return this.getAutomationPower() >= value;
+    return false;
+  }
+
   evaluateMilestones() {
     const unlocked = [];
     this.config.story.milestones.forEach((milestone) => {
       if (this.state.milestones.includes(milestone.id) || !this.milestoneTriggerMet(milestone)) return;
       this.state.milestones.push(milestone.id);
-      const detail = clone(milestone);
+      const detail = { ...clone(milestone), category: 'story', reputationAward: 0 };
+      unlocked.push(detail);
+      this.emit('milestone', detail);
+    });
+    this.config.competition.milestones.forEach((milestone) => {
+      if (this.state.milestones.includes(milestone.id)
+        || !this.competitionMilestoneTriggerMet(milestone)) return;
+      this.state.milestones.push(milestone.id);
+      this.state.company.reputation = safeAdd(
+        this.state.company.reputation,
+        milestone.reputationAward,
+      );
+      const detail = {
+        ...clone(milestone),
+        category: 'competition',
+        reputation: this.state.company.reputation,
+      };
       unlocked.push(detail);
       this.emit('milestone', detail);
     });

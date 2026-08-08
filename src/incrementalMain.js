@@ -267,6 +267,32 @@ function createRuntimeRoot() {
             <small id="incremental-company-next-level">Invest in workers and upgrades to grow the company.</small>
           </section>
 
+          <section id="incremental-competition-panel" class="incremental-competition-panel incremental-panel">
+            <div class="incremental-competition-header">
+              <div>
+                <span class="incremental-label">FORMER EMPLOYER & RIVAL</span>
+                <h2 id="incremental-rival-name">Rival Mining Company</h2>
+              </div>
+              <strong id="incremental-rival-status">Active Rival</strong>
+            </div>
+            <p id="incremental-rival-description"></p>
+            <div class="incremental-competition-stats">
+              <div><span>Industry reputation</span><strong id="incremental-company-reputation">0 / 0</strong></div>
+              <div><span>Acquisition production benefit</span><strong id="incremental-acquisition-bonus">1x</strong></div>
+            </div>
+            <div id="incremental-competition-milestones" class="incremental-competition-milestones"></div>
+
+            <div id="incremental-acquisition-card" class="incremental-acquisition-card">
+              <div class="incremental-acquisition-heading">
+                <div><span class="incremental-label">MAJOR END-GAME GOAL</span><h3 id="incremental-acquisition-title">Acquire Rival Company</h3></div>
+                <strong id="incremental-acquisition-price">$0</strong>
+              </div>
+              <p id="incremental-acquisition-description"></p>
+              <div id="incremental-acquisition-requirements" class="incremental-acquisition-requirements"></div>
+              <button id="incremental-acquire-company" class="incremental-primary-button" type="button">Acquire Company</button>
+            </div>
+          </section>
+
           <section class="incremental-company-section">
             <div class="incremental-category-heading">
               <h2>Automation</h2>
@@ -465,6 +491,19 @@ function buildUi(root, database) {
     company_investment: byId('incremental-company-investment'),
     company_level_bar: byId('incremental-company-level-bar'),
     company_next_level: byId('incremental-company-next-level'),
+    competition_panel: byId('incremental-competition-panel'),
+    rival_name: byId('incremental-rival-name'),
+    rival_status: byId('incremental-rival-status'),
+    rival_description: byId('incremental-rival-description'),
+    company_reputation: byId('incremental-company-reputation'),
+    acquisition_bonus: byId('incremental-acquisition-bonus'),
+    competition_milestones: byId('incremental-competition-milestones'),
+    acquisition_card: byId('incremental-acquisition-card'),
+    acquisition_title: byId('incremental-acquisition-title'),
+    acquisition_price: byId('incremental-acquisition-price'),
+    acquisition_description: byId('incremental-acquisition-description'),
+    acquisition_requirements: byId('incremental-acquisition-requirements'),
+    acquire_company: byId('incremental-acquire-company'),
     generator_grid: byId('incremental-generator-grid'),
     business_upgrade_grid: byId('incremental-business-upgrade-grid'),
     story_overlay: byId('incremental-story-overlay'),
@@ -981,7 +1020,9 @@ function buildUi(root, database) {
     const cost = game.getGeneratorCost(generator.id);
     const unlock = game.getGeneratorUnlockStatus(generator.id);
     const production = automation.generators.find((entry) => entry.id === generator.id);
-    const effectivePower = (production?.power || 0) * automation.globalMultiplier;
+    const effectivePower = (production?.power || 0)
+      * automation.globalMultiplier
+      * automation.acquisitionMultiplier;
     const card = document.createElement('article');
     card.className = 'incremental-business-card incremental-panel';
     card.classList.toggle('is-locked', !unlock.unlocked);
@@ -1061,6 +1102,67 @@ function buildUi(root, database) {
     return card;
   }
 
+  function renderCompetition(game) {
+    const competition = config.competition;
+    nodes.competition_panel.hidden = !competition.enabled;
+    if (!competition.enabled) return;
+    const state = game.state;
+    const status = game.getAcquisitionStatus();
+    const acquisition = competition.acquisition;
+    const acquired = state.competition.acquired;
+
+    nodes.rival_name.textContent = competition.rival.name;
+    nodes.rival_status.textContent = acquired ? 'Acquired' : competition.rival.statusLabel;
+    nodes.rival_status.classList.toggle('is-acquired', acquired);
+    nodes.rival_description.textContent = acquired
+      ? `${competition.rival.name} is now part of ${state.company.name}. The former rival's shafts and crews provide a permanent production benefit.`
+      : competition.rival.description;
+    nodes.company_reputation.textContent = `${formatNumber(state.company.reputation)} / ${formatNumber(acquisition.requirements.reputation)}`;
+    nodes.acquisition_bonus.textContent = acquired
+      ? `${formatNumber(acquisition.productionMultiplier, { decimals: 2 })}x active`
+      : `${formatNumber(acquisition.productionMultiplier, { decimals: 2 })}x after acquisition`;
+
+    nodes.competition_milestones.replaceChildren();
+    competition.milestones.forEach((milestone) => {
+      const completed = state.milestones.includes(milestone.id);
+      const row = document.createElement('div');
+      row.className = 'incremental-competition-milestone';
+      row.classList.toggle('is-complete', completed);
+      const label = document.createElement('span');
+      label.textContent = milestone.title;
+      const value = document.createElement('strong');
+      value.textContent = completed
+        ? `+${formatNumber(milestone.reputationAward)} reputation`
+        : 'Not reached';
+      row.append(label, value);
+      nodes.competition_milestones.appendChild(row);
+    });
+
+    nodes.acquisition_card.classList.toggle('is-acquired', acquired);
+    nodes.acquisition_title.textContent = acquired
+      ? `${competition.rival.name} Acquired`
+      : acquisition.title;
+    nodes.acquisition_price.textContent = acquired
+      ? `${formatNumber(acquisition.productionMultiplier, { decimals: 2 })}x production`
+      : formatCurrency(acquisition.price);
+    nodes.acquisition_description.textContent = acquired
+      ? acquisition.completion.text
+      : acquisition.description;
+    nodes.acquisition_requirements.replaceChildren(
+      makeCompanyRequirement('Company formed', status.requirements.company.met ? 'Operating' : 'Required', acquired || status.requirements.company.met),
+      makeCompanyRequirement('Purchase cash', acquired ? `${formatCurrency(state.competition.acquisitionPricePaid)} paid` : `${formatCurrency(status.requirements.cash.current)} / ${formatCurrency(status.requirements.cash.required)}`, acquired || status.requirements.cash.met),
+      makeCompanyRequirement('Company level', `${formatNumber(status.requirements.companyLevel.current)} / ${formatNumber(status.requirements.companyLevel.required)}`, acquired || status.requirements.companyLevel.met),
+      makeCompanyRequirement('Owned mines', `${formatNumber(status.requirements.ownedMines.current)} / ${formatNumber(status.requirements.ownedMines.required)}`, acquired || status.requirements.ownedMines.met),
+      makeCompanyRequirement('Lifetime ore', `${formatNumber(status.requirements.lifetimeOre.current)} / ${formatNumber(status.requirements.lifetimeOre.required)}`, acquired || status.requirements.lifetimeOre.met),
+      makeCompanyRequirement('Industry reputation', `${formatNumber(status.requirements.reputation.current)} / ${formatNumber(status.requirements.reputation.required)}`, acquired || status.requirements.reputation.met),
+      makeCompanyRequirement('Automated power', `${formatNumber(status.requirements.automationPower.current)} / ${formatNumber(status.requirements.automationPower.required)} per sec`, acquired || status.requirements.automationPower.met),
+    );
+    nodes.acquire_company.textContent = acquired
+      ? `${competition.rival.name} Acquired`
+      : `Acquire for ${formatCurrency(acquisition.price)}`;
+    nodes.acquire_company.disabled = acquired || !status.canAcquire;
+  }
+
   function renderCompany(game) {
     const state = game.state;
     const created = state.company.created;
@@ -1098,8 +1200,11 @@ function buildUi(root, database) {
 
     const levelDefinition = game.getCompanyLevelDefinition();
     const nextLevel = game.getNextCompanyLevel();
+    const acquired = state.competition.acquired;
     nodes.company_heading.textContent = state.company.name;
-    nodes.company_intro.textContent = 'Your workers damage the active deposit while your personal miner supplies XP, critical hits, and bonus ore.';
+    nodes.company_intro.textContent = acquired
+      ? `${config.competition.rival.name} has been integrated into your operation. Personal mining still supplies XP, critical hits, and rare finds.`
+      : 'Your workers damage the active deposit while your personal miner supplies XP, critical hits, and bonus ore.';
     if (nodes.company_status.textContent === 'Build your own operation after leaving Blackstone.') {
       nodes.company_status.textContent = `${state.company.name} is operating locally; purchases and production save to this game package only.`;
     }
@@ -1116,7 +1221,11 @@ function buildUi(root, database) {
     nodes.company_level_bar.parentElement.setAttribute('aria-valuenow', String(Math.floor(progress * 100)));
     nodes.company_next_level.textContent = nextLevel
       ? `${formatCurrency(Math.max(0, nextLevel.requiredInvestment - state.company.lifetimeInvestment))} more investment to reach level ${nextLevel.level}: ${nextLevel.name}.`
-      : 'Maximum company level for this build reached; additional progression can be added later.';
+      : acquired
+        ? `${config.competition.rival.name} is integrated. This company state is ready for progression beyond the acquisition.`
+        : `Maximum company level reached. Complete the remaining ${config.competition.rival.name} acquisition requirements to continue the story.`;
+
+    renderCompetition(game);
 
     nodes.generator_grid.replaceChildren();
     config.generators.forEach((generator) => {
@@ -1146,7 +1255,8 @@ function buildUi(root, database) {
     const miningStats = game.getMiningStats();
     const automation = game.getAutomationStats();
     const employeeStage = state.storyStage === 'employee' && state.employment.active;
-    const companyOwner = state.company.created && state.storyStage === 'company-owner';
+    const companyOwner = state.company.created && !state.employment.active;
+    const acquiredRival = state.competition.acquired;
     const xpNeeded = game.getXpRequired();
     const xpProgress = Math.max(0, Math.min(1, state.character.xp / xpNeeded));
     const hpProgress = Math.max(0, Math.min(1, state.currentDeposit.hp / state.currentDeposit.maxHp));
@@ -1172,7 +1282,9 @@ function buildUi(root, database) {
     nodes.employer.textContent = employeeStage
       ? config.employment.companyName
       : companyOwner
-        ? state.company.name
+        ? acquiredRival
+          ? `${state.company.name} · ${config.competition.rival.name}`
+          : state.company.name
         : config.independence.operationName;
     nodes.instruction.textContent = employeeStage ? config.ui.instruction : config.independence.instruction;
     nodes.deposit_name.textContent = deposit.name;
@@ -1612,6 +1724,19 @@ async function bootstrap() {
         : result.reason === 'max-rank'
           ? `${upgrade.name} is already at maximum rank.`
           : businessRequirementTextForResult(result, database.config);
+    ui.render(game);
+  });
+
+  ui.nodes.acquire_company.addEventListener('click', () => {
+    const acquisition = database.config.competition.acquisition;
+    const rival = database.config.competition.rival;
+    if (!window.confirm(`Acquire ${rival.name} for ${formatCurrency(acquisition.price)}? This purchase is permanent for this save.`)) return;
+    const result = game.acquireRivalCompany();
+    ui.nodes.company_status.textContent = result.ok
+      ? `${rival.name} acquired for ${formatCurrency(result.price)}. Automated production now receives a permanent ${formatNumber(result.productionMultiplier, { decimals: 2 })}x multiplier.`
+      : result.reason === 'already-acquired'
+        ? `${rival.name} is already part of your company.`
+        : 'One or more acquisition requirements are still incomplete.';
     ui.render(game);
   });
 
