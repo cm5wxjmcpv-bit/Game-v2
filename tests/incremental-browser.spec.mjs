@@ -31,7 +31,7 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-cash')).not.toHaveText('$0');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
   expect(saved.gameType).toBe('incremental');
-  expect(saved.version).toBe(3);
+  expect(saved.version).toBe(4);
   expect(saved.payload.statistics.totalManualSwings).toBe(10);
   expect(saved.payload.statistics.totalDepositsBroken).toBe(1);
   expect(saved.payload.statistics.totalOreMined).toBeGreaterThan(0);
@@ -179,7 +179,7 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
   await expect(ticket.locator('.incremental-lottery-reveal')).toBeVisible();
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
-  expect(saved.version).toBe(3);
+  expect(saved.version).toBe(4);
   expect(saved.payload.materials.stone).toBe(2);
   expect(saved.payload.statistics.totalOreSold).toBe(10);
   expect(saved.payload.ownedEquipment).toContain('iron-pickaxe');
@@ -193,6 +193,103 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
   await page.locator('#incremental-tab-equipment').click();
   await expect(page.locator('#incremental-equipment-power')).toHaveText('3');
   await expect(page.locator('.incremental-slot-card', { hasText: 'Main Tool' })).toContainText('Iron Pickaxe');
+});
+
+test('company creation, scalable generators, upgrades, and deposit automation persist', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+
+  await page.goto('/?game=miner-incremental');
+  await page.locator('#incremental-story-continue').click();
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('milestone-four-seeded')) return;
+    const key = 'pixel_engine_save_miner-incremental_slot_1';
+    const save = JSON.parse(localStorage.getItem(key));
+    if (!save) return;
+    save.payload.cash = 50000;
+    save.payload.character.level = 3;
+    save.payload.character.xp = 0;
+    save.payload.storyStage = 'independent';
+    save.payload.employment.active = false;
+    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.endedAt = Date.now();
+    save.payload.currentDeposit.hp = 2;
+    save.payload.milestones = [
+      'blackstone-first-shift',
+      'blackstone-level-two',
+      'contract-within-reach',
+      'contract-bought',
+    ];
+    localStorage.setItem(key, JSON.stringify(save));
+    sessionStorage.setItem('milestone-four-seeded', 'true');
+  });
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+
+  await page.locator('#incremental-tab-company').click();
+  await expect(page.getByRole('heading', { name: 'Start a Mining Company' })).toBeVisible();
+  await expect(page.locator('#incremental-create-company')).toBeDisabled();
+  await page.locator('#incremental-company-name').fill('Freedom Forge Mining');
+  await expect(page.locator('#incremental-create-company')).toBeEnabled();
+  await page.locator('#incremental-create-company').click();
+  await expect(page.locator('#incremental-story-title')).toHaveText('A Company of Your Own');
+  await page.locator('#incremental-story-continue').click();
+  await expect(page.getByRole('heading', { name: 'Freedom Forge Mining' })).toBeVisible();
+  await expect(page.locator('#incremental-company-level-summary')).toContainText('Company level 1');
+  await expect(page.locator('#incremental-company-production')).toHaveText('0/sec');
+
+  const hiredMiner = page.locator('.incremental-business-card').filter({
+    has: page.getByRole('heading', { name: 'Hired Miner', exact: true }),
+  });
+  await expect(hiredMiner).toContainText('$1.20K');
+  await hiredMiner.getByRole('button', { name: /Buy for/ }).click();
+  await expect(hiredMiner).toContainText('Owned 1');
+  await expect(hiredMiner).toContainText('$1.38K');
+  await hiredMiner.getByRole('button', { name: /Buy for/ }).click();
+  await expect(hiredMiner).toContainText('Owned 2');
+  await expect(hiredMiner).toContainText('$1.59K');
+  await hiredMiner.getByRole('button', { name: /Buy for/ }).click();
+  await expect(hiredMiner).toContainText('Owned 3');
+  await expect(page.locator('#incremental-company-level-summary')).toContainText('Company level 2');
+  await expect(page.locator('#incremental-company-production')).toHaveText('3/sec');
+
+  await expect(page.locator('#incremental-last-result')).toContainText('Your operation broke', { timeout: 5000 });
+  const training = page.locator('.incremental-business-card').filter({
+    has: page.getByRole('heading', { name: 'Worker Training', exact: true }),
+  });
+  await training.getByRole('button', { name: /Upgrade for/ }).click();
+  await expect(training).toContainText('Rank 1 / 5');
+  await expect(page.locator('#incremental-company-production')).toHaveText('3.45/sec');
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')));
+  expect(saved.version).toBe(4);
+  expect(saved.payload.storyStage).toBe('company-owner');
+  expect(saved.payload.company.name).toBe('Freedom Forge Mining');
+  expect(saved.payload.company.level).toBe(2);
+  expect(saved.payload.company.lifetimeInvestment).toBe(7167);
+  expect(saved.payload.generators['hired-miner']).toBe(3);
+  expect(saved.payload.businessUpgrades['worker-training']).toBe(1);
+  expect(saved.payload.statistics.workersHired).toBe(3);
+  expect(saved.payload.statistics.totalAutomatedProduction).toBeGreaterThan(0);
+  expect(saved.payload.character.xp).toBe(0);
+  expect(Object.values(saved.payload.materials).every((quantity) => quantity >= 0)).toBe(true);
+
+  await page.reload();
+  await expect(page.locator('#incremental-save-status')).toHaveText('Local save loaded');
+  await expect(page.locator('#incremental-role')).toHaveText('Founder & Lead Miner');
+  await expect(page.locator('#incremental-employer')).toHaveText('Freedom Forge Mining');
+  await page.locator('#incremental-tab-company').click();
+  await expect(page.locator('#incremental-company-level-summary')).toContainText('Company level 2');
+  await expect(page.locator('#incremental-company-production')).toHaveText('3.45/sec');
+  await expect(page.locator('.incremental-business-card').filter({
+    has: page.getByRole('heading', { name: 'Hired Miner', exact: true }),
+  })).toContainText('Owned 3');
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
 });
 
 test.describe('touch viewport', () => {
@@ -215,6 +312,44 @@ test.describe('touch viewport', () => {
     await expect(page.getByRole('heading', { name: "Miller's General Store" })).toBeVisible();
     const navBox = await page.locator('#incremental-tab-store').boundingBox();
     expect(navBox.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('mobile-company-seeded')) return;
+      const key = 'pixel_engine_save_miner-incremental_slot_1';
+      const save = JSON.parse(localStorage.getItem(key));
+      if (!save) return;
+      save.payload.cash = 5000;
+      save.payload.character.level = 3;
+      save.payload.storyStage = 'company-owner';
+      save.payload.employment.active = false;
+      save.payload.employment.contractBuyoutPaid = 500;
+      save.payload.employment.endedAt = Date.now();
+      save.payload.company = {
+        created: true,
+        name: 'Pocket Mine Co.',
+        level: 1,
+        reputation: 0,
+        createdAt: Date.now(),
+        lifetimeInvestment: 0,
+      };
+      save.payload.milestones = [
+        'blackstone-first-shift',
+        'blackstone-level-two',
+        'contract-within-reach',
+        'contract-bought',
+        'company-founded',
+      ];
+      localStorage.setItem(key, JSON.stringify(save));
+      sessionStorage.setItem('mobile-company-seeded', 'true');
+    });
+    await page.reload();
+    await page.locator('#incremental-tab-company').tap();
+    await expect(page.getByRole('heading', { name: 'Pocket Mine Co.' })).toBeVisible();
+    const companyCard = page.locator('.incremental-business-card').first();
+    const companyCardBox = await companyCard.boundingBox();
+    expect(companyCardBox.x).toBeGreaterThanOrEqual(0);
+    expect(companyCardBox.x + companyCardBox.width).toBeLessThanOrEqual(390);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 });

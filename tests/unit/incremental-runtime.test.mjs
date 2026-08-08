@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeGameManifest } from '../../src/gameManifest.js';
-import { normalizeIncrementalConfig, rollScratchPrize } from '../../src/incrementalContent.js';
+import { normalizeIncrementalConfig, rollScratchPrize, scaledPurchaseCost } from '../../src/incrementalContent.js';
 import { IncrementalGame } from '../../src/incrementalGame.js';
 import {
   INCREMENTAL_SAVE_VERSION,
@@ -28,6 +28,7 @@ function rawConfig() {
       baseCriticalChance: 0,
       baseCriticalDamage: 2,
       baseOreYieldChance: 0,
+      maxAutomationBreaksPerTick: 100,
     },
     progression: {
       xpBase: 100,
@@ -84,8 +85,6 @@ function rawConfig() {
         id: 'automation-bonus',
         name: 'Automation Bonus',
         maxRank: 2,
-        enabled: false,
-        unlockNote: 'Reserved for automation.',
         effect: { type: 'automation-bonus', amount: 0.1, label: '+10% automation' },
       },
     ],
@@ -161,6 +160,81 @@ function rawConfig() {
         },
       ],
     },
+    company: {
+      ownerRole: 'Founder',
+      creation: {
+        cost: 100,
+        requiredCharacterLevel: 2,
+        minimumNameLength: 2,
+        maximumNameLength: 30,
+      },
+      levels: [
+        { level: 1, name: 'Test Outfit', requiredInvestment: 0 },
+        { level: 2, name: 'Test Company', requiredInvestment: 30 },
+        { level: 3, name: 'Test Producer', requiredInvestment: 200 },
+      ],
+    },
+    generators: [
+      {
+        id: 'hired-miner',
+        name: 'Hired Miner',
+        baseCost: 10,
+        growthRate: 1.5,
+        powerPerSecond: 1,
+        workersPerUnit: 1,
+        unlock: { companyLevel: 1 },
+      },
+      {
+        id: 'test-crew',
+        name: 'Test Crew',
+        baseCost: 40,
+        growthRate: 2,
+        powerPerSecond: 5,
+        workersPerUnit: 3,
+        unlock: {
+          companyLevel: 2,
+          requiredGeneratorId: 'hired-miner',
+          requiredGeneratorOwned: 2,
+        },
+      },
+    ],
+    businessUpgrades: [
+      {
+        id: 'worker-training',
+        name: 'Worker Training',
+        baseCost: 20,
+        growthRate: 2,
+        maxRank: 2,
+        effect: {
+          type: 'automation-multiplier',
+          amount: 0.25,
+          label: '+25% automation',
+        },
+        unlock: {
+          companyLevel: 1,
+          requiredGeneratorId: 'hired-miner',
+          requiredGeneratorOwned: 1,
+        },
+      },
+      {
+        id: 'crew-tools',
+        name: 'Crew Tools',
+        baseCost: 50,
+        growthRate: 2,
+        maxRank: 2,
+        effect: {
+          type: 'generator-multiplier',
+          generatorId: 'test-crew',
+          amount: 0.5,
+          label: '+50% crew power',
+        },
+        unlock: {
+          companyLevel: 2,
+          requiredGeneratorId: 'test-crew',
+          requiredGeneratorOwned: 1,
+        },
+      },
+    ],
     story: {
       milestones: [
         {
@@ -233,7 +307,7 @@ function createGame(gameConfig = config(), options = {}) {
   const saves = [];
   const game = new IncrementalGame({
     config: gameConfig,
-    gameVersion: '0.3.0',
+    gameVersion: '0.4.0',
     random: options.random || (() => 0),
     clock: options.clock || (() => 1_000),
     saveAdapter: options.saveAdapter || {
@@ -278,9 +352,19 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   broken.equipment.items[1].requiresItemId = 'missing';
   broken.store.categories[1].scratchTicketIds = ['missing'];
   broken.lottery.scratchTickets[0].prizes[0].probability = 0.4;
+  broken.generators[1].unlock.requiredGeneratorId = 'missing';
+  broken.businessUpgrades[1].effect.generatorId = 'missing';
+  broken.generators[0].growthRate = Number.POSITIVE_INFINITY;
   assert.throws(
     () => normalizeIncrementalConfig(broken, { gameId: 'miner-incremental' }),
-    /missing resource|reward\.max|effect\.amount|trigger\.type|missing item|missing scratch ticket|total exactly 1/,
+    /missing resource|reward\.max|effect\.amount|trigger\.type|missing item|missing scratch ticket|total exactly 1|missing generator|growthRate/,
+  );
+
+  const emptyCompanyLevels = rawConfig();
+  emptyCompanyLevels.company.levels = [];
+  assert.throws(
+    () => normalizeIncrementalConfig(emptyCompanyLevels, { gameId: 'miner-incremental' }),
+    /company\.levels must contain at least one/,
   );
 });
 
@@ -388,13 +472,14 @@ test('skill allocation validates points and rank limits while deterministic skil
   game.start();
   assert.equal(game.allocateSkill('missing').reason, 'unknown-skill');
   assert.equal(game.allocateSkill('mining-power').reason, 'no-skill-points');
-  game.state.character.skillPoints = 4;
-  assert.equal(game.allocateSkill('automation-bonus').reason, 'skill-locked');
+  game.state.character.skillPoints = 5;
+  assert.equal(game.allocateSkill('automation-bonus').ok, true);
   assert.equal(game.allocateSkill('mining-power').ok, true);
   assert.equal(game.allocateSkill('critical-chance').ok, true);
   assert.equal(game.allocateSkill('critical-damage').ok, true);
   assert.equal(game.allocateSkill('ore-yield').ok, true);
   assert.equal(game.getManualPower(), 3);
+  assert.equal(game.getMiningStats().automationBonus, 0.1);
 
   const broken = game.mine();
   assert.equal(broken.type, 'break');
@@ -616,6 +701,128 @@ test('data-driven milestone triggers unlock once at start, level, contract, and 
   assert.deepEqual(seen, ['first-shift', 'contract-ready', 'level-two', 'contract-bought']);
 });
 
+test('company creation validates independence, level, name, and cash before recording a safe name', () => {
+  const { game } = createGame(config(), { clock: () => 1_234 });
+  game.start();
+  assert.equal(game.createCompany('Test Mining').reason, 'not-independent');
+
+  game.state.storyStage = 'independent';
+  game.state.employment.active = false;
+  game.state.cash = 100;
+  assert.equal(game.createCompany('Test Mining').reason, 'level-required');
+  game.state.character.level = 2;
+  assert.equal(game.createCompany('X').reason, 'invalid-name');
+  game.state.cash = 99;
+  assert.equal(game.createCompany('Test Mining').reason, 'insufficient-cash');
+
+  game.state.cash = 100;
+  const created = game.createCompany('  Test\u0000   Mining  ');
+  assert.equal(created.ok, true);
+  assert.equal(created.name, 'Test Mining');
+  assert.equal(game.state.cash, 0);
+  assert.equal(game.state.company.created, true);
+  assert.equal(game.state.company.name, 'Test Mining');
+  assert.equal(game.state.company.level, 1);
+  assert.equal(game.state.company.createdAt, 1_234);
+  assert.equal(game.state.company.lifetimeInvestment, 0);
+  assert.equal(game.state.storyStage, 'company-owner');
+  assert.equal(game.createCompany('Again').reason, 'already-created');
+});
+
+test('generator costs scale predictably and purchases drive workers and company levels', () => {
+  assert.equal(scaledPurchaseCost(10, 1.5, 0), 10);
+  assert.equal(scaledPurchaseCost(10, 1.5, 1), 15);
+  assert.equal(scaledPurchaseCost(10, 1.5, 2), 23);
+  assert.equal(scaledPurchaseCost(Number.MAX_SAFE_INTEGER, 2, 100), Number.MAX_SAFE_INTEGER);
+
+  const { game } = createGame();
+  game.start();
+  assert.equal(game.purchaseGenerator('missing').reason, 'unknown-generator');
+  assert.equal(game.purchaseGenerator('hired-miner').reason, 'company-required');
+  game.state.storyStage = 'independent';
+  game.state.employment.active = false;
+  game.state.character.level = 2;
+  game.state.cash = 1_000;
+  game.createCompany('Test Mining');
+
+  assert.equal(game.purchaseGenerator('test-crew').reason, 'company-level');
+  const first = game.purchaseGenerator('hired-miner');
+  assert.equal(first.ok, true);
+  assert.equal(first.cost, 10);
+  assert.equal(first.nextCost, 15);
+  assert.equal(game.state.generators['hired-miner'], 1);
+  assert.equal(game.state.statistics.workersHired, 1);
+  assert.equal(game.state.company.lifetimeInvestment, 10);
+  assert.equal(game.purchaseGenerator('test-crew').reason, 'company-level');
+
+  const training = game.purchaseBusinessUpgrade('worker-training');
+  assert.equal(training.ok, true);
+  assert.equal(training.cost, 20);
+  assert.equal(training.rank, 1);
+  assert.equal(training.nextCost, 40);
+  assert.equal(game.state.company.level, 2);
+  assert.equal(game.purchaseGenerator('test-crew').reason, 'generator-required');
+
+  const second = game.purchaseGenerator('hired-miner');
+  assert.equal(second.cost, 15);
+  const crew = game.purchaseGenerator('test-crew');
+  assert.equal(crew.ok, true);
+  assert.equal(crew.cost, 40);
+  assert.equal(game.state.statistics.workersHired, 5);
+  assert.equal(game.state.company.lifetimeInvestment, 85);
+  assert.equal(game.state.cash, 815);
+  assert.ok(Object.values(game.state.generators).every((owned) => owned >= 0));
+});
+
+test('business upgrades and automation damage the active deposit while manual mining owns XP progression', () => {
+  const { game } = createGame();
+  game.start();
+  game.state.storyStage = 'independent';
+  game.state.employment.active = false;
+  game.state.character.level = 2;
+  game.state.character.skillPoints = 1;
+  game.state.cash = 1_000;
+  game.createCompany('Test Mining');
+  game.purchaseGenerator('hired-miner');
+
+  const firstTick = game.update(2);
+  assert.equal(firstTick.automation.damage, 2);
+  assert.equal(firstTick.automation.depositsBroken, 0);
+  assert.equal(game.state.currentDeposit.hp, 2);
+  assert.equal(game.state.character.xp, 0);
+  assert.equal(game.state.materials.stone, 0);
+
+  const secondTick = game.update(2);
+  assert.equal(secondTick.automation.depositsBroken, 1);
+  assert.equal(secondTick.automation.resources.stone, 2);
+  assert.equal(game.state.materials.stone, 2);
+  assert.equal(game.state.character.xp, 0);
+  assert.equal(game.state.statistics.totalAutomatedProduction, 2);
+  assert.equal(game.state.statistics.totalDepositsBroken, 1);
+  assert.equal(game.state.statistics.totalManualSwings, 0);
+  assert.deepEqual(game.state.currentDeposit, { id: 'stone-face', hp: 4, maxHp: 4 });
+
+  assert.equal(game.allocateSkill('automation-bonus').ok, true);
+  assert.equal(game.purchaseBusinessUpgrade('worker-training').ok, true);
+  assert.equal(game.getAutomationPower(), 1.35);
+  assert.equal(game.purchaseBusinessUpgrade('worker-training').ok, true);
+  assert.equal(game.purchaseBusinessUpgrade('worker-training').reason, 'max-rank');
+  assert.equal(game.getAutomationPower(), 1.6);
+
+  game.purchaseGenerator('hired-miner');
+  game.purchaseGenerator('test-crew');
+  assert.equal(game.purchaseBusinessUpgrade('crew-tools').ok, true);
+  assert.ok(Math.abs(game.getAutomationPower() - 15.2) < 1e-9);
+
+  game.state.currentDeposit.hp = 2;
+  const manualBreak = game.mine();
+  assert.equal(manualBreak.source, 'manual');
+  assert.equal(manualBreak.xp, 5);
+  assert.equal(game.state.character.xp, 5);
+  assert.equal(game.state.statistics.totalManualSwings, 1);
+  assert.ok(Object.values(game.state.materials).every((quantity) => quantity >= 0));
+});
+
 test('incremental tick support tracks time and autosaves at the configured interval', () => {
   let saveCount = 0;
   const { game } = createGame(config(), {
@@ -633,12 +840,12 @@ test('incremental tick support tracks time and autosaves at the configured inter
   assert.equal(game.state.statistics.timePlayed, 2);
 });
 
-test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or future data', (t) => {
+test('incremental saves round trip, migrate v1-v3 saves, and reject malformed or future data', (t) => {
   const originalWindow = globalThis.window;
   t.after(() => { globalThis.window = originalWindow; });
   globalThis.window = { location: { href: 'http://localhost/?game=miner-incremental' } };
   const local = storage();
-  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.3.0' });
+  const snapshot = createInitialIncrementalSnapshot(config(), { now: 1234, gameVersion: '0.4.0' });
 
   assert.equal(saveIncrementalGame(snapshot, 1, { storage: local, now: 1234 }), true);
   assert.ok(local.values.has('pixel_engine_save_miner-incremental_slot_1'));
@@ -647,6 +854,9 @@ test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or
   const negative = JSON.parse(JSON.stringify(snapshot));
   negative.materials.stone = -1;
   assert.equal(validateIncrementalSnapshot(negative), false);
+  const negativeGenerator = JSON.parse(JSON.stringify(snapshot));
+  negativeGenerator.generators['hired-miner'] = -1;
+  assert.equal(validateIncrementalSnapshot(negativeGenerator), false);
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify({
     version: INCREMENTAL_SAVE_VERSION,
     gameType: 'incremental',
@@ -655,6 +865,22 @@ test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or
     payload: negative,
   }));
   assert.equal(loadIncrementalGame(1, { storage: local }), null);
+
+  const businessSnapshot = JSON.parse(JSON.stringify(snapshot));
+  businessSnapshot.storyStage = 'company-owner';
+  businessSnapshot.employment.active = false;
+  businessSnapshot.company = {
+    created: true,
+    name: 'Round Trip Mining',
+    level: 2,
+    reputation: 0,
+    createdAt: 1234,
+    lifetimeInvestment: 30,
+  };
+  businessSnapshot.generators['hired-miner'] = 2;
+  businessSnapshot.businessUpgrades['worker-training'] = 1;
+  assert.equal(saveIncrementalGame(businessSnapshot, 1, { storage: local, now: 1234 }), true);
+  assert.deepEqual(loadIncrementalGame(1, { storage: local }), businessSnapshot);
 
   const unknownEquipment = JSON.parse(JSON.stringify(snapshot));
   unknownEquipment.ownedEquipment.push('forged-client-item');
@@ -679,11 +905,13 @@ test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or
   };
   local.setItem('pixel_engine_save_miner-incremental_slot_1', JSON.stringify(legacyEnvelope));
   const migratedLegacy = loadIncrementalGame(1, { storage: local });
-  assert.equal(migratedLegacy.saveVersion, 3);
+  assert.equal(migratedLegacy.saveVersion, 4);
   assert.deepEqual(migratedLegacy.ownedEquipment, ['starter-pickaxe']);
   assert.equal(migratedLegacy.employment.active, true);
   assert.equal(migratedLegacy.employment.contractBuyoutPaid, 0);
   assert.equal(migratedLegacy.employment.endedAt, null);
+  assert.equal(migratedLegacy.company.createdAt, null);
+  assert.equal(migratedLegacy.company.lifetimeInvestment, 0);
   assert.ok(normalizeIncrementalSaveEnvelope(legacyEnvelope, {
     gameId: 'miner-incremental', slot: 1,
   }));
@@ -693,7 +921,7 @@ test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or
   milestoneTwo.equipment = {};
   delete milestoneTwo.ownedEquipment;
   const migratedMilestoneTwo = migrateIncrementalSnapshot(milestoneTwo);
-  assert.equal(migratedMilestoneTwo.saveVersion, 3);
+  assert.equal(migratedMilestoneTwo.saveVersion, 4);
   assert.deepEqual(migratedMilestoneTwo.ownedEquipment, []);
   let reconciledSave = null;
   const { game: reconciledGame } = createGame(config(), {
@@ -703,10 +931,27 @@ test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or
     },
   });
   assert.equal(reconciledGame.start().source, 'save');
-  assert.equal(reconciledGame.state.gameVersion, '0.3.0');
+  assert.equal(reconciledGame.state.gameVersion, '0.4.0');
   assert.deepEqual(reconciledGame.state.ownedEquipment, ['starter-pickaxe']);
   assert.equal(reconciledGame.state.equipment.tool, 'starter-pickaxe');
   assert.deepEqual(reconciledSave.ownedEquipment, ['starter-pickaxe']);
+
+  const milestoneThree = JSON.parse(JSON.stringify(snapshot));
+  milestoneThree.saveVersion = 3;
+  milestoneThree.generators = {};
+  milestoneThree.businessUpgrades = {};
+  delete milestoneThree.company.createdAt;
+  delete milestoneThree.company.lifetimeInvestment;
+  const migratedMilestoneThree = migrateIncrementalSnapshot(milestoneThree);
+  assert.equal(migratedMilestoneThree.saveVersion, 4);
+  assert.equal(migratedMilestoneThree.company.createdAt, null);
+  assert.equal(migratedMilestoneThree.company.lifetimeInvestment, 0);
+  const { game: milestoneFourGame } = createGame(config(), {
+    saveAdapter: { load: () => migratedMilestoneThree, save: () => true },
+  });
+  assert.equal(milestoneFourGame.start().source, 'save');
+  assert.deepEqual(milestoneFourGame.state.generators, { 'hired-miner': 0, 'test-crew': 0 });
+  assert.deepEqual(milestoneFourGame.state.businessUpgrades, { 'worker-training': 0, 'crew-tools': 0 });
 
   const cyclic = { ...snapshot };
   cyclic.self = cyclic;
@@ -723,7 +968,7 @@ test('incremental saves round trip, migrate v1/v2 saves, and reject malformed or
 
   const versionZero = JSON.parse(JSON.stringify(snapshot));
   delete versionZero.saveVersion;
-  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 3);
+  assert.equal(migrateIncrementalSnapshot(versionZero).saveVersion, 4);
 });
 
 test('large values use compact readable formatting', () => {

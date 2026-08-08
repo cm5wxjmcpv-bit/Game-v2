@@ -2,6 +2,7 @@ import {
   rollChance,
   rollDepositReward,
   rollScratchPrize,
+  scaledPurchaseCost,
   selectWeightedDeposit,
   xpRequiredForLevel,
 } from './incrementalContent.js';
@@ -30,6 +31,13 @@ function safeMultiply(left, right) {
 
 function normalizedId(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function normalizedCompanyName(value) {
+  return String(value || '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 export class IncrementalGame {
@@ -125,6 +133,25 @@ export class IncrementalGame {
         changed = true;
       }
     });
+    this.config.generators.forEach((generator) => {
+      if (!Number.isInteger(state.generators[generator.id])) {
+        state.generators[generator.id] = 0;
+        changed = true;
+      }
+    });
+    this.config.businessUpgrades.forEach((upgrade) => {
+      if (!Number.isInteger(state.businessUpgrades[upgrade.id])) {
+        state.businessUpgrades[upgrade.id] = 0;
+        changed = true;
+      }
+    });
+    const expectedCompanyLevel = state.company.created
+      ? this.companyLevelForInvestment(state.company.lifetimeInvestment)
+      : 0;
+    if (state.company.level !== expectedCompanyLevel) {
+      state.company.level = expectedCompanyLevel;
+      changed = true;
+    }
     return { state, changed };
   }
 
@@ -147,6 +174,34 @@ export class IncrementalGame {
       return Boolean(item) && item.slotId === slotId && snapshot.ownedEquipment.includes(itemId);
     })) return false;
     if (snapshot.lotteryState.scratchTickets.some((id) => !this.config.lottery.scratchTicketsById[id])) return false;
+
+    const knownGenerators = new Set(this.config.generators.map((generator) => generator.id));
+    if (!Object.entries(snapshot.generators).every(([id, owned]) => (
+      knownGenerators.has(id) && Number.isInteger(owned) && owned >= 0
+    ))) return false;
+    const knownUpgrades = new Set(this.config.businessUpgrades.map((upgrade) => upgrade.id));
+    if (!Object.entries(snapshot.businessUpgrades).every(([id, rank]) => {
+      const upgrade = this.config.businessUpgradesById[id];
+      return knownUpgrades.has(id) && Number.isInteger(rank) && rank >= 0 && rank <= upgrade.maxRank;
+    })) return false;
+    if (!snapshot.company.created
+      && (snapshot.company.name !== ''
+        || snapshot.company.level !== 0
+        || snapshot.company.createdAt !== null
+        || snapshot.company.lifetimeInvestment !== 0
+        || Object.values(snapshot.generators).some((owned) => owned > 0)
+        || Object.values(snapshot.businessUpgrades).some((rank) => rank > 0))) return false;
+    if (snapshot.company.created) {
+      const name = normalizedCompanyName(snapshot.company.name);
+      const limits = this.config.company.creation;
+      if (name !== snapshot.company.name
+        || name.length < limits.minimumNameLength
+        || name.length > limits.maximumNameLength
+        || snapshot.company.createdAt === null
+        || snapshot.company.level > this.config.company.maxLevel
+        || snapshot.storyStage !== 'company-owner'
+        || snapshot.employment.active) return false;
+    }
 
     const knownResources = new Set(this.config.resources.map((resource) => resource.id));
     const resourceMaps = [
@@ -214,6 +269,243 @@ export class IncrementalGame {
     return this.getMiningStats().manualPower;
   }
 
+  companyLevelForInvestment(investment) {
+    const total = Math.max(0, Number(investment) || 0);
+    return this.config.company.levels.reduce(
+      (level, entry) => (total >= entry.requiredInvestment ? entry.level : level),
+      1,
+    );
+  }
+
+  getCompanyLevelDefinition(level = this.state?.company?.level || 0) {
+    return this.config.company.levelsByLevel[level] || null;
+  }
+
+  getNextCompanyLevel() {
+    if (!this.state?.company?.created) return this.config.company.levels[0] || null;
+    return this.config.company.levels.find((entry) => entry.level > this.state.company.level) || null;
+  }
+
+  getCompanyCreationStatus(companyName = '') {
+    if (!this.state) return { ok: false, reason: 'not-started' };
+    if (this.state.company.created) return { ok: false, reason: 'already-created' };
+    if (this.state.employment.active || this.state.storyStage !== 'independent') {
+      return { ok: false, reason: 'not-independent' };
+    }
+    const creation = this.config.company.creation;
+    if (this.state.character.level < creation.requiredCharacterLevel) {
+      return {
+        ok: false,
+        reason: 'level-required',
+        requiredLevel: creation.requiredCharacterLevel,
+        level: this.state.character.level,
+      };
+    }
+    const name = normalizedCompanyName(companyName);
+    if (name.length < creation.minimumNameLength || name.length > creation.maximumNameLength) {
+      return {
+        ok: false,
+        reason: 'invalid-name',
+        name,
+        minimumNameLength: creation.minimumNameLength,
+        maximumNameLength: creation.maximumNameLength,
+      };
+    }
+    if (this.state.cash < creation.cost) {
+      return { ok: false, reason: 'insufficient-cash', cost: creation.cost, cash: this.state.cash, name };
+    }
+    return { ok: true, name, cost: creation.cost };
+  }
+
+  createCompany(companyName) {
+    const status = this.getCompanyCreationStatus(companyName);
+    if (!status.ok) return status;
+    this.state.cash = Math.max(0, this.state.cash - status.cost);
+    this.state.company.created = true;
+    this.state.company.name = status.name;
+    this.state.company.level = 1;
+    this.state.company.createdAt = this.clock();
+    this.state.company.lifetimeInvestment = 0;
+    this.state.storyStage = 'company-owner';
+    const milestones = this.evaluateMilestones();
+    const result = {
+      ok: true,
+      name: status.name,
+      cost: status.cost,
+      level: this.state.company.level,
+      storyStage: this.state.storyStage,
+      milestones,
+    };
+    this.saveCheckpoint('company-created');
+    this.emit('company', { type: 'created', ...result });
+    return result;
+  }
+
+  getGeneratorOwned(generatorId) {
+    return this.state?.generators?.[normalizedId(generatorId)] || 0;
+  }
+
+  getGeneratorCost(generatorId) {
+    const generator = this.config.generatorsById[normalizedId(generatorId)];
+    if (!generator) return null;
+    return scaledPurchaseCost(generator.baseCost, generator.growthRate, this.getGeneratorOwned(generator.id));
+  }
+
+  getBusinessUpgradeRank(upgradeId) {
+    return this.state?.businessUpgrades?.[normalizedId(upgradeId)] || 0;
+  }
+
+  getBusinessUpgradeCost(upgradeId) {
+    const upgrade = this.config.businessUpgradesById[normalizedId(upgradeId)];
+    if (!upgrade) return null;
+    return scaledPurchaseCost(upgrade.baseCost, upgrade.growthRate, this.getBusinessUpgradeRank(upgrade.id));
+  }
+
+  getBusinessUnlockStatus(unlock) {
+    if (!this.state?.company?.created) return { unlocked: false, reason: 'company-required' };
+    if (this.state.company.level < unlock.companyLevel) {
+      return { unlocked: false, reason: 'company-level', requiredCompanyLevel: unlock.companyLevel };
+    }
+    if (unlock.requiredGeneratorId) {
+      const owned = this.getGeneratorOwned(unlock.requiredGeneratorId);
+      if (owned < unlock.requiredGeneratorOwned) {
+        return {
+          unlocked: false,
+          reason: 'generator-required',
+          requiredGeneratorId: unlock.requiredGeneratorId,
+          requiredGeneratorOwned: unlock.requiredGeneratorOwned,
+          owned,
+        };
+      }
+    }
+    return { unlocked: true };
+  }
+
+  getGeneratorUnlockStatus(generatorId) {
+    const generator = this.config.generatorsById[normalizedId(generatorId)];
+    if (!generator) return { unlocked: false, reason: 'unknown-generator' };
+    return this.getBusinessUnlockStatus(generator.unlock);
+  }
+
+  getBusinessUpgradeUnlockStatus(upgradeId) {
+    const upgrade = this.config.businessUpgradesById[normalizedId(upgradeId)];
+    if (!upgrade) return { unlocked: false, reason: 'unknown-upgrade' };
+    return this.getBusinessUnlockStatus(upgrade.unlock);
+  }
+
+  recordCompanyInvestment(cost) {
+    const previousLevel = this.state.company.level;
+    this.state.company.lifetimeInvestment = safeAdd(this.state.company.lifetimeInvestment, cost);
+    this.state.company.level = this.companyLevelForInvestment(this.state.company.lifetimeInvestment);
+    const levelsGained = Math.max(0, this.state.company.level - previousLevel);
+    if (levelsGained > 0) {
+      this.emit('company-level', {
+        previousLevel,
+        level: this.state.company.level,
+        levelsGained,
+        definition: clone(this.getCompanyLevelDefinition()),
+      });
+    }
+    return { previousLevel, level: this.state.company.level, levelsGained };
+  }
+
+  purchaseGenerator(generatorId) {
+    if (!this.state) throw new Error('IncrementalGame must be started before purchasing generators.');
+    const id = normalizedId(generatorId);
+    const generator = this.config.generatorsById[id];
+    if (!generator) return { ok: false, reason: 'unknown-generator', generatorId: id };
+    const unlock = this.getGeneratorUnlockStatus(id);
+    if (!unlock.unlocked) return { ok: false, generatorId: id, ...unlock };
+    const cost = this.getGeneratorCost(id);
+    if (this.state.cash < cost) {
+      return { ok: false, reason: 'insufficient-cash', generatorId: id, cost, cash: this.state.cash };
+    }
+
+    this.state.cash = Math.max(0, this.state.cash - cost);
+    this.state.generators[id] += 1;
+    this.state.statistics.workersHired = safeAdd(
+      this.state.statistics.workersHired,
+      generator.workersPerUnit,
+    );
+    const companyProgress = this.recordCompanyInvestment(cost);
+    const result = {
+      ok: true,
+      generatorId: id,
+      cost,
+      owned: this.state.generators[id],
+      nextCost: this.getGeneratorCost(id),
+      companyProgress,
+      automation: this.getAutomationStats(),
+    };
+    this.saveCheckpoint('generator-purchase');
+    this.emit('generator', result);
+    return result;
+  }
+
+  purchaseBusinessUpgrade(upgradeId) {
+    if (!this.state) throw new Error('IncrementalGame must be started before purchasing business upgrades.');
+    const id = normalizedId(upgradeId);
+    const upgrade = this.config.businessUpgradesById[id];
+    if (!upgrade) return { ok: false, reason: 'unknown-upgrade', upgradeId: id };
+    const rank = this.getBusinessUpgradeRank(id);
+    if (rank >= upgrade.maxRank) return { ok: false, reason: 'max-rank', upgradeId: id, rank };
+    const unlock = this.getBusinessUpgradeUnlockStatus(id);
+    if (!unlock.unlocked) return { ok: false, upgradeId: id, ...unlock };
+    const cost = this.getBusinessUpgradeCost(id);
+    if (this.state.cash < cost) {
+      return { ok: false, reason: 'insufficient-cash', upgradeId: id, cost, cash: this.state.cash };
+    }
+
+    this.state.cash = Math.max(0, this.state.cash - cost);
+    this.state.businessUpgrades[id] = rank + 1;
+    const companyProgress = this.recordCompanyInvestment(cost);
+    const result = {
+      ok: true,
+      upgradeId: id,
+      cost,
+      rank: this.state.businessUpgrades[id],
+      nextCost: this.getBusinessUpgradeCost(id),
+      companyProgress,
+      automation: this.getAutomationStats(),
+    };
+    this.saveCheckpoint('business-upgrade-purchase');
+    this.emit('business-upgrade', result);
+    return result;
+  }
+
+  getAutomationStats() {
+    const skillBonus = this.getMiningBonus('automation-bonus');
+    const globalUpgradeBonus = this.config.businessUpgrades.reduce((total, upgrade) => {
+      if (upgrade.effect.type !== 'automation-multiplier') return total;
+      return total + (this.getBusinessUpgradeRank(upgrade.id) * upgrade.effect.amount);
+    }, 0);
+    const globalMultiplier = 1 + skillBonus + globalUpgradeBonus;
+    const generators = this.config.generators.map((generator) => {
+      const owned = this.getGeneratorOwned(generator.id);
+      const generatorBonus = this.config.businessUpgrades.reduce((total, upgrade) => {
+        if (upgrade.effect.type !== 'generator-multiplier'
+          || upgrade.effect.generatorId !== generator.id) return total;
+        return total + (this.getBusinessUpgradeRank(upgrade.id) * upgrade.effect.amount);
+      }, 0);
+      const basePower = safeMultiply(owned, generator.powerPerSecond);
+      const power = safeMultiply(basePower, 1 + generatorBonus);
+      return { id: generator.id, owned, basePower, generatorBonus, power };
+    });
+    const subtotalPower = generators.reduce((total, entry) => safeAdd(total, entry.power), 0);
+    return {
+      skillBonus,
+      globalUpgradeBonus,
+      globalMultiplier,
+      subtotalPower,
+      totalPower: safeMultiply(subtotalPower, globalMultiplier),
+      generators,
+    };
+  }
+
+  getAutomationPower() {
+    return this.getAutomationStats().totalPower;
+  }
+
   getXpRequired() {
     return xpRequiredForLevel(this.config, this.state?.character?.level || 1);
   }
@@ -276,7 +568,7 @@ export class IncrementalGame {
 
   sellResource(resourceId, requestedQuantity = 'all') {
     if (!this.state) throw new Error('IncrementalGame must be started before selling resources.');
-    if (this.state.storyStage !== 'independent' || this.state.employment.active) {
+    if (!['independent', 'company-owner'].includes(this.state.storyStage) || this.state.employment.active) {
       return { ok: false, reason: 'not-independent' };
     }
     const id = normalizedId(resourceId);
@@ -550,9 +842,11 @@ export class IncrementalGame {
   }
 
   breakDeposit(deposit, damage, hit = {}) {
+    const source = hit.source === 'automation' ? 'automation' : 'manual';
+    const automated = source === 'automation';
     const resource = this.config.resourcesById[deposit.resourceId];
     const baseQuantity = rollDepositReward(deposit, this.random);
-    const bonusQuantity = rollChance(hit.miningStats?.oreYieldChance || 0, this.random) ? 1 : 0;
+    const bonusQuantity = !automated && rollChance(hit.miningStats?.oreYieldChance || 0, this.random) ? 1 : 0;
     const quantity = baseQuantity + bonusQuantity;
     const grossValue = quantity * resource.value;
     const employeeStage = this.state.storyStage === 'employee' && this.state.employment.active;
@@ -575,14 +869,29 @@ export class IncrementalGame {
       this.state.materials[resource.id] = safeAdd(this.state.materials[resource.id], quantity);
     }
 
-    this.state.character.xp = safeAdd(this.state.character.xp, deposit.xp);
+    const xp = automated ? 0 : deposit.xp;
+    this.state.character.xp = safeAdd(this.state.character.xp, xp);
     this.state.statistics.totalDepositsBroken = safeAdd(this.state.statistics.totalDepositsBroken, 1);
     this.state.statistics.totalOreMined = safeAdd(this.state.statistics.totalOreMined, quantity);
     this.state.statistics.resourceTotals[resource.id] = safeAdd(
       this.state.statistics.resourceTotals[resource.id],
       quantity,
     );
-    const levelResult = this.applyLevelProgression();
+    if (automated) {
+      this.state.statistics.totalAutomatedProduction = safeAdd(
+        this.state.statistics.totalAutomatedProduction,
+        quantity,
+      );
+    }
+    const levelResult = automated
+      ? {
+          levelsGained: 0,
+          skillPointsGained: 0,
+          level: this.state.character.level,
+          xp: this.state.character.xp,
+          xpRequired: this.getXpRequired(),
+        }
+      : this.applyLevelProgression();
 
     const nextDeposit = selectWeightedDeposit(this.config, this.state.currentMine, this.random);
     this.state.currentDeposit = {
@@ -595,6 +904,7 @@ export class IncrementalGame {
     const milestones = this.evaluateMilestones();
     const result = {
       type: 'break',
+      source,
       damage,
       critical: Boolean(hit.critical),
       depositId: deposit.id,
@@ -604,7 +914,7 @@ export class IncrementalGame {
       bonusQuantity,
       grossValue,
       wage,
-      xp: deposit.xp,
+      xp,
       levelsGained: levelResult.levelsGained,
       skillPointsGained: levelResult.skillPointsGained,
       level: levelResult.level,
@@ -612,22 +922,63 @@ export class IncrementalGame {
       nextDepositId: nextDeposit.id,
       milestones,
     };
-    this.saveCheckpoint('deposit-break');
-    this.emit('mine', result);
+    if (hit.save !== false) this.saveCheckpoint('deposit-break');
+    if (hit.emit !== false) this.emit(automated ? 'automation' : 'mine', result);
+    return result;
+  }
+
+  applyAutomation(deltaSeconds) {
+    if (!this.state?.company?.created) {
+      return { damage: 0, depositsBroken: 0, resources: {}, productionPower: 0 };
+    }
+    const productionPower = this.getAutomationPower();
+    let remainingDamage = safeMultiply(productionPower, deltaSeconds);
+    if (!(remainingDamage > 0)) {
+      return { damage: 0, depositsBroken: 0, resources: {}, productionPower };
+    }
+
+    let damage = 0;
+    let depositsBroken = 0;
+    const resources = {};
+    const breaks = [];
+    while (remainingDamage > 0 && depositsBroken < this.config.balance.maxAutomationBreaksPerTick) {
+      const deposit = this.config.depositsById[this.state.currentDeposit.id];
+      if (!deposit) break;
+      const appliedDamage = Math.min(remainingDamage, this.state.currentDeposit.hp);
+      this.state.currentDeposit.hp = Math.max(0, this.state.currentDeposit.hp - appliedDamage);
+      damage = safeAdd(damage, appliedDamage);
+      remainingDamage = Math.max(0, remainingDamage - appliedDamage);
+      if (this.state.currentDeposit.hp > 0) break;
+
+      const result = this.breakDeposit(deposit, appliedDamage, {
+        source: 'automation',
+        miningStats: { oreYieldChance: 0 },
+        save: false,
+        emit: false,
+      });
+      depositsBroken += 1;
+      resources[result.resourceId] = safeAdd(resources[result.resourceId] || 0, result.quantity);
+      breaks.push(result);
+    }
+
+    const result = { damage, depositsBroken, resources, productionPower, breaks };
+    if (depositsBroken > 0) this.emit('automation', result);
     return result;
   }
 
   update(deltaSeconds) {
-    if (!this.state) return;
+    if (!this.state) return null;
     const delta = Number(deltaSeconds);
-    if (!Number.isFinite(delta) || delta <= 0) return;
+    if (!Number.isFinite(delta) || delta <= 0) return null;
     const safeDelta = Math.min(delta, 60);
+    const automation = this.applyAutomation(safeDelta);
     this.state.statistics.timePlayed = safeAdd(this.state.statistics.timePlayed, safeDelta);
     this.autosaveElapsed += safeDelta;
     if (this.autosaveElapsed >= this.config.balance.autosaveSeconds) {
       this.autosaveElapsed %= this.config.balance.autosaveSeconds;
       this.saveCheckpoint('autosave');
     }
+    return { deltaSeconds: safeDelta, automation };
   }
 
   saveCheckpoint(reason = 'manual') {

@@ -1,7 +1,7 @@
 import { getActiveGameId } from './gameManifest.js';
 import { getSaveStorageKey } from './saveNamespace.js';
 
-export const INCREMENTAL_SAVE_VERSION = 3;
+export const INCREMENTAL_SAVE_VERSION = 4;
 const DEFAULT_SLOT = 1;
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -48,6 +48,14 @@ function skillMap(config) {
   return Object.fromEntries(config.skills.map((skill) => [skill.id, 0]));
 }
 
+function generatorMap(config) {
+  return Object.fromEntries((config.generators || []).map((generator) => [generator.id, 0]));
+}
+
+function businessUpgradeMap(config) {
+  return Object.fromEntries((config.businessUpgrades || []).map((upgrade) => [upgrade.id, 0]));
+}
+
 function startingEquipment(config) {
   const equipped = Object.fromEntries(config.equipment.slots.map((slot) => [slot.id, null]));
   config.equipment.items.forEach((item) => {
@@ -83,13 +91,15 @@ export function createInitialIncrementalSnapshot(config, options = {}) {
       hp: deposit.maxHp,
       maxHp: deposit.maxHp,
     },
-    generators: {},
-    businessUpgrades: {},
+    generators: generatorMap(config),
+    businessUpgrades: businessUpgradeMap(config),
     company: {
       created: false,
       name: '',
       level: 0,
       reputation: 0,
+      createdAt: null,
+      lifetimeInvestment: 0,
     },
     employment: {
       companyId: config.employment.companyId,
@@ -168,6 +178,20 @@ export function migrateIncrementalSnapshot(snapshot) {
     migrated.saveVersion = 3;
   }
 
+  if (migrated.saveVersion === 3) {
+    migrated.generators = plainObject(migrated.generators) ? migrated.generators : {};
+    migrated.businessUpgrades = plainObject(migrated.businessUpgrades) ? migrated.businessUpgrades : {};
+    const company = plainObject(migrated.company) ? migrated.company : {};
+    company.createdAt = company.createdAt === null || nonnegativeFinite(company.createdAt)
+      ? company.createdAt
+      : null;
+    company.lifetimeInvestment = nonnegativeFinite(company.lifetimeInvestment)
+      ? company.lifetimeInvestment
+      : 0;
+    migrated.company = company;
+    migrated.saveVersion = 4;
+  }
+
   return migrated;
 }
 
@@ -201,6 +225,8 @@ export function validateIncrementalSnapshot(snapshot) {
   const company = snapshot.company;
   if (!plainObject(company) || typeof company.created !== 'boolean' || typeof company.name !== 'string' || company.name.length > 100) return false;
   if (!nonnegativeInteger(company.level) || !nonnegativeFinite(company.reputation)) return false;
+  if (company.createdAt !== null && !nonnegativeFinite(company.createdAt)) return false;
+  if (!nonnegativeFinite(company.lifetimeInvestment)) return false;
 
   const employment = snapshot.employment;
   if (!plainObject(employment) || !validId(employment.companyId)) return false;

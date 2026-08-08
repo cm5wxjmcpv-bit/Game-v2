@@ -757,6 +757,10 @@ body.incremental-game-mode #hud {
   margin-top: 14px;
 }
 
+.incremental-character-panel .incremental-secondary-button + .incremental-secondary-button {
+  margin-top: 8px;
+}
+
 #incremental-skills-view {
   margin-top: 16px;
 }
@@ -766,7 +770,8 @@ body.incremental-game-mode #hud {
 }
 
 .incremental-store-header,
-.incremental-equipment-header {
+.incremental-equipment-header,
+.incremental-company-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -775,6 +780,7 @@ body.incremental-game-mode #hud {
 
 .incremental-store-header h2,
 .incremental-equipment-header h2,
+.incremental-company-header h2,
 .incremental-owned-heading h2 {
   margin: 4px 0 0;
   font-family: Georgia, "Times New Roman", serif;
@@ -783,6 +789,7 @@ body.incremental-game-mode #hud {
 
 .incremental-store-header p,
 .incremental-equipment-header p,
+.incremental-company-header p,
 .incremental-category-heading p {
   max-width: 720px;
   margin: 7px 0 0;
@@ -791,7 +798,8 @@ body.incremental-game-mode #hud {
 }
 
 .incremental-store-cash,
-.incremental-equipment-power {
+.incremental-equipment-power,
+.incremental-company-summary {
   display: grid;
   flex: none;
   min-width: 160px;
@@ -802,16 +810,229 @@ body.incremental-game-mode #hud {
 }
 
 .incremental-store-cash span,
-.incremental-equipment-power span {
+.incremental-equipment-power span,
+.incremental-company-summary span {
   color: var(--mine-muted);
   font-size: 11px;
 }
 
 .incremental-store-cash strong,
-.incremental-equipment-power strong {
+.incremental-equipment-power strong,
+.incremental-company-summary strong {
   margin-top: 3px;
   color: #ffe2ad;
   font-size: 22px;
+}
+
+.incremental-company-summary small {
+  margin-top: 4px;
+  color: var(--mine-muted);
+  font-size: 10px;
+}
+
+.incremental-company-setup[hidden],
+.incremental-company-dashboard[hidden] {
+  display: none !important;
+}
+
+.incremental-company-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(250px, 0.8fr);
+  gap: 20px;
+}
+
+.incremental-company-setup h2,
+.incremental-company-section h2 {
+  margin: 4px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.incremental-company-setup p {
+  margin: 8px 0 0;
+  color: var(--mine-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.incremental-company-requirements {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.incremental-company-requirement {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid #62443a;
+  border-radius: 7px;
+  background: rgba(91, 47, 42, 0.18);
+  color: #d3b5a5;
+  font-size: 12px;
+}
+
+.incremental-company-requirement.is-met {
+  border-color: #3f7358;
+  background: rgba(63, 125, 93, 0.13);
+  color: #9fd5b2;
+}
+
+.incremental-company-form {
+  grid-column: 1 / -1;
+}
+
+.incremental-company-form label {
+  display: block;
+  margin-bottom: 7px;
+  color: #f0d5ad;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.incremental-company-form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.35fr);
+  gap: 9px;
+}
+
+.incremental-company-form input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid #755944;
+  border-radius: 8px;
+  background: #171311;
+  color: #fff0d6;
+  font: inherit;
+}
+
+.incremental-company-form input:focus-visible {
+  outline: 3px solid var(--mine-gold);
+  outline-offset: 2px;
+}
+
+.incremental-company-dashboard {
+  display: grid;
+  gap: 20px;
+}
+
+.incremental-company-progress .incremental-panel-heading > strong {
+  color: var(--mine-gold);
+}
+
+.incremental-company-investment-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--mine-muted);
+  font-size: 12px;
+}
+
+.incremental-company-next-level,
+#incremental-company-next-level {
+  display: block;
+  margin-top: 9px;
+  color: var(--mine-muted);
+  line-height: 1.45;
+}
+
+.incremental-company-section {
+  padding: 2px;
+}
+
+.incremental-company-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.incremental-business-card {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  min-height: 270px;
+}
+
+.incremental-business-card.is-locked {
+  filter: saturate(0.55);
+  opacity: 0.78;
+}
+
+.incremental-business-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.incremental-business-card-header > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #765a43;
+  border-radius: 9px;
+  background: #342821;
+  color: #f5c86e;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.incremental-business-card-header > div {
+  min-width: 0;
+}
+
+.incremental-business-card-header h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+}
+
+.incremental-business-card-header small {
+  color: var(--mine-muted);
+  font-size: 10px;
+}
+
+.incremental-business-card-header > strong {
+  margin-left: auto;
+  color: var(--mine-gold);
+  font-size: 13px;
+}
+
+.incremental-business-card > p {
+  margin: 0;
+  color: var(--mine-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.incremental-business-stats {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border: 1px solid #4c3d32;
+  border-radius: 7px;
+  color: var(--mine-muted);
+  font-size: 11px;
+}
+
+.incremental-business-stats strong,
+.incremental-business-effect {
+  color: #f2ce8f;
+  font-size: 12px;
+}
+
+.incremental-business-requirement {
+  color: #ad9b82;
+  font-size: 10px;
+}
+
+.incremental-business-card .incremental-secondary-button {
+  align-self: end;
+  margin-top: auto;
 }
 
 .incremental-section-status {
@@ -1278,7 +1499,8 @@ body.incremental-game-mode #hud {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .incremental-store-grid,
-  .incremental-equipment-grid {
+  .incremental-equipment-grid,
+  .incremental-company-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .incremental-lottery-card {
@@ -1367,17 +1589,20 @@ body.incremental-game-mode #hud {
   }
   .incremental-store-header,
   .incremental-equipment-header,
+  .incremental-company-header,
   .incremental-owned-heading {
     align-items: stretch;
     flex-direction: column;
   }
   .incremental-store-cash,
-  .incremental-equipment-power {
+  .incremental-equipment-power,
+  .incremental-company-summary {
     min-width: 0;
   }
   .incremental-store-grid,
   .incremental-equipment-grid,
-  .incremental-equipment-slots {
+  .incremental-equipment-slots,
+  .incremental-company-grid {
     grid-template-columns: 1fr;
   }
   .incremental-equipment-card,
@@ -1392,6 +1617,17 @@ body.incremental-game-mode #hud {
     width: 100%;
   }
   .incremental-skill-card {
+    min-height: 0;
+  }
+  .incremental-company-setup {
+    grid-template-columns: 1fr;
+  }
+  .incremental-company-form,
+  .incremental-company-form > div {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+  .incremental-business-card {
     min-height: 0;
   }
   .incremental-story-dialog {

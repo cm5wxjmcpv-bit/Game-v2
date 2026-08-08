@@ -67,6 +67,7 @@ function createRuntimeRoot() {
         <button id="incremental-tab-mine" class="is-active" type="button" role="tab" aria-controls="incremental-mine-view" aria-selected="true">Mine</button>
         <button id="incremental-tab-store" type="button" role="tab" aria-controls="incremental-store-view" aria-selected="false" tabindex="-1">General Store</button>
         <button id="incremental-tab-equipment" type="button" role="tab" aria-controls="incremental-equipment-view" aria-selected="false" tabindex="-1">Equipment</button>
+        <button id="incremental-tab-company" type="button" role="tab" aria-controls="incremental-company-view" aria-selected="false" tabindex="-1">Company</button>
         <button id="incremental-tab-skills" type="button" role="tab" aria-controls="incremental-skills-view" aria-selected="false" tabindex="-1">Skills <span id="incremental-nav-skill-points">0</span></button>
       </nav>
 
@@ -147,7 +148,9 @@ function createRuntimeRoot() {
               <div class="incremental-ledger-row"><span>Critical chance</span><strong id="incremental-critical-chance">0%</strong></div>
               <div class="incremental-ledger-row"><span>Critical damage</span><strong id="incremental-critical-damage">2x</strong></div>
               <div class="incremental-ledger-row"><span>Bonus ore chance</span><strong id="incremental-ore-yield">0%</strong></div>
+              <div class="incremental-ledger-row"><span>Automated power</span><strong id="incremental-automation-power">0/sec</strong></div>
               <button id="incremental-open-skills" class="incremental-secondary-button" type="button">Spend Skill Points</button>
+              <button id="incremental-open-company" class="incremental-secondary-button" type="button">Manage Company</button>
             </section>
           </aside>
         </div>
@@ -174,7 +177,7 @@ function createRuntimeRoot() {
           <div>
             <span class="incremental-label">PERSONAL LOADOUT</span>
             <h2>Miner Equipment</h2>
-            <p>Personal gear changes manual mining stats. Company machinery remains a separate future system.</p>
+            <p>Personal gear changes manual mining stats. Company workers and machinery are managed separately.</p>
           </div>
           <div class="incremental-equipment-power">
             <span>Equipped manual power</span>
@@ -188,6 +191,68 @@ function createRuntimeRoot() {
           <button id="incremental-open-store" class="incremental-secondary-button" type="button">Visit Miller's General Store</button>
         </div>
         <div id="incremental-owned-equipment" class="incremental-equipment-grid"></div>
+      </section>
+
+      <section id="incremental-company-view" class="incremental-view incremental-section-view" role="tabpanel" aria-labelledby="incremental-tab-company" hidden>
+        <div class="incremental-company-header incremental-panel">
+          <div>
+            <span class="incremental-label">BUSINESS PROGRESSION</span>
+            <h2 id="incremental-company-heading">Start a Mining Company</h2>
+            <p id="incremental-company-intro">Independence comes first. Then you can register an operation, hire workers, and invest in machinery.</p>
+          </div>
+          <div class="incremental-company-summary">
+            <span>Automated mining power</span>
+            <strong id="incremental-company-production">0/sec</strong>
+            <small id="incremental-company-level-summary">Company not formed</small>
+          </div>
+        </div>
+        <p id="incremental-company-status" class="incremental-section-status" role="status">Build your own operation after leaving Blackstone.</p>
+
+        <section id="incremental-company-setup" class="incremental-company-setup incremental-panel">
+          <div>
+            <span class="incremental-label">FORMAL REGISTRATION</span>
+            <h2>Name Your Company</h2>
+            <p>Registration unlocks hired miners and business upgrades. Your personal swings remain the only source of character XP.</p>
+          </div>
+          <div id="incremental-company-requirements" class="incremental-company-requirements"></div>
+          <form id="incremental-company-form" class="incremental-company-form">
+            <label for="incremental-company-name">Company name</label>
+            <div>
+              <input id="incremental-company-name" name="companyName" type="text" autocomplete="organization" placeholder="Your Mining Company" required>
+              <button id="incremental-create-company" class="incremental-primary-button" type="submit">Register Company</button>
+            </div>
+          </form>
+        </section>
+
+        <div id="incremental-company-dashboard" class="incremental-company-dashboard" hidden>
+          <section class="incremental-company-progress incremental-panel">
+            <div class="incremental-panel-heading">
+              <div><span class="incremental-label">COMPANY LEVEL</span><h2 id="incremental-company-tier">Prospecting Outfit</h2></div>
+              <strong id="incremental-company-level">Level 1</strong>
+            </div>
+            <div class="incremental-company-investment-copy"><span>Lifetime business investment</span><strong id="incremental-company-investment">$0</strong></div>
+            <div class="incremental-progress" role="progressbar" aria-label="Company level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="incremental-company-level-bar"></span>
+            </div>
+            <small id="incremental-company-next-level">Invest in workers and upgrades to grow the company.</small>
+          </section>
+
+          <section class="incremental-company-section">
+            <div class="incremental-category-heading">
+              <h2>Automation</h2>
+              <p>Every generator applies mining damage to the same active deposit. Automated breaks award ore, but personal XP still comes from manual mining.</p>
+            </div>
+            <div id="incremental-generator-grid" class="incremental-company-grid"></div>
+          </section>
+
+          <section class="incremental-company-section">
+            <div class="incremental-category-heading">
+              <h2>Business Upgrades</h2>
+              <p>Company investments improve automated production without changing your personal equipment.</p>
+            </div>
+            <div id="incremental-business-upgrade-grid" class="incremental-company-grid"></div>
+          </section>
+        </div>
       </section>
 
       <section id="incremental-skills-view" class="incremental-view" role="tabpanel" aria-labelledby="incremental-tab-skills" hidden>
@@ -221,6 +286,16 @@ function createRuntimeRoot() {
 
 function percent(value) {
   return `${formatNumber(Number(value) * 100, { decimals: 1 })}%`;
+}
+
+function businessRequirementTextForResult(result, config) {
+  if (result.reason === 'company-required') return 'Register your company before making that purchase.';
+  if (result.reason === 'company-level') return `Reach company level ${result.requiredCompanyLevel} first.`;
+  if (result.reason === 'generator-required') {
+    const generator = config.generatorsById[result.requiredGeneratorId];
+    return `Own ${result.requiredGeneratorOwned} ${generator?.name || 'required generator'}${result.requiredGeneratorOwned === 1 ? '' : 's'} first.`;
+  }
+  return 'That company purchase is not available yet.';
 }
 
 function buildUi(root, database) {
@@ -267,15 +342,19 @@ function buildUi(root, database) {
     critical_chance: byId('incremental-critical-chance'),
     critical_damage: byId('incremental-critical-damage'),
     ore_yield: byId('incremental-ore-yield'),
+    automation_power: byId('incremental-automation-power'),
     open_skills: byId('incremental-open-skills'),
+    open_company: byId('incremental-open-company'),
     reset: byId('incremental-reset'),
     tab_mine: byId('incremental-tab-mine'),
     tab_store: byId('incremental-tab-store'),
     tab_equipment: byId('incremental-tab-equipment'),
+    tab_company: byId('incremental-tab-company'),
     tab_skills: byId('incremental-tab-skills'),
     mine_view: byId('incremental-mine-view'),
     store_view: byId('incremental-store-view'),
     equipment_view: byId('incremental-equipment-view'),
+    company_view: byId('incremental-company-view'),
     skills_view: byId('incremental-skills-view'),
     store_name: byId('incremental-store-name'),
     store_description: byId('incremental-store-description'),
@@ -292,6 +371,24 @@ function buildUi(root, database) {
     skill_status: byId('incremental-skill-status'),
     reset_skills: byId('incremental-reset-skills'),
     reset_cost: byId('incremental-reset-cost'),
+    company_heading: byId('incremental-company-heading'),
+    company_intro: byId('incremental-company-intro'),
+    company_production: byId('incremental-company-production'),
+    company_level_summary: byId('incremental-company-level-summary'),
+    company_status: byId('incremental-company-status'),
+    company_setup: byId('incremental-company-setup'),
+    company_requirements: byId('incremental-company-requirements'),
+    company_form: byId('incremental-company-form'),
+    company_name: byId('incremental-company-name'),
+    create_company: byId('incremental-create-company'),
+    company_dashboard: byId('incremental-company-dashboard'),
+    company_tier: byId('incremental-company-tier'),
+    company_level: byId('incremental-company-level'),
+    company_investment: byId('incremental-company-investment'),
+    company_level_bar: byId('incremental-company-level-bar'),
+    company_next_level: byId('incremental-company-next-level'),
+    generator_grid: byId('incremental-generator-grid'),
+    business_upgrade_grid: byId('incremental-business-upgrade-grid'),
     story_overlay: byId('incremental-story-overlay'),
     story_speaker: byId('incremental-story-speaker'),
     story_title: byId('incremental-story-title'),
@@ -306,6 +403,8 @@ function buildUi(root, database) {
   nodes.subtitle.textContent = config.ui.subtitle;
   nodes.store_name.textContent = config.store.name;
   nodes.store_description.textContent = `${config.store.description} ${config.lottery.disclaimer}`.trim();
+  nodes.company_name.minLength = config.company.creation.minimumNameLength;
+  nodes.company_name.maxLength = config.company.creation.maximumNameLength;
 
   function setSaveStatus(message, failed = false) {
     nodes.save_status.textContent = message;
@@ -317,6 +416,7 @@ function buildUi(root, database) {
       mine: [nodes.tab_mine, nodes.mine_view],
       store: [nodes.tab_store, nodes.store_view],
       equipment: [nodes.tab_equipment, nodes.equipment_view],
+      company: [nodes.tab_company, nodes.company_view],
       skills: [nodes.tab_skills, nodes.skills_view],
     };
     const activeView = sections[view] ? view : 'mine';
@@ -619,13 +719,198 @@ function buildUi(root, database) {
     });
   }
 
+  function businessRequirementText(unlock) {
+    if (unlock.reason === 'company-required') return 'Register your company first';
+    if (unlock.reason === 'company-level') return `Requires company level ${unlock.requiredCompanyLevel}`;
+    if (unlock.reason === 'generator-required') {
+      const generator = config.generatorsById[unlock.requiredGeneratorId];
+      return `Requires ${unlock.requiredGeneratorOwned} ${generator?.name || 'generator'}${unlock.requiredGeneratorOwned === 1 ? '' : 's'}`;
+    }
+    return 'Available';
+  }
+
+  function makeCompanyRequirement(label, value, met) {
+    const row = document.createElement('div');
+    row.className = 'incremental-company-requirement';
+    row.classList.toggle('is-met', met);
+    const name = document.createElement('span');
+    name.textContent = label;
+    const status = document.createElement('strong');
+    status.textContent = value;
+    row.append(name, status);
+    return row;
+  }
+
+  function makeGeneratorCard(game, generator, automation) {
+    const owned = game.getGeneratorOwned(generator.id);
+    const cost = game.getGeneratorCost(generator.id);
+    const unlock = game.getGeneratorUnlockStatus(generator.id);
+    const production = automation.generators.find((entry) => entry.id === generator.id);
+    const effectivePower = (production?.power || 0) * automation.globalMultiplier;
+    const card = document.createElement('article');
+    card.className = 'incremental-business-card incremental-panel';
+    card.classList.toggle('is-locked', !unlock.unlocked);
+
+    const header = document.createElement('div');
+    header.className = 'incremental-business-card-header';
+    const icon = document.createElement('span');
+    icon.textContent = generator.icon;
+    const heading = document.createElement('div');
+    const title = document.createElement('h3');
+    title.textContent = generator.name;
+    const count = document.createElement('small');
+    count.textContent = `Owned ${formatNumber(owned)}`;
+    heading.append(title, count);
+    const price = document.createElement('strong');
+    price.textContent = formatCurrency(cost);
+    header.append(icon, heading, price);
+
+    const description = document.createElement('p');
+    description.textContent = generator.description;
+    const stats = document.createElement('div');
+    stats.className = 'incremental-business-stats';
+    const perUnit = document.createElement('span');
+    perUnit.textContent = `${formatNumber(generator.powerPerSecond)} damage/sec each`;
+    const total = document.createElement('strong');
+    total.textContent = `${formatNumber(effectivePower)} damage/sec total`;
+    stats.append(perUnit, total);
+    const requirement = document.createElement('small');
+    requirement.className = 'incremental-business-requirement';
+    requirement.textContent = businessRequirementText(unlock);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'incremental-secondary-button';
+    button.dataset.buyGeneratorId = generator.id;
+    button.textContent = unlock.unlocked ? `Buy for ${formatCurrency(cost)}` : 'Locked';
+    button.disabled = !unlock.unlocked || game.state.cash < cost;
+    card.append(header, description, stats, requirement, button);
+    return card;
+  }
+
+  function makeBusinessUpgradeCard(game, upgrade) {
+    const rank = game.getBusinessUpgradeRank(upgrade.id);
+    const cost = game.getBusinessUpgradeCost(upgrade.id);
+    const unlock = game.getBusinessUpgradeUnlockStatus(upgrade.id);
+    const maxed = rank >= upgrade.maxRank;
+    const card = document.createElement('article');
+    card.className = 'incremental-business-card incremental-panel';
+    card.classList.toggle('is-locked', !unlock.unlocked);
+
+    const header = document.createElement('div');
+    header.className = 'incremental-business-card-header';
+    const heading = document.createElement('div');
+    const title = document.createElement('h3');
+    title.textContent = upgrade.name;
+    const rankLabel = document.createElement('small');
+    rankLabel.textContent = `Rank ${rank} / ${upgrade.maxRank}`;
+    heading.append(title, rankLabel);
+    const price = document.createElement('strong');
+    price.textContent = maxed ? 'MAX' : formatCurrency(cost);
+    header.append(heading, price);
+
+    const description = document.createElement('p');
+    description.textContent = upgrade.description;
+    const effect = document.createElement('strong');
+    effect.className = 'incremental-business-effect';
+    effect.textContent = upgrade.effect.label;
+    const requirement = document.createElement('small');
+    requirement.className = 'incremental-business-requirement';
+    requirement.textContent = businessRequirementText(unlock);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'incremental-secondary-button';
+    button.dataset.buyBusinessUpgradeId = upgrade.id;
+    button.textContent = maxed ? 'Max Rank' : unlock.unlocked ? `Upgrade for ${formatCurrency(cost)}` : 'Locked';
+    button.disabled = maxed || !unlock.unlocked || game.state.cash < cost;
+    card.append(header, description, effect, requirement, button);
+    return card;
+  }
+
+  function renderCompany(game) {
+    const state = game.state;
+    const created = state.company.created;
+    const creation = config.company.creation;
+    const automation = game.getAutomationStats();
+    nodes.company_production.textContent = `${formatNumber(automation.totalPower)}/sec`;
+    nodes.company_setup.hidden = created;
+    nodes.company_dashboard.hidden = !created;
+
+    if (!created) {
+      const independent = !state.employment.active && state.storyStage === 'independent';
+      nodes.company_heading.textContent = independent ? 'Start a Mining Company' : 'Company Locked';
+      nodes.company_intro.textContent = independent
+        ? 'Register an operation, hire workers, and begin building production beyond your own swings.'
+        : 'Buy out your Blackstone contract before forming a competing operation.';
+      nodes.company_level_summary.textContent = 'Company not formed';
+      nodes.company_requirements.replaceChildren(
+        makeCompanyRequirement('Employment contract', independent ? 'Paid' : 'Buyout required', independent),
+        makeCompanyRequirement(
+          'Character level',
+          `${formatNumber(state.character.level)} / ${formatNumber(creation.requiredCharacterLevel)}`,
+          state.character.level >= creation.requiredCharacterLevel,
+        ),
+        makeCompanyRequirement(
+          'Registration cash',
+          `${formatCurrency(state.cash)} / ${formatCurrency(creation.cost)}`,
+          state.cash >= creation.cost,
+        ),
+      );
+      const status = game.getCompanyCreationStatus(nodes.company_name.value);
+      nodes.company_name.disabled = !independent;
+      nodes.create_company.disabled = !status.ok;
+      return;
+    }
+
+    const levelDefinition = game.getCompanyLevelDefinition();
+    const nextLevel = game.getNextCompanyLevel();
+    nodes.company_heading.textContent = state.company.name;
+    nodes.company_intro.textContent = 'Your workers damage the active deposit while your personal miner supplies XP, critical hits, and bonus ore.';
+    if (nodes.company_status.textContent === 'Build your own operation after leaving Blackstone.') {
+      nodes.company_status.textContent = `${state.company.name} is operating locally; purchases and production save to this game package only.`;
+    }
+    nodes.company_level_summary.textContent = `Company level ${formatNumber(state.company.level)} · ${levelDefinition.name}`;
+    nodes.company_tier.textContent = levelDefinition.name;
+    nodes.company_level.textContent = `Level ${formatNumber(state.company.level)}`;
+    nodes.company_investment.textContent = formatCurrency(state.company.lifetimeInvestment);
+    const currentRequirement = levelDefinition.requiredInvestment;
+    const progress = nextLevel
+      ? Math.max(0, Math.min(1, (state.company.lifetimeInvestment - currentRequirement)
+        / (nextLevel.requiredInvestment - currentRequirement)))
+      : 1;
+    nodes.company_level_bar.style.width = `${progress * 100}%`;
+    nodes.company_level_bar.parentElement.setAttribute('aria-valuenow', String(Math.floor(progress * 100)));
+    nodes.company_next_level.textContent = nextLevel
+      ? `${formatCurrency(Math.max(0, nextLevel.requiredInvestment - state.company.lifetimeInvestment))} more investment to reach level ${nextLevel.level}: ${nextLevel.name}.`
+      : 'Maximum company level for this build reached; additional progression can be added later.';
+
+    nodes.generator_grid.replaceChildren();
+    config.generators.forEach((generator) => {
+      nodes.generator_grid.appendChild(makeGeneratorCard(game, generator, automation));
+    });
+    nodes.business_upgrade_grid.replaceChildren();
+    config.businessUpgrades.forEach((upgrade) => {
+      nodes.business_upgrade_grid.appendChild(makeBusinessUpgradeCard(game, upgrade));
+    });
+  }
+
+  function renderTick(game) {
+    if (!game.state) return;
+    const hpProgress = Math.max(0, Math.min(1, game.state.currentDeposit.hp / game.state.currentDeposit.maxHp));
+    nodes.deposit_hp.textContent = `${formatNumber(game.state.currentDeposit.hp)} / ${formatNumber(game.state.currentDeposit.maxHp)} HP`;
+    nodes.deposit_bar.style.width = `${hpProgress * 100}%`;
+    nodes.deposit_progress.setAttribute('aria-valuenow', String(game.state.currentDeposit.hp));
+    nodes.mining_target.setAttribute('aria-label', `Mine ${config.depositsById[game.state.currentDeposit.id].name}. ${game.state.currentDeposit.hp} of ${game.state.currentDeposit.maxHp} durability remaining.`);
+  }
+
   function render(game) {
     const state = game.state;
     if (!state) return;
     const mine = config.minesById[state.currentMine];
     const deposit = config.depositsById[state.currentDeposit.id];
     const miningStats = game.getMiningStats();
+    const automation = game.getAutomationStats();
     const employeeStage = state.storyStage === 'employee' && state.employment.active;
+    const companyOwner = state.company.created && state.storyStage === 'company-owner';
     const xpNeeded = game.getXpRequired();
     const xpProgress = Math.max(0, Math.min(1, state.character.xp / xpNeeded));
     const hpProgress = Math.max(0, Math.min(1, state.currentDeposit.hp / state.currentDeposit.maxHp));
@@ -645,8 +930,16 @@ function buildUi(root, database) {
     nodes.mine_name.textContent = !employeeStage && state.currentMine === config.start.mineId
       ? config.independence.locationName
       : mine.name;
-    nodes.role.textContent = employeeStage ? config.employment.role : config.independence.role;
-    nodes.employer.textContent = employeeStage ? config.employment.companyName : config.independence.operationName;
+    nodes.role.textContent = employeeStage
+      ? config.employment.role
+      : companyOwner
+        ? config.company.ownerRole
+        : config.independence.role;
+    nodes.employer.textContent = employeeStage
+      ? config.employment.companyName
+      : companyOwner
+        ? state.company.name
+        : config.independence.operationName;
     nodes.instruction.textContent = employeeStage ? config.ui.instruction : config.independence.instruction;
     nodes.deposit_name.textContent = deposit.name;
     nodes.deposit_hp.textContent = `${formatNumber(state.currentDeposit.hp)} / ${formatNumber(state.currentDeposit.maxHp)} HP`;
@@ -663,6 +956,7 @@ function buildUi(root, database) {
     nodes.critical_chance.textContent = percent(miningStats.criticalChance);
     nodes.critical_damage.textContent = `${formatNumber(miningStats.criticalDamage, { decimals: 1 })}x`;
     nodes.ore_yield.textContent = percent(miningStats.oreYieldChance);
+    nodes.automation_power.textContent = `${formatNumber(automation.totalPower)}/sec`;
 
     nodes.contract_progress_label.textContent = `${formatCurrency(Math.min(state.cash, contractCost))} / ${formatCurrency(contractCost)}`;
     nodes.contract_percent.textContent = `${Math.floor(contractProgress * 100)}%`;
@@ -680,6 +974,7 @@ function buildUi(root, database) {
     renderResources(state, employeeStage);
     renderStore(game);
     renderEquipment(game);
+    renderCompany(game);
     renderSkills(game);
   }
 
@@ -720,6 +1015,15 @@ function buildUi(root, database) {
     }
   }
 
+  function showAutomation(result) {
+    if (!(result.depositsBroken > 0)) return;
+    const rewards = Object.entries(result.resources)
+      .map(([resourceId, quantity]) => `${formatNumber(quantity)} ${config.resourcesById[resourceId]?.name || resourceId}`)
+      .join(', ');
+    spawnFloat(`AUTO +${formatNumber(Object.values(result.resources).reduce((sum, value) => sum + value, 0))}`, 'ore');
+    nodes.last_result.textContent = `Your operation broke ${formatNumber(result.depositsBroken)} deposit${result.depositsBroken === 1 ? '' : 's'} and recovered ${rewards}. Manual mining remains the source of character XP.`;
+  }
+
   function advanceStory() {
     if (activeStory || storyQueue.length < 1) return;
     activeStory = storyQueue.shift();
@@ -753,16 +1057,21 @@ function buildUi(root, database) {
     activeStory = null;
     nodes.story_overlay.hidden = true;
     lastLotteryResult = null;
+    nodes.company_name.value = '';
     nodes.store_status.textContent = 'Miller keeps the counter open from your first shift onward.';
     nodes.equipment_status.textContent = 'Purchase equipment at Miller\'s, then switch owned gear here.';
+    nodes.company_status.textContent = 'Build your own operation after leaving Blackstone.';
   }
 
   return {
     nodes,
     render,
+    renderCompany,
+    renderTick,
     setSaveStatus,
     setView,
     showImpact,
+    showAutomation,
     showMilestone,
     showLotteryResult,
     dismissStory,
@@ -783,6 +1092,7 @@ async function bootstrap() {
 
   game.subscribe((event) => {
     if (event.type === 'mine') ui.showImpact(event.detail);
+    if (event.type === 'automation') ui.showAutomation(event.detail);
     if (event.type === 'milestone') ui.showMilestone(event.detail);
     if (event.type === 'lottery') ui.showLotteryResult(event.detail);
     if (event.type === 'save') {
@@ -803,6 +1113,7 @@ async function bootstrap() {
     [ui.nodes.tab_mine, 'mine'],
     [ui.nodes.tab_store, 'store'],
     [ui.nodes.tab_equipment, 'equipment'],
+    [ui.nodes.tab_company, 'company'],
     [ui.nodes.tab_skills, 'skills'],
   ];
   tabDefinitions.forEach(([tab, view]) => tab.addEventListener('click', () => ui.setView(view)));
@@ -821,6 +1132,7 @@ async function bootstrap() {
   });
   ui.nodes.open_skills.addEventListener('click', () => ui.setView('skills'));
   ui.nodes.open_store.addEventListener('click', () => ui.setView('store'));
+  ui.nodes.open_company.addEventListener('click', () => ui.setView('company'));
   ui.nodes.story_continue.addEventListener('click', () => ui.dismissStory());
   ui.nodes.story_overlay.addEventListener('click', (event) => {
     if (event.target === ui.nodes.story_overlay) ui.dismissStory();
@@ -908,6 +1220,50 @@ async function bootstrap() {
     ui.render(game);
   });
 
+  ui.nodes.company_name.addEventListener('input', () => ui.renderCompany(game));
+  ui.nodes.company_form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const result = game.createCompany(ui.nodes.company_name.value);
+    ui.nodes.company_status.textContent = result.ok
+      ? `${result.name} registered for ${formatCurrency(result.cost)}. Company automation is now available.`
+      : result.reason === 'invalid-name'
+        ? `Use a company name between ${result.minimumNameLength} and ${result.maximumNameLength} characters.`
+        : result.reason === 'level-required'
+          ? `Reach character level ${result.requiredLevel} before registering a company.`
+          : result.reason === 'insufficient-cash'
+            ? `You need ${formatCurrency(result.cost)} to register the company.`
+            : 'Buy out your employment contract before registering a company.';
+    ui.render(game);
+  });
+
+  ui.nodes.generator_grid.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-buy-generator-id]');
+    if (!button) return;
+    const result = game.purchaseGenerator(button.dataset.buyGeneratorId);
+    const generator = database.config.generatorsById[button.dataset.buyGeneratorId];
+    ui.nodes.company_status.textContent = result.ok
+      ? `${generator.name} purchased for ${formatCurrency(result.cost)}. Total automated power: ${formatNumber(result.automation.totalPower)}/sec.`
+      : result.reason === 'insufficient-cash'
+        ? `You need ${formatCurrency(result.cost)} to purchase ${generator.name}.`
+        : businessRequirementTextForResult(result, database.config);
+    ui.render(game);
+  });
+
+  ui.nodes.business_upgrade_grid.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-buy-business-upgrade-id]');
+    if (!button) return;
+    const result = game.purchaseBusinessUpgrade(button.dataset.buyBusinessUpgradeId);
+    const upgrade = database.config.businessUpgradesById[button.dataset.buyBusinessUpgradeId];
+    ui.nodes.company_status.textContent = result.ok
+      ? `${upgrade.name} advanced to rank ${result.rank}. Automated power is now ${formatNumber(result.automation.totalPower)}/sec.`
+      : result.reason === 'insufficient-cash'
+        ? `You need ${formatCurrency(result.cost)} to upgrade ${upgrade.name}.`
+        : result.reason === 'max-rank'
+          ? `${upgrade.name} is already at maximum rank.`
+          : businessRequirementTextForResult(result, database.config);
+    ui.render(game);
+  });
+
   ui.nodes.buyout.addEventListener('click', () => {
     const cost = database.config.employment.contractBuyoutCost;
     if (!window.confirm(`Pay ${formatCurrency(cost)} to buy out your Blackstone employment contract?`)) return;
@@ -929,8 +1285,13 @@ async function bootstrap() {
   });
 
   let lastFrame = performance.now();
+  let lastAutomationRender = 0;
   function loop(now) {
-    game.update(Math.min(1, (now - lastFrame) / 1000));
+    const result = game.update(Math.min(1, (now - lastFrame) / 1000));
+    if (result?.automation?.damage > 0 && now - lastAutomationRender >= 100) {
+      ui.renderTick(game);
+      lastAutomationRender = now;
+    }
     lastFrame = now;
     window.requestAnimationFrame(loop);
   }

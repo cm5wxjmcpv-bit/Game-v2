@@ -9,7 +9,8 @@
     "minimumWage": 1,
     "baseCriticalChance": 0,
     "baseCriticalDamage": 2,
-    "baseOreYieldChance": 0
+    "baseOreYieldChance": 0,
+    "maxAutomationBreaksPerTick": 1000
   },
   "progression": {
     "xpBase": 100,
@@ -118,10 +119,8 @@
     {
       "id": "automation-bonus",
       "name": "Automation Bonus",
-      "description": "Improves future workers and automated mining equipment.",
+      "description": "Improves workers and company machinery without replacing your manual miner.",
       "maxRank": 10,
-      "enabled": false,
-      "unlockNote": "Activates when company automation becomes available.",
       "effect": {
         "type": "automation-bonus",
         "amount": 0.05,
@@ -400,6 +399,140 @@
       }
     ]
   },
+  "company": {
+    "ownerRole": "Founder & Lead Miner",
+    "creation": {
+      "cost": 2500,
+      "requiredCharacterLevel": 3,
+      "minimumNameLength": 2,
+      "maximumNameLength": 40
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "Prospecting Outfit",
+        "requiredInvestment": 0
+      },
+      {
+        "level": 2,
+        "name": "Local Mining Company",
+        "requiredInvestment": 4000
+      },
+      {
+        "level": 3,
+        "name": "Growing Operation",
+        "requiredInvestment": 20000
+      },
+      {
+        "level": 4,
+        "name": "Regional Producer",
+        "requiredInvestment": 100000
+      }
+    ]
+  },
+  "generators": [
+    {
+      "id": "hired-miner",
+      "name": "Hired Miner",
+      "description": "A dependable miner who works the active deposit alongside you.",
+      "icon": "HM",
+      "baseCost": 1200,
+      "growthRate": 1.15,
+      "powerPerSecond": 1,
+      "workersPerUnit": 1,
+      "unlock": {
+        "companyLevel": 1
+      }
+    },
+    {
+      "id": "mining-crew",
+      "name": "Mining Crew",
+      "description": "A coordinated four-person crew that brings steady production to each face.",
+      "icon": "MC",
+      "baseCost": 6500,
+      "growthRate": 1.17,
+      "powerPerSecond": 6,
+      "workersPerUnit": 4,
+      "unlock": {
+        "companyLevel": 2,
+        "requiredGeneratorId": "hired-miner",
+        "requiredGeneratorOwned": 3
+      }
+    },
+    {
+      "id": "mechanical-drill",
+      "name": "Mechanical Drill",
+      "description": "A powered drill that applies industrial force to the current deposit.",
+      "icon": "MD",
+      "baseCost": 30000,
+      "growthRate": 1.2,
+      "powerPerSecond": 25,
+      "workersPerUnit": 0,
+      "unlock": {
+        "companyLevel": 3,
+        "requiredGeneratorId": "mining-crew",
+        "requiredGeneratorOwned": 2
+      }
+    }
+  ],
+  "businessUpgrades": [
+    {
+      "id": "worker-training",
+      "name": "Worker Training",
+      "description": "Safer technique and cleaner handoffs improve every automated operation.",
+      "baseCost": 3000,
+      "growthRate": 2,
+      "maxRank": 5,
+      "effect": {
+        "type": "automation-multiplier",
+        "amount": 0.15,
+        "label": "+15% all automated power per rank"
+      },
+      "unlock": {
+        "companyLevel": 1,
+        "requiredGeneratorId": "hired-miner",
+        "requiredGeneratorOwned": 1
+      }
+    },
+    {
+      "id": "better-carts",
+      "name": "Better Carts",
+      "description": "Improved hauling keeps mining crews working instead of waiting on ore removal.",
+      "baseCost": 9000,
+      "growthRate": 2.1,
+      "maxRank": 4,
+      "effect": {
+        "type": "generator-multiplier",
+        "generatorId": "mining-crew",
+        "amount": 0.25,
+        "label": "+25% Mining Crew power per rank"
+      },
+      "unlock": {
+        "companyLevel": 2,
+        "requiredGeneratorId": "mining-crew",
+        "requiredGeneratorOwned": 1
+      }
+    },
+    {
+      "id": "improved-drills",
+      "name": "Improved Drills",
+      "description": "Stronger bits and better cooling increase mechanical drill output.",
+      "baseCost": 35000,
+      "growthRate": 2.25,
+      "maxRank": 4,
+      "effect": {
+        "type": "generator-multiplier",
+        "generatorId": "mechanical-drill",
+        "amount": 0.3,
+        "label": "+30% Mechanical Drill power per rank"
+      },
+      "unlock": {
+        "companyLevel": 3,
+        "requiredGeneratorId": "mechanical-drill",
+        "requiredGeneratorOwned": 1
+      }
+    }
+  ],
   "story": {
     "milestones": [
       {
@@ -448,6 +581,16 @@
         "trigger": {
           "type": "stage",
           "value": "independent"
+        }
+      },
+      {
+        "id": "company-founded",
+        "title": "A Company of Your Own",
+        "speaker": "County Clerk",
+        "text": "The registration is official. Your claim is now a mining company, and your first hires can begin work.",
+        "trigger": {
+          "type": "stage",
+          "value": "company-owner"
         }
       }
     ]

@@ -10,6 +10,7 @@ const SKILL_EFFECT_TYPES = new Set([
   'automation-bonus',
 ]);
 const LOTTERY_REWARD_TYPES = new Set(['none', 'cash', 'resource', 'free-ticket']);
+const BUSINESS_EFFECT_TYPES = new Set(['automation-multiplier', 'generator-multiplier']);
 const STORY_TRIGGER_TYPES = new Set(['start', 'level', 'cash', 'stage', 'contract-affordable']);
 const PROBABILITY_EPSILON = 1e-9;
 
@@ -410,6 +411,233 @@ function normalizeStore(rawStore, equipment, lottery, errors) {
   };
 }
 
+function normalizeCompany(rawCompany, errors) {
+  if (rawCompany !== undefined && (!rawCompany || typeof rawCompany !== 'object' || Array.isArray(rawCompany))) {
+    errors.push('company must be an object when provided');
+  }
+  const source = rawCompany && typeof rawCompany === 'object' && !Array.isArray(rawCompany)
+    ? rawCompany
+    : {};
+  const rawCreation = source.creation && typeof source.creation === 'object' && !Array.isArray(source.creation)
+    ? source.creation
+    : {};
+  if (source.creation !== undefined && rawCreation !== source.creation) {
+    errors.push('company.creation must be an object when provided');
+  }
+
+  const creationCost = finite(rawCreation.cost, 2500);
+  const requiredCharacterLevel = integer(rawCreation.requiredCharacterLevel, 1, 1);
+  const minimumNameLength = integer(rawCreation.minimumNameLength, 2, 1);
+  const maximumNameLength = integer(rawCreation.maximumNameLength, 40, 1);
+  if (rawCreation.cost !== undefined && (!isFiniteNumber(rawCreation.cost) || rawCreation.cost < 0)) {
+    errors.push('company.creation.cost must be a finite nonnegative number');
+  }
+  if (rawCreation.requiredCharacterLevel !== undefined
+    && (!Number.isInteger(rawCreation.requiredCharacterLevel) || rawCreation.requiredCharacterLevel < 1)) {
+    errors.push('company.creation.requiredCharacterLevel must be a positive integer');
+  }
+  if (rawCreation.minimumNameLength !== undefined
+    && (!Number.isInteger(rawCreation.minimumNameLength) || rawCreation.minimumNameLength < 1)) {
+    errors.push('company.creation.minimumNameLength must be a positive integer');
+  }
+  if (rawCreation.maximumNameLength !== undefined
+    && (!Number.isInteger(rawCreation.maximumNameLength) || rawCreation.maximumNameLength < 1)) {
+    errors.push('company.creation.maximumNameLength must be a positive integer');
+  }
+  if (maximumNameLength < minimumNameLength || maximumNameLength > 100) {
+    errors.push('company creation name length limits must be ordered and at most 100 characters');
+  }
+
+  if (source.levels !== undefined && !Array.isArray(source.levels)) {
+    errors.push('company.levels must be an array when provided');
+  }
+  if (Array.isArray(source.levels) && source.levels.length < 1) {
+    errors.push('company.levels must contain at least one entry when provided');
+  }
+  const rawLevels = Array.isArray(source.levels) && source.levels.length
+    ? source.levels
+    : [{ level: 1, name: 'Mining Company', requiredInvestment: 0 }];
+  const levels = rawLevels.map((entry, index) => {
+    if (!Number.isInteger(entry?.level) || entry.level < 1) {
+      errors.push(`company.levels[${index}].level must be a positive integer`);
+    }
+    if (!isFiniteNumber(entry?.requiredInvestment) || entry.requiredInvestment < 0) {
+      errors.push(`company.levels[${index}].requiredInvestment must be a finite nonnegative number`);
+    }
+    return {
+      level: integer(entry?.level, index + 1, 1),
+      name: text(entry?.name, `Company Level ${index + 1}`, 80),
+      requiredInvestment: nonnegative(entry?.requiredInvestment),
+    };
+  });
+  levels.forEach((entry, index) => {
+    if (entry.level !== index + 1) {
+      errors.push('company.levels must be sequential and start at level 1');
+    }
+    if (index === 0 && entry.requiredInvestment !== 0) {
+      errors.push('company level 1 must require zero lifetime investment');
+    }
+    if (index > 0 && entry.requiredInvestment <= levels[index - 1].requiredInvestment) {
+      errors.push('company level investment requirements must increase strictly');
+    }
+  });
+
+  return {
+    ownerRole: text(source.ownerRole, 'Founder & Lead Miner', 100),
+    creation: {
+      cost: nonnegative(creationCost),
+      requiredCharacterLevel,
+      minimumNameLength,
+      maximumNameLength,
+    },
+    levels,
+    levelsByLevel: Object.fromEntries(levels.map((entry) => [entry.level, entry])),
+    maxLevel: levels.at(-1)?.level || 1,
+  };
+}
+
+function normalizeGeneratorUnlock(rawUnlock, company, label, errors) {
+  const source = rawUnlock && typeof rawUnlock === 'object' && !Array.isArray(rawUnlock)
+    ? rawUnlock
+    : {};
+  if (rawUnlock !== undefined && source !== rawUnlock) {
+    errors.push(`${label}.unlock must be an object when provided`);
+  }
+  const companyLevel = integer(source.companyLevel, 1, 1);
+  const requiredGeneratorId = normalizedId(source.requiredGeneratorId);
+  const requiredGeneratorOwned = integer(source.requiredGeneratorOwned, requiredGeneratorId ? 1 : 0, 0);
+  if (source.companyLevel !== undefined
+    && (!Number.isInteger(source.companyLevel) || source.companyLevel < 1 || source.companyLevel > company.maxLevel)) {
+    errors.push(`${label}.unlock.companyLevel must reference a configured company level`);
+  }
+  if (source.requiredGeneratorId !== undefined && !requiredGeneratorId) {
+    errors.push(`${label}.unlock.requiredGeneratorId must be a safe id`);
+  }
+  if (source.requiredGeneratorOwned !== undefined
+    && (!Number.isInteger(source.requiredGeneratorOwned) || source.requiredGeneratorOwned < 1)) {
+    errors.push(`${label}.unlock.requiredGeneratorOwned must be a positive integer`);
+  }
+  if (!requiredGeneratorId && source.requiredGeneratorOwned !== undefined) {
+    errors.push(`${label}.unlock.requiredGeneratorOwned requires requiredGeneratorId`);
+  }
+  return { companyLevel, requiredGeneratorId, requiredGeneratorOwned };
+}
+
+function normalizeGenerators(rawGenerators, company, errors) {
+  if (rawGenerators !== undefined && !Array.isArray(rawGenerators)) {
+    errors.push('generators must be an array when provided');
+  }
+  const generators = (Array.isArray(rawGenerators) ? rawGenerators : []).map((entry, index) => {
+    const label = `generators[${index}]`;
+    if (!isFiniteNumber(entry?.baseCost) || entry.baseCost < 0) {
+      errors.push(`${label}.baseCost must be a finite nonnegative number`);
+    }
+    if (!isFiniteNumber(entry?.growthRate) || entry.growthRate < 1) {
+      errors.push(`${label}.growthRate must be a finite number of at least 1`);
+    }
+    if (!isFiniteNumber(entry?.powerPerSecond) || entry.powerPerSecond < 0) {
+      errors.push(`${label}.powerPerSecond must be a finite nonnegative number`);
+    }
+    if (entry?.workersPerUnit !== undefined
+      && (!Number.isInteger(entry.workersPerUnit) || entry.workersPerUnit < 0)) {
+      errors.push(`${label}.workersPerUnit must be a nonnegative integer`);
+    }
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Generator', 80),
+      description: text(entry?.description, '', 240),
+      icon: text(entry?.icon, 'AU', 8),
+      baseCost: nonnegative(entry?.baseCost),
+      growthRate: Math.max(1, finite(entry?.growthRate, 1)),
+      powerPerSecond: nonnegative(entry?.powerPerSecond),
+      workersPerUnit: integer(entry?.workersPerUnit, 0),
+      unlock: normalizeGeneratorUnlock(entry?.unlock, company, label, errors),
+    };
+  });
+  const generatorIds = uniqueIds(generators, 'generators', errors);
+  const generatorsById = Object.fromEntries(generators.map((entry) => [entry.id, entry]));
+  generators.forEach((generator) => {
+    const requiredId = generator.unlock.requiredGeneratorId;
+    if (requiredId && !generatorIds.has(requiredId)) {
+      errors.push(`generator "${generator.id || '(invalid)'}" requires missing generator "${requiredId}"`);
+    }
+    if (requiredId === generator.id) {
+      errors.push(`generator "${generator.id || '(invalid)'}" cannot require itself`);
+    }
+  });
+  generators.forEach((generator) => {
+    const visited = new Set([generator.id]);
+    let requiredId = generator.unlock.requiredGeneratorId;
+    while (requiredId && generatorsById[requiredId]) {
+      if (visited.has(requiredId)) {
+        errors.push(`generator "${generator.id || '(invalid)'}" has a circular prerequisite chain`);
+        break;
+      }
+      visited.add(requiredId);
+      requiredId = generatorsById[requiredId].unlock.requiredGeneratorId;
+    }
+  });
+  return { generators, generatorsById };
+}
+
+function normalizeBusinessUpgrades(rawUpgrades, company, generatorsById, errors) {
+  if (rawUpgrades !== undefined && !Array.isArray(rawUpgrades)) {
+    errors.push('businessUpgrades must be an array when provided');
+  }
+  const upgrades = (Array.isArray(rawUpgrades) ? rawUpgrades : []).map((entry, index) => {
+    const label = `businessUpgrades[${index}]`;
+    const effectType = normalizedId(entry?.effect?.type);
+    const generatorId = normalizedId(entry?.effect?.generatorId);
+    if (!isFiniteNumber(entry?.baseCost) || entry.baseCost < 0) {
+      errors.push(`${label}.baseCost must be a finite nonnegative number`);
+    }
+    if (!isFiniteNumber(entry?.growthRate) || entry.growthRate < 1) {
+      errors.push(`${label}.growthRate must be a finite number of at least 1`);
+    }
+    if (!Number.isInteger(entry?.maxRank) || entry.maxRank < 1) {
+      errors.push(`${label}.maxRank must be a positive integer`);
+    }
+    if (!BUSINESS_EFFECT_TYPES.has(effectType)) {
+      errors.push(`${label}.effect.type is unsupported`);
+    }
+    if (!isFiniteNumber(entry?.effect?.amount) || entry.effect.amount < 0) {
+      errors.push(`${label}.effect.amount must be a finite nonnegative number`);
+    }
+    if (effectType === 'generator-multiplier' && !generatorsById[generatorId]) {
+      errors.push(`${label}.effect.generatorId references a missing generator`);
+    }
+    if (effectType === 'automation-multiplier' && entry?.effect?.generatorId !== undefined) {
+      errors.push(`${label}.effect.generatorId is only valid for generator-multiplier effects`);
+    }
+    return {
+      id: normalizedId(entry?.id),
+      name: text(entry?.name, entry?.id || 'Business Upgrade', 80),
+      description: text(entry?.description, '', 240),
+      baseCost: nonnegative(entry?.baseCost),
+      growthRate: Math.max(1, finite(entry?.growthRate, 1)),
+      maxRank: integer(entry?.maxRank, 1, 1),
+      effect: {
+        type: effectType,
+        generatorId,
+        amount: nonnegative(entry?.effect?.amount),
+        label: text(entry?.effect?.label, '', 140),
+      },
+      unlock: normalizeGeneratorUnlock(entry?.unlock, company, label, errors),
+    };
+  });
+  uniqueIds(upgrades, 'businessUpgrades', errors);
+  upgrades.forEach((upgrade) => {
+    const requiredId = upgrade.unlock.requiredGeneratorId;
+    if (requiredId && !generatorsById[requiredId]) {
+      errors.push(`business upgrade "${upgrade.id || '(invalid)'}" requires missing generator "${requiredId}"`);
+    }
+  });
+  return {
+    businessUpgrades: upgrades,
+    businessUpgradesById: Object.fromEntries(upgrades.map((entry) => [entry.id, entry])),
+  };
+}
+
 export function normalizeIncrementalConfig(raw, options = {}) {
   const errors = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -533,12 +761,17 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   const baseCriticalChance = finite(raw.balance?.baseCriticalChance, 0);
   const baseCriticalDamage = finite(raw.balance?.baseCriticalDamage, 2);
   const baseOreYieldChance = finite(raw.balance?.baseOreYieldChance, 0);
+  const maxAutomationBreaksPerTick = integer(raw.balance?.maxAutomationBreaksPerTick, 1000, 1);
   ['manualPower', 'autosaveSeconds', 'employeeWageShare', 'minimumWage'].forEach((field) => {
     if (!isFiniteNumber(raw.balance?.[field])) errors.push(`balance.${field} must be a finite number`);
   });
   if (raw.balance?.baseCriticalChance !== undefined && !isFiniteNumber(raw.balance.baseCriticalChance)) errors.push('balance.baseCriticalChance must be a finite number');
   if (raw.balance?.baseCriticalDamage !== undefined && !isFiniteNumber(raw.balance.baseCriticalDamage)) errors.push('balance.baseCriticalDamage must be a finite number');
   if (raw.balance?.baseOreYieldChance !== undefined && !isFiniteNumber(raw.balance.baseOreYieldChance)) errors.push('balance.baseOreYieldChance must be a finite number');
+  if (raw.balance?.maxAutomationBreaksPerTick !== undefined
+    && (!Number.isInteger(raw.balance.maxAutomationBreaksPerTick) || raw.balance.maxAutomationBreaksPerTick < 1)) {
+    errors.push('balance.maxAutomationBreaksPerTick must be a positive integer');
+  }
   if (!(manualPower > 0)) errors.push('balance.manualPower must be positive');
   if (!(autosaveSeconds > 0)) errors.push('balance.autosaveSeconds must be positive');
   if (employeeWageShare < 0 || employeeWageShare > 1) errors.push('balance.employeeWageShare must be between 0 and 1');
@@ -570,6 +803,14 @@ export function normalizeIncrementalConfig(raw, options = {}) {
   const resourcesById = Object.fromEntries(resources.map((entry) => [entry.id, entry]));
   const lottery = normalizeLottery(raw.lottery, resourcesById, errors);
   const store = normalizeStore(raw.store, equipment, lottery, errors);
+  const company = normalizeCompany(raw.company, errors);
+  const { generators, generatorsById } = normalizeGenerators(raw.generators, company, errors);
+  const { businessUpgrades, businessUpgradesById } = normalizeBusinessUpgrades(
+    raw.businessUpgrades,
+    company,
+    generatorsById,
+    errors,
+  );
   if ((equipment.items.length || lottery.scratchTickets.length || store.categories.length) && !store.id) {
     errors.push('store.id must be a safe non-empty identifier when store content is provided');
   }
@@ -587,6 +828,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
       baseCriticalChance,
       baseCriticalDamage,
       baseOreYieldChance,
+      maxAutomationBreaksPerTick,
     },
     progression: {
       xpBase,
@@ -626,6 +868,11 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     equipment,
     lottery,
     store,
+    company,
+    generators,
+    generatorsById,
+    businessUpgrades,
+    businessUpgradesById,
     resources,
     deposits,
     mines,
@@ -680,4 +927,13 @@ export function xpRequiredForLevel(config, level) {
   const required = config.progression.xpBase * (config.progression.xpGrowth ** (safeLevel - 1));
   if (!Number.isFinite(required)) return Number.MAX_SAFE_INTEGER;
   return Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(required)));
+}
+
+export function scaledPurchaseCost(baseCost, growthRate, owned) {
+  const base = nonnegative(baseCost);
+  const growth = Math.max(1, finite(growthRate, 1));
+  const quantity = integer(owned, 0);
+  const cost = base * (growth ** quantity);
+  if (!Number.isFinite(cost)) return Number.MAX_SAFE_INTEGER;
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.ceil(cost)));
 }
