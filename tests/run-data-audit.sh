@@ -10,6 +10,7 @@ fi
 
 node tests/data-audit.mjs || STATUS=$?
 node tests/building-data-audit.mjs || STATUS=$?
+node tests/npc-data-audit.mjs || STATUS=$?
 node tests/scene-contract-audit.mjs || STATUS=$?
 node tests/actor-entity-contract-audit.mjs || STATUS=$?
 node tests/builder-catalog-audit.mjs || STATUS=$?
