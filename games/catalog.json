@@ -14,6 +14,13 @@
       "id": "scene-demo",
       "name": "Generic Scene Demo",
       "description": "Direct actor and component-entity package"
+    },
+    {
+      "id": "miner-incremental",
+      "name": "Blackstone Breakaway",
+      "description": "Mine for Blackstone, level your character, and earn your independence",
+      "gameType": "incremental",
+      "builderSupport": false
     }
   ]
 }

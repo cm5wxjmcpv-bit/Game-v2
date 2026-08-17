@@ -1,13 +1,11 @@
 import { getActiveGameId } from './gameManifest.js';
+import { getSaveStorageKey } from './saveNamespace.js';
+
+export { getSaveStorageKey } from './saveNamespace.js';
 
 const SAVE_VERSION = 5;
 const DEFAULT_SLOT = 1;
 const LEGACY_SAVE_KEYS = ['pixel_engine_save_v2', 'pixel_engine_save_v1'];
-
-export function getSaveStorageKey(slot = DEFAULT_SLOT) {
-  const safeSlot = Number.isInteger(slot) && slot > 0 ? slot : DEFAULT_SLOT;
-  return `pixel_engine_save_${getActiveGameId()}_slot_${safeSlot}`;
-}
 
 export function saveGame(snapshot, slot = DEFAULT_SLOT) {
   try {

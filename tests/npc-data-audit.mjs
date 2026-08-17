@@ -27,6 +27,10 @@ for (const game of catalog.games || []) {
   const gameId = String(game?.id || '');
   const manifestFile = path.join(repoRoot, 'games', gameId, 'game.json');
   const manifest = readJson(manifestFile, `${gameId}:manifest`);
+  if (manifest.gameType === 'incremental') {
+    console.log(`Skipped ${gameId}: map NPC templates do not apply to the incremental runtime.`);
+    continue;
+  }
   const contentRoot = path.resolve(path.dirname(manifestFile), String(manifest.contentRoot || './'));
   const npcPath = manifest.data?.npcs;
   if (typeof npcPath !== 'string' || !npcPath.trim()) {

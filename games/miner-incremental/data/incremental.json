@@ -1,0 +1,1220 @@
+{
+  "schemaVersion": 1,
+  "id": "miner-incremental",
+  "name": "Blackstone Breakaway",
+  "balance": {
+    "manualPower": 2,
+    "autosaveSeconds": 5,
+    "employeeWageShare": 0.08,
+    "minimumWage": 1,
+    "baseCriticalChance": 0,
+    "baseCriticalDamage": 2,
+    "baseOreYieldChance": 0,
+    "maxAutomationBreaksPerTick": 1000
+  },
+  "progression": {
+    "xpBase": 100,
+    "xpGrowth": 1.25,
+    "skillPointsPerLevel": 1,
+    "skillResetCostPerPoint": 25
+  },
+  "offlineProgress": {
+    "minimumAwaySeconds": 60,
+    "capSeconds": 36000,
+    "maxBreaks": 100000
+  },
+  "start": {
+    "cash": 0,
+    "level": 1,
+    "xp": 0,
+    "mineId": "blackstone-shaft-7",
+    "depositId": "stone-face",
+    "storyStage": "employee"
+  },
+  "employment": {
+    "companyId": "blackstone-mining",
+    "companyName": "Blackstone Mining Co.",
+    "role": "Underpaid Mine Worker",
+    "foremanName": "Foreman Cole",
+    "contractBuyoutCost": 5000
+  },
+  "independence": {
+    "role": "Independent Miner",
+    "operationName": "Freedom Claim",
+    "locationName": "Freedom Claim",
+    "subtitle": "The claim is small, but every resource you recover now belongs to you.",
+    "instruction": "This ore is yours. Break deposits, build a personal stockpile, and sell it directly for full value."
+  },
+  "ui": {
+    "title": "Blackstone Breakaway",
+    "subtitle": "Every ton belongs to Blackstone. Every dollar toward freedom belongs to you.",
+    "instruction": "Keep swinging. Blackstone owns the ore; you receive a small wage when the deposit breaks."
+  },
+  "skills": [
+    {
+      "id": "mining-power",
+      "name": "Mining Power",
+      "description": "Deal more damage to every deposit with each manual swing.",
+      "maxRank": 10,
+      "effect": {
+        "type": "manual-power-flat",
+        "amount": 1,
+        "label": "+1 manual mining power per rank"
+      }
+    },
+    {
+      "id": "mining-speed",
+      "name": "Mining Speed",
+      "description": "Improves future auto-swing speed without adding a click cooldown.",
+      "maxRank": 10,
+      "enabled": false,
+      "unlockNote": "Activates with the personal auto-swing system in a later milestone.",
+      "effect": {
+        "type": "mining-speed",
+        "amount": 0.05,
+        "label": "+5% mining speed per rank"
+      }
+    },
+    {
+      "id": "critical-chance",
+      "name": "Critical Chance",
+      "description": "Adds a chance for a manual swing to deal critical mining damage.",
+      "maxRank": 10,
+      "effect": {
+        "type": "critical-chance",
+        "amount": 0.03,
+        "label": "+3% critical chance per rank"
+      }
+    },
+    {
+      "id": "critical-damage",
+      "name": "Critical Damage",
+      "description": "Makes every critical mining hit strike harder.",
+      "maxRank": 10,
+      "effect": {
+        "type": "critical-damage",
+        "amount": 0.2,
+        "label": "+0.2x critical damage per rank"
+      }
+    },
+    {
+      "id": "ore-yield",
+      "name": "Ore Yield",
+      "description": "Adds a chance to recover one bonus resource when a deposit breaks.",
+      "maxRank": 10,
+      "effect": {
+        "type": "ore-yield-chance",
+        "amount": 0.08,
+        "label": "+8% bonus-ore chance per rank"
+      }
+    },
+    {
+      "id": "rare-find",
+      "name": "Rare Find Chance",
+      "description": "Improves the chance that a manual deposit break uncovers a valuable rare find.",
+      "maxRank": 10,
+      "effect": {
+        "type": "rare-find-chance",
+        "amount": 0.02,
+        "label": "+2% rare-find chance per rank"
+      }
+    },
+    {
+      "id": "automation-bonus",
+      "name": "Automation Bonus",
+      "description": "Improves workers and company machinery without replacing your manual miner.",
+      "maxRank": 10,
+      "effect": {
+        "type": "automation-bonus",
+        "amount": 0.05,
+        "label": "+5% automated production per rank"
+      }
+    }
+  ],
+  "equipment": {
+    "slots": [
+      {
+        "id": "tool",
+        "name": "Main Tool",
+        "description": "Your pickaxe determines the force of each manual swing."
+      },
+      {
+        "id": "gloves",
+        "name": "Gloves",
+        "description": "Work gloves improve precision and critical strikes."
+      },
+      {
+        "id": "helmet",
+        "name": "Helmet / Lamp",
+        "description": "Prospecting headgear helps you recover more usable ore."
+      }
+    ],
+    "items": [
+      {
+        "id": "rusty-pickaxe",
+        "name": "Rusty Pickaxe",
+        "description": "Blackstone's battered issue pick. It works, but only just.",
+        "slotId": "tool",
+        "cost": 0,
+        "icon": "RP",
+        "startingOwned": true,
+        "startingEquipped": true,
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 0,
+            "label": "Standard manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "iron-pickaxe",
+        "name": "Iron Pickaxe",
+        "description": "A balanced personal tool that hits harder than company issue gear.",
+        "slotId": "tool",
+        "cost": 30,
+        "icon": "IP",
+        "requiresItemId": "rusty-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 1,
+            "label": "+1 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "steel-pickaxe",
+        "name": "Steel Pickaxe",
+        "description": "A forged steel head bites cleanly into harder seams.",
+        "slotId": "tool",
+        "cost": 120,
+        "icon": "SP",
+        "requiresItemId": "iron-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 3,
+            "label": "+3 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "hardened-pickaxe",
+        "name": "Hardened Pickaxe",
+        "description": "Heat-treated steel built for long shifts and stubborn rock.",
+        "slotId": "tool",
+        "cost": 450,
+        "icon": "HP",
+        "requiresItemId": "steel-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 6,
+            "label": "+6 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "diamond-tipped-pickaxe",
+        "name": "Diamond-Tipped Pickaxe",
+        "description": "An expensive precision head that turns personal swings into serious production.",
+        "slotId": "tool",
+        "cost": 1800,
+        "icon": "DP",
+        "requiresItemId": "hardened-pickaxe",
+        "bonuses": [
+          {
+            "type": "manual-power-flat",
+            "amount": 12,
+            "label": "+12 manual mining power"
+          }
+        ]
+      },
+      {
+        "id": "leather-work-gloves",
+        "name": "Leather Work Gloves",
+        "description": "A steadier grip creates more opportunities for a perfect strike.",
+        "slotId": "gloves",
+        "cost": 75,
+        "icon": "WG",
+        "bonuses": [
+          {
+            "type": "critical-chance",
+            "amount": 0.03,
+            "label": "+3% critical chance"
+          }
+        ]
+      },
+      {
+        "id": "impact-gloves",
+        "name": "Impact Gloves",
+        "description": "Reinforced palms transfer more force when a critical swing lands.",
+        "slotId": "gloves",
+        "cost": 350,
+        "icon": "IG",
+        "requiresItemId": "leather-work-gloves",
+        "bonuses": [
+          {
+            "type": "critical-damage",
+            "amount": 0.25,
+            "label": "+0.25x critical damage"
+          }
+        ]
+      },
+      {
+        "id": "surveyors-lamp",
+        "name": "Surveyor's Lamp",
+        "description": "A focused beam helps distinguish usable ore from waste rock.",
+        "slotId": "helmet",
+        "cost": 250,
+        "icon": "SL",
+        "bonuses": [
+          {
+            "type": "ore-yield-chance",
+            "amount": 0.05,
+            "label": "+5% bonus-ore chance"
+          }
+        ]
+      },
+      {
+        "id": "prospector-helmet",
+        "name": "Prospector Helmet",
+        "description": "A rugged helmet with a calibrated lamp for spotting rich fragments.",
+        "slotId": "helmet",
+        "cost": 900,
+        "icon": "PH",
+        "requiresItemId": "surveyors-lamp",
+        "bonuses": [
+          {
+            "type": "ore-yield-chance",
+            "amount": 0.1,
+            "label": "+10% bonus-ore chance"
+          }
+        ]
+      }
+    ]
+  },
+  "lottery": {
+    "disclaimer": "A completely fictional game of chance purchased only with earned in-game cash. Prizes have no real-world value.",
+    "scratchTickets": [
+      {
+        "id": "gold-vein-scratch-off",
+        "name": "Gold Vein Scratch-Off",
+        "description": "Scratch through the rock dust to reveal one fixed-odds prize.",
+        "cost": 10,
+        "icon": "★",
+        "prizes": [
+          {
+            "id": "spent-ticket",
+            "label": "No prize",
+            "probability": 0.58,
+            "reward": {
+              "type": "none"
+            }
+          },
+          {
+            "id": "small-cash",
+            "label": "$4 cash",
+            "probability": 0.2,
+            "reward": {
+              "type": "cash",
+              "amount": 4
+            }
+          },
+          {
+            "id": "copper-chip",
+            "label": "1 Copper Ore",
+            "probability": 0.1,
+            "reward": {
+              "type": "resource",
+              "resourceId": "copper",
+              "amount": 1
+            }
+          },
+          {
+            "id": "ten-dollar-find",
+            "label": "$10 cash",
+            "probability": 0.06,
+            "reward": {
+              "type": "cash",
+              "amount": 10
+            }
+          },
+          {
+            "id": "free-ticket",
+            "label": "Free Gold Vein ticket",
+            "probability": 0.04,
+            "reward": {
+              "type": "free-ticket",
+              "ticketId": "gold-vein-scratch-off"
+            }
+          },
+          {
+            "id": "cash-jackpot",
+            "label": "$75 jackpot",
+            "probability": 0.02,
+            "reward": {
+              "type": "cash",
+              "amount": 75
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "store": {
+    "id": "millers-general-store",
+    "name": "Miller's General Store",
+    "keeperName": "Miller",
+    "description": "A familiar supply counter for working miners, independent operators, and anyone feeling lucky.",
+    "categories": [
+      {
+        "id": "mining-tools",
+        "name": "Mining Tools",
+        "description": "Personal tools that directly increase manual mining power.",
+        "equipmentIds": [
+          "rusty-pickaxe",
+          "iron-pickaxe",
+          "steel-pickaxe",
+          "hardened-pickaxe",
+          "diamond-tipped-pickaxe"
+        ]
+      },
+      {
+        "id": "protective-gear",
+        "name": "Gloves & Lamps",
+        "description": "Gear for critical strikes and better ore recovery.",
+        "equipmentIds": [
+          "leather-work-gloves",
+          "impact-gloves",
+          "surveyors-lamp",
+          "prospector-helmet"
+        ]
+      },
+      {
+        "id": "lottery-counter",
+        "name": "Lottery Counter",
+        "description": "Fixed odds, fictional prizes, and no real-world value.",
+        "scratchTicketIds": [
+          "gold-vein-scratch-off"
+        ]
+      }
+    ]
+  },
+  "company": {
+    "ownerRole": "Founder & Lead Miner",
+    "creation": {
+      "cost": 2500,
+      "requiredCharacterLevel": 3,
+      "minimumNameLength": 2,
+      "maximumNameLength": 40
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "Prospecting Outfit",
+        "requiredInvestment": 0
+      },
+      {
+        "level": 2,
+        "name": "Local Mining Company",
+        "requiredInvestment": 4000
+      },
+      {
+        "level": 3,
+        "name": "Growing Operation",
+        "requiredInvestment": 20000
+      },
+      {
+        "level": 4,
+        "name": "Regional Producer",
+        "requiredInvestment": 100000
+      }
+    ]
+  },
+  "competition": {
+    "rival": {
+      "id": "blackstone-mining",
+      "name": "Blackstone Mining Co.",
+      "statusLabel": "Former Employer & Rival",
+      "description": "Blackstone remains the region's established operator. Its notices mark your rise from dismissed former employee to serious competitor."
+    },
+    "milestones": [
+      {
+        "id": "blackstone-new-shaft",
+        "title": "Blackstone Expands",
+        "speaker": "Regional Mining Bulletin",
+        "text": "Blackstone Mining opened another shaft. Foreman Cole calls your new company a temporary distraction.",
+        "image": "assets/story/blackstone-new-shift.webp",
+        "imageAlt": "Foreman Cole assigns another new worker inside Blackstone Shaft 7.",
+        "reputationAward": 10,
+        "trigger": {
+          "type": "company-level",
+          "value": 1
+        }
+      },
+      {
+        "id": "blackstone-major-contract",
+        "title": "A Major Ore Contract",
+        "speaker": "Regional Mining Bulletin",
+        "text": "Blackstone secured a major ore contract, but buyers have started asking whether your operation can provide a second supply line.",
+        "image": "assets/story/senior-miner.webp",
+        "imageAlt": "A senior miner inspects a rich Blackstone ore vein with Foreman Cole.",
+        "reputationAward": 15,
+        "trigger": {
+          "type": "company-level",
+          "value": 2
+        }
+      },
+      {
+        "id": "blackstone-notices-operation",
+        "title": "Blackstone Has Noticed",
+        "speaker": "Foreman Cole",
+        "text": "Three productive mines? You have Blackstone's attention now. Do not mistake attention for respect.",
+        "image": "assets/story/first-shift-foreman.webp",
+        "imageAlt": "Foreman Cole confronts a miner beside the tracks in Blackstone Shaft 7.",
+        "reputationAward": 20,
+        "trigger": {
+          "type": "mines-unlocked",
+          "value": 3
+        }
+      },
+      {
+        "id": "blackstone-purchase-offer",
+        "title": "An Offer From Blackstone",
+        "speaker": "Blackstone Executive Office",
+        "text": "Blackstone Mining has offered to purchase your company. The offer is profitable, final, and declined on your behalf.",
+        "image": "assets/story/first-promotion.webp",
+        "imageAlt": "A Blackstone executive presents an official company offer across his desk.",
+        "reputationAward": 25,
+        "trigger": {
+          "type": "total-automated-production",
+          "value": 250000
+        }
+      },
+      {
+        "id": "blackstone-production-surpassed",
+        "title": "The Region's Largest Producer",
+        "speaker": "Regional Mining Bulletin",
+        "text": "Your company has surpassed Blackstone's production rate. The company that once owned every rock you broke is now the smaller operation.",
+        "image": "assets/story/new-hire-strike.webp",
+        "imageAlt": "A miner drives a pickaxe into a Blackstone coal seam.",
+        "reputationAward": 30,
+        "trigger": {
+          "type": "automation-power",
+          "value": 1000
+        }
+      }
+    ],
+    "acquisition": {
+      "id": "blackstone-acquisition",
+      "title": "Acquire Blackstone Mining Co.",
+      "description": "Purchase your former employer only after your company has the scale, production, mining history, and industry reputation to absorb it.",
+      "price": 250000000,
+      "requirements": {
+        "companyLevel": 4,
+        "ownedMines": 5,
+        "lifetimeOre": 1000000,
+        "reputation": 100,
+        "automationPower": 1000
+      },
+      "productionMultiplier": 2.5,
+      "completion": {
+        "storyStage": "blackstone-owner",
+        "title": "The Company Is Yours",
+        "speaker": "Foreman Cole",
+        "text": "Blackstone Mining Co. now belongs to you. The shaft where you started is one operation in your company, and this acquisition is only the beginning.",
+        "image": "assets/story/blackstone-new-shift.webp",
+        "imageAlt": "The original Blackstone shaft begins a new shift under your ownership."
+      }
+    }
+  },
+  "generators": [
+    {
+      "id": "hired-miner",
+      "name": "Hired Miner",
+      "description": "A dependable miner who works the active deposit alongside you.",
+      "icon": "HM",
+      "baseCost": 1200,
+      "growthRate": 1.15,
+      "powerPerSecond": 1,
+      "workersPerUnit": 1,
+      "unlock": {
+        "companyLevel": 1
+      }
+    },
+    {
+      "id": "mining-crew",
+      "name": "Mining Crew",
+      "description": "A coordinated four-person crew that brings steady production to each face.",
+      "icon": "MC",
+      "baseCost": 6500,
+      "growthRate": 1.17,
+      "powerPerSecond": 6,
+      "workersPerUnit": 4,
+      "unlock": {
+        "companyLevel": 2,
+        "requiredGeneratorId": "hired-miner",
+        "requiredGeneratorOwned": 3
+      }
+    },
+    {
+      "id": "mechanical-drill",
+      "name": "Mechanical Drill",
+      "description": "A powered drill that applies industrial force to the current deposit.",
+      "icon": "MD",
+      "baseCost": 30000,
+      "growthRate": 1.2,
+      "powerPerSecond": 25,
+      "workersPerUnit": 0,
+      "unlock": {
+        "companyLevel": 3,
+        "requiredGeneratorId": "mining-crew",
+        "requiredGeneratorOwned": 2
+      }
+    }
+  ],
+  "businessUpgrades": [
+    {
+      "id": "worker-training",
+      "name": "Worker Training",
+      "description": "Safer technique and cleaner handoffs improve every automated operation.",
+      "baseCost": 3000,
+      "growthRate": 2,
+      "maxRank": 5,
+      "effect": {
+        "type": "automation-multiplier",
+        "amount": 0.15,
+        "label": "+15% all automated power per rank"
+      },
+      "unlock": {
+        "companyLevel": 1,
+        "requiredGeneratorId": "hired-miner",
+        "requiredGeneratorOwned": 1
+      }
+    },
+    {
+      "id": "better-carts",
+      "name": "Better Carts",
+      "description": "Improved hauling keeps mining crews working instead of waiting on ore removal.",
+      "baseCost": 9000,
+      "growthRate": 2.1,
+      "maxRank": 4,
+      "effect": {
+        "type": "generator-multiplier",
+        "generatorId": "mining-crew",
+        "amount": 0.25,
+        "label": "+25% Mining Crew power per rank"
+      },
+      "unlock": {
+        "companyLevel": 2,
+        "requiredGeneratorId": "mining-crew",
+        "requiredGeneratorOwned": 1
+      }
+    },
+    {
+      "id": "improved-drills",
+      "name": "Improved Drills",
+      "description": "Stronger bits and better cooling increase mechanical drill output.",
+      "baseCost": 35000,
+      "growthRate": 2.25,
+      "maxRank": 4,
+      "effect": {
+        "type": "generator-multiplier",
+        "generatorId": "mechanical-drill",
+        "amount": 0.3,
+        "label": "+30% Mechanical Drill power per rank"
+      },
+      "unlock": {
+        "companyLevel": 3,
+        "requiredGeneratorId": "mechanical-drill",
+        "requiredGeneratorOwned": 1
+      }
+    }
+  ],
+  "story": {
+    "milestones": [
+      {
+        "id": "blackstone-first-shift",
+        "title": "First Shift",
+        "speaker": "Foreman Cole",
+        "text": "Keep swinging. There are twenty men waiting for your job.",
+        "image": "assets/story/first-shift.webp",
+        "imageAlt": "A new miner reports to Foreman Cole inside Blackstone Shaft 7.",
+        "trigger": {
+          "type": "start"
+        }
+      },
+      {
+        "id": "blackstone-level-two",
+        "title": "A Stronger Swing",
+        "speaker": "Foreman Cole",
+        "text": "Getting faster, are you? Blackstone still owns every rock you break.",
+        "image": "assets/story/miners-swing.webp",
+        "imageAlt": "A Blackstone miner swings a pickaxe in a timber-supported shaft.",
+        "trigger": {
+          "type": "level",
+          "value": 2
+        }
+      },
+      {
+        "id": "blackstone-level-four",
+        "title": "Management Has Noticed",
+        "speaker": "Blackstone Notice",
+        "text": "Your shift output is above target. Your wage rate remains unchanged.",
+        "image": "assets/story/first-promotion.webp",
+        "imageAlt": "A Blackstone manager hands the miner an official notice across his desk.",
+        "trigger": {
+          "type": "level",
+          "value": 4
+        }
+      },
+      {
+        "id": "contract-within-reach",
+        "title": "Freedom Is Affordable",
+        "speaker": "Contract Office",
+        "text": "You now have enough cash to buy out your employment contract.",
+        "image": "assets/story/contract-release.webp",
+        "imageAlt": "The miner reviews the five-thousand-dollar Blackstone contract release.",
+        "trigger": {
+          "type": "contract-affordable"
+        }
+      },
+      {
+        "id": "contract-bought",
+        "title": "Independent Miner",
+        "speaker": "Foreman Cole",
+        "text": "You'll be back when that little claim dries up.",
+        "image": "assets/story/the-walkout.webp",
+        "imageAlt": "The newly independent miner walks out of the Blackstone office toward daylight.",
+        "trigger": {
+          "type": "stage",
+          "value": "independent"
+        }
+      },
+      {
+        "id": "company-founded",
+        "title": "A Company of Your Own",
+        "speaker": "County Clerk",
+        "text": "The registration is official. Your claim is now a mining company, and your first hires can begin work.",
+        "image": "assets/story/first-light-claim.webp",
+        "imageAlt": "The independent miner stands at his own mountain claim at first light.",
+        "trigger": {
+          "type": "stage",
+          "value": "company-owner"
+        }
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "stone",
+      "name": "Stone",
+      "value": 3,
+      "color": "#85817d",
+      "icon": "●"
+    },
+    {
+      "id": "coal",
+      "name": "Coal",
+      "value": 6,
+      "color": "#403d3b",
+      "icon": "◆"
+    },
+    {
+      "id": "copper",
+      "name": "Copper Ore",
+      "value": 14,
+      "color": "#bd6f45",
+      "icon": "◇"
+    },
+    {
+      "id": "iron",
+      "name": "Iron Ore",
+      "value": 32,
+      "color": "#9aa0a3",
+      "icon": "⬢"
+    },
+    {
+      "id": "silver",
+      "name": "Silver Ore",
+      "value": 75,
+      "color": "#c8d0d4",
+      "icon": "◈"
+    },
+    {
+      "id": "gold",
+      "name": "Gold Ore",
+      "value": 180,
+      "color": "#e2b547",
+      "icon": "✦"
+    },
+    {
+      "id": "emerald",
+      "name": "Emerald",
+      "value": 450,
+      "color": "#44aa78",
+      "icon": "⬟"
+    },
+    {
+      "id": "ruby",
+      "name": "Ruby",
+      "value": 750,
+      "color": "#cc4f5e",
+      "icon": "◆"
+    },
+    {
+      "id": "diamond",
+      "name": "Diamond",
+      "value": 1800,
+      "color": "#bcecf2",
+      "icon": "◊"
+    }
+  ],
+  "deposits": [
+    {
+      "id": "stone-face",
+      "name": "Stone Face",
+      "maxHp": 20,
+      "resourceId": "stone",
+      "reward": {
+        "min": 4,
+        "max": 6
+      },
+      "xp": 6,
+      "weight": 60,
+      "visual": {
+        "color": "#77716c",
+        "accent": "#c4beb7",
+        "icon": "●",
+        "images": [
+          "assets/deposits/stone-face.webp"
+        ]
+      }
+    },
+    {
+      "id": "coal-seam",
+      "name": "Coal Seam",
+      "maxHp": 30,
+      "resourceId": "coal",
+      "reward": {
+        "min": 3,
+        "max": 5
+      },
+      "xp": 10,
+      "weight": 28,
+      "visual": {
+        "color": "#302e2d",
+        "accent": "#77716e",
+        "icon": "◆",
+        "images": [
+          "assets/deposits/coal-seam.webp",
+          "assets/deposits/coal-seam-layered.webp"
+        ]
+      }
+    },
+    {
+      "id": "copper-vein",
+      "name": "Copper Vein",
+      "maxHp": 44,
+      "resourceId": "copper",
+      "reward": {
+        "min": 2,
+        "max": 4
+      },
+      "xp": 16,
+      "weight": 12,
+      "visual": {
+        "color": "#8d4f32",
+        "accent": "#e6a06f",
+        "icon": "◇",
+        "images": [
+          "assets/deposits/copper-vein.webp"
+        ]
+      }
+    },
+    {
+      "id": "iron-vein",
+      "name": "Iron Vein",
+      "maxHp": 80,
+      "resourceId": "iron",
+      "reward": {
+        "min": 3,
+        "max": 5
+      },
+      "xp": 26,
+      "weight": 24,
+      "visual": {
+        "color": "#666c70",
+        "accent": "#b8c0c4",
+        "icon": "⬢",
+        "images": [
+          "assets/deposits/iron-vein.webp"
+        ]
+      }
+    },
+    {
+      "id": "silver-vein",
+      "name": "Silver Vein",
+      "maxHp": 140,
+      "resourceId": "silver",
+      "reward": {
+        "min": 2,
+        "max": 4
+      },
+      "xp": 45,
+      "weight": 30,
+      "visual": {
+        "color": "#7d878c",
+        "accent": "#e1eaee",
+        "icon": "◈",
+        "images": [
+          "assets/deposits/silver-vein.webp"
+        ]
+      }
+    },
+    {
+      "id": "gold-vein",
+      "name": "Gold Vein",
+      "maxHp": 240,
+      "resourceId": "gold",
+      "reward": {
+        "min": 1,
+        "max": 3
+      },
+      "xp": 75,
+      "weight": 12,
+      "visual": {
+        "color": "#8f6d24",
+        "accent": "#f5d66d",
+        "icon": "✦",
+        "images": [
+          "assets/deposits/gold-vein.webp"
+        ]
+      }
+    },
+    {
+      "id": "emerald-pocket",
+      "name": "Emerald Pocket",
+      "maxHp": 420,
+      "resourceId": "emerald",
+      "reward": {
+        "min": 1,
+        "max": 2
+      },
+      "xp": 120,
+      "weight": 26,
+      "visual": {
+        "color": "#236b4a",
+        "accent": "#73e0a8",
+        "icon": "⬟",
+        "images": [
+          "assets/deposits/emerald-pocket.webp"
+        ]
+      }
+    },
+    {
+      "id": "ruby-pocket",
+      "name": "Ruby Pocket",
+      "maxHp": 650,
+      "resourceId": "ruby",
+      "reward": {
+        "min": 1,
+        "max": 2
+      },
+      "xp": 180,
+      "weight": 12,
+      "visual": {
+        "color": "#7a2936",
+        "accent": "#ef7380",
+        "icon": "◆",
+        "images": [
+          "assets/deposits/ruby-pocket.webp"
+        ]
+      }
+    },
+    {
+      "id": "diamond-cluster",
+      "name": "Diamond Cluster",
+      "maxHp": 1000,
+      "resourceId": "diamond",
+      "reward": {
+        "min": 1,
+        "max": 2
+      },
+      "xp": 280,
+      "weight": 2,
+      "visual": {
+        "color": "#6e9ba2",
+        "accent": "#dcfbff",
+        "icon": "◊",
+        "images": [
+          "assets/deposits/diamond-cluster.webp",
+          "assets/deposits/diamond-quartz-spine.webp"
+        ]
+      }
+    }
+  ],
+  "mines": [
+    {
+      "id": "blackstone-shaft-7",
+      "name": "Blackstone Shaft 7",
+      "description": "A cramped company shaft where new hires prove they can keep pace.",
+      "depositIds": [
+        "stone-face",
+        "coal-seam",
+        "copper-vein"
+      ],
+      "unlock": {
+        "cost": 0,
+        "characterLevel": 1,
+        "companyLevel": 0,
+        "requiresIndependence": false,
+        "requiredDepositsBroken": 0
+      },
+      "visual": {
+        "background": "#29221f",
+        "accent": "#f0b94d"
+      }
+    },
+    {
+      "id": "old-iron-mine",
+      "name": "Old Iron Mine",
+      "description": "A neglected hillside claim with dependable iron beneath its weathered timber supports.",
+      "depositIds": [
+        "coal-seam",
+        "copper-vein",
+        "iron-vein"
+      ],
+      "unlock": {
+        "cost": 2500,
+        "characterLevel": 4,
+        "companyLevel": 0,
+        "requiresIndependence": true,
+        "requiredMineId": "blackstone-shaft-7",
+        "requiredDepositsBroken": 35
+      },
+      "visual": {
+        "background": "#24282a",
+        "accent": "#aeb8bd"
+      }
+    },
+    {
+      "id": "deep-shaft",
+      "name": "Deep Shaft",
+      "description": "Reinforced lifts descend to silver-bearing rock and the first serious traces of gold.",
+      "depositIds": [
+        "iron-vein",
+        "silver-vein",
+        "gold-vein"
+      ],
+      "unlock": {
+        "cost": 20000,
+        "characterLevel": 7,
+        "companyLevel": 2,
+        "requiresIndependence": true,
+        "requiredMineId": "old-iron-mine",
+        "requiredDepositsBroken": 75
+      },
+      "visual": {
+        "background": "#1d2530",
+        "accent": "#d1b65e"
+      }
+    },
+    {
+      "id": "crystal-caverns",
+      "name": "Crystal Caverns",
+      "description": "Natural chambers conceal gold, emeralds, and rare ruby pockets behind dense stone.",
+      "depositIds": [
+        "gold-vein",
+        "emerald-pocket",
+        "ruby-pocket"
+      ],
+      "unlock": {
+        "cost": 150000,
+        "characterLevel": 11,
+        "companyLevel": 3,
+        "requiresIndependence": true,
+        "requiredMineId": "deep-shaft",
+        "requiredDepositsBroken": 140
+      },
+      "visual": {
+        "background": "#1f2b2a",
+        "accent": "#64d69c"
+      }
+    },
+    {
+      "id": "ancient-depths",
+      "name": "Ancient Depths",
+      "description": "The deepest surveyed workings demand a regional company and reward it with exceptional gemstones.",
+      "depositIds": [
+        "gold-vein",
+        "ruby-pocket",
+        "diamond-cluster"
+      ],
+      "unlock": {
+        "cost": 1200000,
+        "characterLevel": 16,
+        "companyLevel": 4,
+        "requiresIndependence": true,
+        "requiredMineId": "crystal-caverns",
+        "requiredDepositsBroken": 240
+      },
+      "visual": {
+        "background": "#18262e",
+        "accent": "#bcecf2"
+      }
+    }
+  ],
+  "rareFinds": {
+    "baseChance": 0.02,
+    "maxChance": 0.35,
+    "manualOnly": true,
+    "finds": [
+      {
+        "id": "ancient-coin",
+        "name": "Ancient Coin",
+        "description": "A worn collector's coin was wedged behind the broken face.",
+        "icon": "◎",
+        "weight": 45,
+        "reward": {
+          "type": "cash",
+          "amount": 125
+        }
+      },
+      {
+        "id": "fossil-impression",
+        "name": "Fossil Impression",
+        "description": "A clean fossil impression teaches you more about reading the surrounding rock.",
+        "icon": "◉",
+        "weight": 30,
+        "reward": {
+          "type": "xp",
+          "amount": 75
+        }
+      },
+      {
+        "id": "rich-copper-cache",
+        "name": "Rich Copper Cache",
+        "description": "A compact pocket of high-grade copper survived inside the deposit.",
+        "icon": "◇",
+        "weight": 20,
+        "eligibleMineIds": [
+          "blackstone-shaft-7",
+          "old-iron-mine"
+        ],
+        "reward": {
+          "type": "resource",
+          "resourceId": "copper",
+          "amount": 5
+        }
+      },
+      {
+        "id": "silver-specimen",
+        "name": "Silver Specimen",
+        "description": "An unusually pure silver specimen can be sold intact.",
+        "icon": "◈",
+        "weight": 18,
+        "eligibleMineIds": [
+          "old-iron-mine",
+          "deep-shaft"
+        ],
+        "reward": {
+          "type": "resource",
+          "resourceId": "silver",
+          "amount": 2
+        }
+      },
+      {
+        "id": "hidden-gem-pocket",
+        "name": "Hidden Gem Pocket",
+        "description": "A narrow seam opens onto a single saleable emerald.",
+        "icon": "⬟",
+        "weight": 10,
+        "eligibleMineIds": [
+          "deep-shaft",
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "reward": {
+          "type": "resource",
+          "resourceId": "emerald",
+          "amount": 1
+        }
+      },
+      {
+        "id": "lost-payroll-box",
+        "name": "Lost Payroll Box",
+        "description": "A rusted lockbox still contains old company scrip accepted by a collector.",
+        "icon": "▣",
+        "weight": 3,
+        "eligibleMineIds": [
+          "deep-shaft",
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "reward": {
+          "type": "cash",
+          "amount": 1500
+        }
+      }
+    ]
+  },
+  "miningEvents": {
+    "triggerChance": 0.015,
+    "events": [
+      {
+        "id": "rich-seam",
+        "name": "Rich Seam",
+        "description": "Fresh fractures expose denser material. Deposit rewards are improved while the seam holds.",
+        "icon": "+",
+        "weight": 65,
+        "durationSeconds": 20,
+        "effects": {
+          "rewardMultiplier": 1.35,
+          "depositWeightMultipliers": {}
+        }
+      },
+      {
+        "id": "gold-rush",
+        "name": "Gold Rush",
+        "description": "Gold-bearing deposits become much more likely and all recovered material is richer.",
+        "icon": "✦",
+        "weight": 25,
+        "durationSeconds": 30,
+        "eligibleMineIds": [
+          "deep-shaft",
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "effects": {
+          "rewardMultiplier": 1.6,
+          "depositWeightMultipliers": {
+            "gold-vein": 6
+          }
+        }
+      },
+      {
+        "id": "gemstone-flash",
+        "name": "Gemstone Flash",
+        "description": "A sparkling fracture reveals a short-lived run of richer gemstone deposits.",
+        "icon": "◆",
+        "weight": 10,
+        "durationSeconds": 20,
+        "eligibleMineIds": [
+          "crystal-caverns",
+          "ancient-depths"
+        ],
+        "effects": {
+          "rewardMultiplier": 1.5,
+          "depositWeightMultipliers": {
+            "emerald-pocket": 2.5,
+            "ruby-pocket": 2.5,
+            "diamond-cluster": 3
+          }
+        }
+      }
+    ]
+  }
+}

@@ -158,8 +158,9 @@ async function loadGameCatalog() {
         id: String(game?.id || '').trim().toLowerCase(),
         name: String(game?.name || game?.id || 'Game'),
         description: String(game?.description || ''),
+        builderSupport: game?.builderSupport !== false && game?.gameType !== 'incremental',
       }))
-      .filter((game) => /^[a-z0-9][a-z0-9_-]*$/.test(game.id));
+      .filter((game) => game.builderSupport && /^[a-z0-9][a-z0-9_-]*$/.test(game.id));
     renderGameOptions();
   } catch (error) {
     catalog = [];

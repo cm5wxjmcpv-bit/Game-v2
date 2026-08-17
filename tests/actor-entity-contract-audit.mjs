@@ -131,6 +131,10 @@ function validateEntities(map, sceneIds, contentRoot, label) {
 function auditPackage(manifestFile) {
   const manifest = readJson(manifestFile, path.relative(repoRoot, manifestFile));
   const gameId = String(manifest.id || path.basename(path.dirname(manifestFile)));
+  if (manifest.gameType === 'incremental') {
+    console.log(`Actor/entity contract ${gameId}: skipped for incremental runtime.`);
+    return;
+  }
   const label = `game:${gameId}`;
   const contentRoot = contentRootFor(manifestFile, manifest);
   const world = readPayload(contentRoot, manifest.data?.world, `${label}:world`);

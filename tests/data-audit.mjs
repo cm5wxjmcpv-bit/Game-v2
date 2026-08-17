@@ -164,6 +164,15 @@ function auditGamePackage(manifestFile) {
   if (manifest.id !== path.basename(path.dirname(manifestFile))) {
     fail(`${label}: manifest id must match its directory name`);
   }
+  const gameType = String(manifest.gameType || 'adventure').trim().toLowerCase();
+  if (!['adventure', 'incremental'].includes(gameType)) {
+    fail(`${label}: unsupported gameType "${gameType || '(empty)'}"`);
+    return;
+  }
+  if (gameType === 'incremental') {
+    console.log(`Audited ${gameId}: deferred to incremental data contract audit.`);
+    return;
+  }
   if (!manifest.data || typeof manifest.data !== 'object') {
     fail(`${label}: manifest is missing data paths`);
     return;

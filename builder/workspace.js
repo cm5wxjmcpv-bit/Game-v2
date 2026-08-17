@@ -61,7 +61,8 @@ init().catch((error) => setMessage(`Workspace failed to initialize: ${error.mess
 async function init() {
   bindEvents();
   const catalog = await fetchJson(CATALOG_URL);
-  state.catalog = Array.isArray(catalog.games) ? catalog.games : [];
+  state.catalog = (Array.isArray(catalog.games) ? catalog.games : [])
+    .filter((entry) => entry?.builderSupport !== false && entry?.gameType !== 'incremental');
   renderProjectOptions();
   const requested = normalizeId(new URL(window.location.href).searchParams.get('game'));
   const preferred = state.catalog.some((entry) => entry.id === requested)
