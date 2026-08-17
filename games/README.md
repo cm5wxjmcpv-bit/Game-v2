@@ -42,8 +42,9 @@ The referenced incremental JSON is a visual-editor-friendly contract with:
 - `employment`: data-driven company and role names
 - `resources`: unique IDs, display values, colors, and icons
 - `deposits`: durability, resource reference, reward range, XP, weight, visual fallback, and optional relative PNG/JPG/WebP artwork variants
-- `mines`: unique IDs and resolved deposit references
+- `mines`: unique IDs, resolved deposit references, and optional package-relative background artwork
 - `story` and `competition`: milestone text plus optional package-relative illustration paths and accessible alt text
+- `ui`: runtime copy plus an optional package-relative miner character cutout
 
 All IDs, references, finite numbers, reward bounds, weights, nonnegative values, and artwork paths are validated at load and by the automated audit. Runtime UI inserts package text through text nodes rather than executable HTML. Artwork stays inside the package and falls back to the generated CSS deposit when no image is configured or an image cannot load.
 

@@ -48,7 +48,8 @@
   "ui": {
     "title": "Blackstone Breakaway",
     "subtitle": "Every ton belongs to Blackstone. Every dollar toward freedom belongs to you.",
-    "instruction": "Keep swinging. Blackstone owns the ore; you receive a small wage when the deposit breaks."
+    "instruction": "Keep swinging. Blackstone owns the ore; you receive a small wage when the deposit breaks.",
+    "minerImage": "assets/characters/miner-swing.webp"
   },
   "skills": [
     {
@@ -975,7 +976,8 @@
       },
       "visual": {
         "background": "#29221f",
-        "accent": "#f0b94d"
+        "accent": "#f0b94d",
+        "image": "assets/backgrounds/blackstone-shaft.webp"
       }
     },
     {
@@ -997,7 +999,8 @@
       },
       "visual": {
         "background": "#24282a",
-        "accent": "#aeb8bd"
+        "accent": "#aeb8bd",
+        "image": "assets/backgrounds/blackstone-shaft.webp"
       }
     },
     {
@@ -1019,7 +1022,8 @@
       },
       "visual": {
         "background": "#1d2530",
-        "accent": "#d1b65e"
+        "accent": "#d1b65e",
+        "image": "assets/backgrounds/blackstone-shaft.webp"
       }
     },
     {
@@ -1041,7 +1045,8 @@
       },
       "visual": {
         "background": "#1f2b2a",
-        "accent": "#64d69c"
+        "accent": "#64d69c",
+        "image": "assets/backgrounds/blackstone-shaft.webp"
       }
     },
     {
@@ -1063,7 +1068,8 @@
       },
       "visual": {
         "background": "#18262e",
-        "accent": "#bcecf2"
+        "accent": "#bcecf2",
+        "image": "assets/backgrounds/blackstone-shaft.webp"
       }
     }
   ],

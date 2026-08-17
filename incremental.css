@@ -325,12 +325,16 @@ body.incremental-game-mode #hud {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 390px;
+  min-height: 430px;
   overflow: hidden;
-  background:
+  background-image:
     linear-gradient(180deg, rgba(6, 5, 5, 0.3), rgba(10, 8, 7, 0.82)),
+    var(--mine-art, linear-gradient(transparent, transparent)),
     radial-gradient(ellipse at 52% 78%, color-mix(in srgb, var(--mine-accent, #f0b94d) 18%, #332a24) 0 8%, transparent 34%),
     repeating-linear-gradient(125deg, var(--mine-background, #29221f) 0 54px, color-mix(in srgb, var(--mine-background, #29221f) 68%, black) 55px 96px);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover, cover, auto, auto;
   isolation: isolate;
 }
 
@@ -345,13 +349,40 @@ body.incremental-game-mode #hud {
 
 .incremental-miner {
   position: absolute;
-  left: clamp(24px, 10%, 110px);
-  bottom: 50px;
+  left: clamp(4px, 3%, 32px);
+  bottom: 16px;
+  z-index: 2;
   display: grid;
   place-items: center;
+  width: clamp(210px, 29%, 280px);
+  height: 370px;
+  filter: drop-shadow(0 16px 12px rgba(0, 0, 0, 0.48));
+}
+
+.incremental-miner-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left bottom;
+  transform-origin: 58% 78%;
+  user-select: none;
+}
+
+.incremental-miner-art[hidden],
+.incremental-miner-fallback[hidden] {
+  display: none;
+}
+
+.incremental-miner-art.is-swinging {
+  animation: incremental-miner-lunge 180ms ease-out;
+}
+
+.incremental-miner-fallback {
+  position: relative;
+  display: block;
   width: 118px;
   height: 150px;
-  filter: drop-shadow(0 16px 12px rgba(0, 0, 0, 0.48));
 }
 
 .incremental-miner-character {
@@ -1946,6 +1977,11 @@ body.incremental-game-mode #hud {
   100% { transform: rotate(-28deg); }
 }
 
+@keyframes incremental-miner-lunge {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  55% { transform: translate(9px, 4px) rotate(2deg); }
+}
+
 @keyframes incremental-impact {
   0%, 100% { transform: translate(0, 0) rotate(0); }
   35% { transform: translate(7px, -2px) rotate(1deg); }
@@ -2157,6 +2193,7 @@ body.incremental-game-mode #hud {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .incremental-miner-art,
   .incremental-miner-tool,
   .incremental-rock,
   .incremental-float,

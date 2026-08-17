@@ -62,7 +62,9 @@ for (const entry of catalog.games || []) {
   try {
     const normalized = normalizeIncrementalConfig(payload, { gameId });
     const assetReferences = new Set([
+      normalized.ui.minerImage,
       ...normalized.deposits.flatMap((deposit) => deposit.visual.images),
+      ...normalized.mines.map((mine) => mine.visual.image),
       ...normalized.story.milestones.map((milestone) => milestone.image),
       ...normalized.competition.milestones.map((milestone) => milestone.image),
       normalized.competition.acquisition.completion.image,
