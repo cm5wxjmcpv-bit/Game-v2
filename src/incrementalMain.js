@@ -49,7 +49,7 @@ function createRuntimeRoot() {
           <div class="incremental-stat"><span>Level</span><strong id="incremental-level">1</strong></div>
           <div class="incremental-stat"><span>Skill Points</span><strong id="incremental-skill-points">0</strong></div>
           <div class="incremental-stat incremental-xp-stat">
-            <span id="incremental-xp-label">XP 0 / 100</span>
+            <span id="incremental-xp-label">XP</span>
             <div class="incremental-progress" role="progressbar" aria-label="Experience" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
               <span id="incremental-xp-bar"></span>
             </div>
@@ -92,6 +92,12 @@ function createRuntimeRoot() {
             </div>
 
             <div class="incremental-mine-stage" id="incremental-mine-stage">
+              <div class="incremental-mine-hud" aria-label="Mining status">
+                <div id="incremental-mine-xp-progress" class="incremental-mine-xp-progress" role="progressbar" aria-label="Experience" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span id="incremental-mine-xp-bar"></span>
+                </div>
+                <output id="incremental-mine-cash" class="incremental-mine-cash" aria-label="Cash">$0</output>
+              </div>
               <div class="incremental-cave-glow" aria-hidden="true"></div>
               <div class="incremental-miner" aria-hidden="true">
                 <img id="incremental-miner-art" class="incremental-miner-art" alt="" draggable="false" hidden>
@@ -407,6 +413,9 @@ function buildUi(root, database) {
     nav_skill_points: byId('incremental-nav-skill-points'),
     xp_label: byId('incremental-xp-label'),
     xp_bar: byId('incremental-xp-bar'),
+    mine_xp_progress: byId('incremental-mine-xp-progress'),
+    mine_xp_bar: byId('incremental-mine-xp-bar'),
+    mine_cash: byId('incremental-mine-cash'),
     save_status: byId('incremental-save-status'),
     mine_name: byId('incremental-mine-name'),
     role: byId('incremental-role'),
@@ -1320,15 +1329,30 @@ function buildUi(root, database) {
     const contractCost = config.employment.contractBuyoutCost;
     const contractProgress = contractCost <= 0 ? 1 : Math.max(0, Math.min(1, state.cash / contractCost));
 
-    nodes.cash.textContent = formatCurrency(state.cash);
+    const formattedCash = formatCurrency(state.cash);
+    const hasSkillPoints = state.character.skillPoints > 0;
+    const xpWidth = hasSkillPoints ? 100 : xpProgress * 100;
+    const xpStatus = hasSkillPoints
+      ? `${formatNumber(state.character.skillPoints)} unspent skill point${state.character.skillPoints === 1 ? '' : 's'}`
+      : `${formatNumber(state.character.xp)} of ${formatNumber(xpNeeded)} experience`;
+
+    nodes.cash.textContent = formattedCash;
+    nodes.mine_cash.textContent = formattedCash;
     nodes.level.textContent = formatNumber(state.character.level);
     nodes.skill_points.textContent = formatNumber(state.character.skillPoints);
     nodes.nav_skill_points.textContent = formatNumber(state.character.skillPoints);
-    nodes.nav_skill_points.classList.toggle('has-points', state.character.skillPoints > 0);
-    nodes.xp_label.textContent = `XP ${formatNumber(state.character.xp)} / ${formatNumber(xpNeeded)}`;
-    nodes.xp_bar.style.width = `${xpProgress * 100}%`;
+    nodes.nav_skill_points.classList.toggle('has-points', hasSkillPoints);
+    nodes.xp_label.textContent = 'XP';
+    nodes.xp_bar.style.width = `${xpWidth}%`;
+    nodes.xp_bar.parentElement.classList.toggle('has-skill-point', hasSkillPoints);
     nodes.xp_bar.parentElement.setAttribute('aria-valuemax', String(xpNeeded));
     nodes.xp_bar.parentElement.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
+    nodes.xp_bar.parentElement.setAttribute('aria-valuetext', xpStatus);
+    nodes.mine_xp_bar.style.width = `${xpWidth}%`;
+    nodes.mine_xp_progress.classList.toggle('has-skill-point', hasSkillPoints);
+    nodes.mine_xp_progress.setAttribute('aria-valuemax', String(xpNeeded));
+    nodes.mine_xp_progress.setAttribute('aria-valuenow', String(Math.min(state.character.xp, xpNeeded)));
+    nodes.mine_xp_progress.setAttribute('aria-valuetext', xpStatus);
     nodes.subtitle.textContent = employeeStage ? config.ui.subtitle : config.independence.subtitle;
     nodes.mine_name.textContent = mineDisplayName(state, mine);
     nodes.role.textContent = employeeStage
