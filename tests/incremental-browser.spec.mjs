@@ -101,6 +101,9 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
 
   await page.locator('#incremental-tab-mine').click();
   await expect(page.locator('#incremental-manual-power')).toHaveText('3');
+  const cashBeforeBuyout = await page.evaluate(() => (
+    JSON.parse(localStorage.getItem('pixel_engine_save_miner-incremental_slot_1')).payload.cash
+  ));
   page.once('dialog', (dialog) => dialog.accept());
   await page.locator('#incremental-buyout').click();
   await expect(page.locator('#incremental-story-title')).toHaveText('Independent Miner');
@@ -117,7 +120,7 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   expect(afterBuyout.payload.storyStage).toBe('independent');
   expect(afterBuyout.payload.employment.active).toBe(false);
   expect(afterBuyout.payload.employment.contractBuyoutPaid).toBe(5000);
-  expect(afterBuyout.payload.cash).toBe(1);
+  expect(afterBuyout.payload.cash).toBe(cashBeforeBuyout - 5000);
 
   const target = page.locator('#incremental-mining-target');
   for (let index = 0; index < 15; index += 1) await target.click();
