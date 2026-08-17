@@ -94,13 +94,16 @@ function createRuntimeRoot() {
             <div class="incremental-mine-stage" id="incremental-mine-stage">
               <div class="incremental-cave-glow" aria-hidden="true"></div>
               <div class="incremental-miner" aria-hidden="true">
-                <span class="incremental-miner-character">
-                  <span class="incremental-miner-head"></span>
-                  <span class="incremental-miner-body"></span>
-                </span>
-                <span class="incremental-miner-tool" id="incremental-miner-tool">
-                  <span class="incremental-tool-handle"></span>
-                  <span class="incremental-tool-head"></span>
+                <img id="incremental-miner-art" class="incremental-miner-art" alt="" draggable="false" hidden>
+                <span id="incremental-miner-fallback" class="incremental-miner-fallback">
+                  <span class="incremental-miner-character">
+                    <span class="incremental-miner-head"></span>
+                    <span class="incremental-miner-body"></span>
+                  </span>
+                  <span class="incremental-miner-tool" id="incremental-miner-tool">
+                    <span class="incremental-tool-handle"></span>
+                    <span class="incremental-tool-head"></span>
+                  </span>
                 </span>
               </div>
               <button id="incremental-mining-target" class="incremental-deposit-target" type="button">
@@ -419,6 +422,8 @@ function buildUi(root, database) {
     deposit_icon: byId('incremental-deposit-icon'),
     deposit_art: byId('incremental-deposit-art'),
     float_layer: byId('incremental-float-layer'),
+    miner_art: byId('incremental-miner-art'),
+    miner_fallback: byId('incremental-miner-fallback'),
     miner_tool: byId('incremental-miner-tool'),
     deposit_name: byId('incremental-deposit-name'),
     deposit_hp: byId('incremental-deposit-hp'),
@@ -555,9 +560,18 @@ function buildUi(root, database) {
     nodes.deposit_icon.hidden = false;
     nodes.mining_target.classList.remove('has-deposit-art');
   });
+  nodes.miner_art.addEventListener('error', () => {
+    nodes.miner_art.hidden = true;
+    nodes.miner_fallback.hidden = false;
+  });
   nodes.story_image.addEventListener('error', () => {
     nodes.story_figure.hidden = true;
   });
+
+  const minerArtUrl = resolveAssetUrl(config.ui.minerImage);
+  nodes.miner_art.hidden = !minerArtUrl;
+  nodes.miner_fallback.hidden = Boolean(minerArtUrl);
+  if (minerArtUrl) nodes.miner_art.src = minerArtUrl;
 
   function setSaveStatus(message, failed = false) {
     nodes.save_status.textContent = message;
@@ -1350,6 +1364,12 @@ function buildUi(root, database) {
     nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
     nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
     nodes.mine_stage.style.setProperty('--mine-accent', mine.visual.accent);
+    const mineArtUrl = resolveAssetUrl(mine.visual.image);
+    if (mineArtUrl) {
+      nodes.mine_stage.style.setProperty('--mine-art', `url("${mineArtUrl}")`);
+    } else {
+      nodes.mine_stage.style.removeProperty('--mine-art');
+    }
     nodes.wages.textContent = formatCurrency(state.employment.totalWages);
     nodes.company_value.textContent = formatCurrency(state.employment.companyValue);
     nodes.manual_power.textContent = formatNumber(miningStats.manualPower);
@@ -1394,9 +1414,10 @@ function buildUi(root, database) {
   function showImpact(result) {
     nodes.mining_target.classList.remove('is-hit', 'is-broken');
     nodes.miner_tool.classList.remove('is-swinging');
+    nodes.miner_art.classList.remove('is-swinging');
     void nodes.mining_target.offsetWidth;
     nodes.mining_target.classList.add(result.type === 'break' ? 'is-broken' : 'is-hit');
-    nodes.miner_tool.classList.add('is-swinging');
+    (nodes.miner_art.hidden ? nodes.miner_tool : nodes.miner_art).classList.add('is-swinging');
     spawnFloat(`-${formatNumber(result.damage)}`, 'damage');
     if (result.critical) spawnFloat('CRITICAL!', 'critical');
 

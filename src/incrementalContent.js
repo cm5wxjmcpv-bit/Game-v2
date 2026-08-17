@@ -1187,6 +1187,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     visual: {
       background: color(entry?.visual?.background, '#29221f'),
       accent: color(entry?.visual?.accent, '#f0b94d'),
+      image: assetPath(entry?.visual?.image, `mines[${index}].visual.image`, errors),
     },
   }));
   const mineIds = uniqueIds(mines, 'mines', errors);
@@ -1366,6 +1367,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
       title: text(raw.ui?.title, raw.name || configId, 100),
       subtitle: text(raw.ui?.subtitle, '', 220),
       instruction: text(raw.ui?.instruction, 'Tap the deposit to mine.', 220),
+      minerImage: assetPath(raw.ui?.minerImage, 'ui.minerImage', errors),
     },
     story: { milestones },
     skills,

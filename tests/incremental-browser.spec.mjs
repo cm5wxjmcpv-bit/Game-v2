@@ -24,6 +24,10 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-deposit-art')).toBeVisible();
   await expect(page.locator('#incremental-deposit-art')).toHaveAttribute('src', /assets\/deposits\/stone-face\.webp$/);
   await expect.poll(() => page.locator('#incremental-deposit-art').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator('#incremental-miner-art')).toBeVisible();
+  await expect(page.locator('#incremental-miner-art')).toHaveAttribute('src', /assets\/characters\/miner-swing\.webp$/);
+  await expect.poll(() => page.locator('#incremental-miner-art').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator('#incremental-mine-stage')).toHaveCSS('background-image', /blackstone-shaft\.webp/);
 
   const target = page.locator('#incremental-mining-target');
   await target.click();

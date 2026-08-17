@@ -69,6 +69,9 @@ function rawConfig() {
       operationName: 'Test Claim',
       instruction: 'Keep your ore.',
     },
+    ui: {
+      minerImage: 'assets/characters/miner-swing.webp',
+    },
     skills: [
       {
         id: 'mining-power',
@@ -373,7 +376,12 @@ function rawConfig() {
       },
     ],
     mines: [
-      { id: 'test-mine', name: 'Test Mine', depositIds: ['stone-face'] },
+      {
+        id: 'test-mine',
+        name: 'Test Mine',
+        depositIds: ['stone-face'],
+        visual: { image: 'assets/backgrounds/test-mine.webp' },
+      },
     ],
   };
 }
@@ -516,6 +524,8 @@ test('incremental config validates IDs, references, skill effects, milestone tri
     'assets/deposits/stone-face-alt.webp',
   ]);
   assert.equal(normalized.skillsById['mining-power'].effect.type, 'manual-power-flat');
+  assert.equal(normalized.ui.minerImage, 'assets/characters/miner-swing.webp');
+  assert.equal(normalized.minesById['test-mine'].visual.image, 'assets/backgrounds/test-mine.webp');
   assert.equal(normalized.story.milestones[0].image, 'assets/story/first-shift.webp');
   assert.equal(normalized.story.milestones.at(-1).trigger.value, 'independent');
   assert.equal(normalized.equipment.itemsById['iron-pickaxe'].requiresItemId, 'starter-pickaxe');
