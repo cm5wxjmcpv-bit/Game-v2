@@ -110,6 +110,7 @@ function createRuntimeRoot() {
                   <span class="incremental-rock-facet facet-two"></span>
                   <span class="incremental-rock-facet facet-three"></span>
                   <span id="incremental-deposit-icon" class="incremental-deposit-icon"></span>
+                  <img id="incremental-deposit-art" class="incremental-deposit-art" alt="" draggable="false" hidden>
                 </span>
               </button>
               <div id="incremental-float-layer" class="incremental-float-layer" aria-hidden="true"></div>
@@ -331,6 +332,9 @@ function createRuntimeRoot() {
 
     <div id="incremental-story-overlay" class="incremental-story-overlay" hidden>
       <section class="incremental-story-dialog" role="dialog" aria-modal="true" aria-labelledby="incremental-story-title">
+        <figure id="incremental-story-figure" class="incremental-story-figure" hidden>
+          <img id="incremental-story-image" alt="" draggable="false">
+        </figure>
         <span id="incremental-story-speaker" class="incremental-label"></span>
         <h2 id="incremental-story-title">Milestone</h2>
         <p id="incremental-story-text"></p>
@@ -413,6 +417,7 @@ function buildUi(root, database) {
     event_time: byId('incremental-event-time'),
     mining_target: byId('incremental-mining-target'),
     deposit_icon: byId('incremental-deposit-icon'),
+    deposit_art: byId('incremental-deposit-art'),
     float_layer: byId('incremental-float-layer'),
     miner_tool: byId('incremental-miner-tool'),
     deposit_name: byId('incremental-deposit-name'),
@@ -507,6 +512,8 @@ function buildUi(root, database) {
     generator_grid: byId('incremental-generator-grid'),
     business_upgrade_grid: byId('incremental-business-upgrade-grid'),
     story_overlay: byId('incremental-story-overlay'),
+    story_figure: byId('incremental-story-figure'),
+    story_image: byId('incremental-story-image'),
     story_speaker: byId('incremental-story-speaker'),
     story_title: byId('incremental-story-title'),
     story_text: byId('incremental-story-text'),
@@ -531,6 +538,26 @@ function buildUi(root, database) {
   nodes.store_description.textContent = `${config.store.description} ${config.lottery.disclaimer}`.trim();
   nodes.company_name.minLength = config.company.creation.minimumNameLength;
   nodes.company_name.maxLength = config.company.creation.maximumNameLength;
+
+  function resolveAssetUrl(path) {
+    return path ? new URL(path, database.game.manifestUrl).href : '';
+  }
+
+  function depositImagePath(deposit, state) {
+    const images = Array.isArray(deposit?.visual?.images) ? deposit.visual.images : [];
+    if (!images.length) return '';
+    const broken = Math.max(0, Math.floor(Number(state?.statistics?.totalDepositsBroken) || 0));
+    return images[broken % images.length];
+  }
+
+  nodes.deposit_art.addEventListener('error', () => {
+    nodes.deposit_art.hidden = true;
+    nodes.deposit_icon.hidden = false;
+    nodes.mining_target.classList.remove('has-deposit-art');
+  });
+  nodes.story_image.addEventListener('error', () => {
+    nodes.story_figure.hidden = true;
+  });
 
   function setSaveStatus(message, failed = false) {
     nodes.save_status.textContent = message;
@@ -664,6 +691,22 @@ function buildUi(root, database) {
 
     const description = document.createElement('p');
     description.textContent = mine.description;
+    const artDeposit = [...mine.depositIds]
+      .reverse()
+      .map((depositId) => config.depositsById[depositId])
+      .find((deposit) => deposit?.visual?.images?.length);
+    const artwork = document.createElement('div');
+    artwork.className = 'incremental-mine-option-art';
+    if (artDeposit) {
+      const image = document.createElement('img');
+      image.src = resolveAssetUrl(artDeposit.visual.images[0]);
+      image.alt = `${mineDisplayName(state, mine)} featured ${artDeposit.name}`;
+      image.loading = 'lazy';
+      image.decoding = 'async';
+      artwork.appendChild(image);
+    } else {
+      artwork.hidden = true;
+    }
     const resources = document.createElement('div');
     resources.className = 'incremental-mine-resources';
     mine.depositIds.forEach((depositId) => {
@@ -680,7 +723,7 @@ function buildUi(root, database) {
     const progressValue = document.createElement('strong');
     progressValue.textContent = `${formatNumber(progress.depositsBroken)} deposits · ${formatNumber(progress.oreMined)} resources`;
     progressRow.append(progressLabel, progressValue);
-    card.append(header, description, resources, progressRow);
+    card.append(header, artwork, description, resources, progressRow);
 
     if (!status.unlocked) {
       const requirements = document.createElement('div');
@@ -1294,6 +1337,15 @@ function buildUi(root, database) {
     nodes.deposit_progress.setAttribute('aria-valuenow', String(state.currentDeposit.hp));
     nodes.mining_target.setAttribute('aria-label', `Mine ${deposit.name}. ${state.currentDeposit.hp} of ${state.currentDeposit.maxHp} durability remaining.`);
     nodes.deposit_icon.textContent = deposit.visual.icon;
+    const depositArtUrl = resolveAssetUrl(depositImagePath(deposit, state));
+    nodes.mining_target.classList.toggle('has-deposit-art', Boolean(depositArtUrl));
+    nodes.deposit_icon.hidden = Boolean(depositArtUrl);
+    nodes.deposit_art.hidden = !depositArtUrl;
+    if (depositArtUrl) {
+      if (nodes.deposit_art.src !== depositArtUrl) nodes.deposit_art.src = depositArtUrl;
+    } else {
+      nodes.deposit_art.removeAttribute('src');
+    }
     nodes.mining_target.style.setProperty('--deposit-color', deposit.visual.color);
     nodes.mining_target.style.setProperty('--deposit-accent', deposit.visual.accent);
     nodes.mine_stage.style.setProperty('--mine-background', mine.visual.background);
@@ -1399,6 +1451,15 @@ function buildUi(root, database) {
     nodes.story_speaker.textContent = activeStory.speaker;
     nodes.story_title.textContent = activeStory.title;
     nodes.story_text.textContent = activeStory.text;
+    const storyImageUrl = resolveAssetUrl(activeStory.image);
+    nodes.story_figure.hidden = !storyImageUrl;
+    if (storyImageUrl) {
+      if (nodes.story_image.src !== storyImageUrl) nodes.story_image.src = storyImageUrl;
+      nodes.story_image.alt = activeStory.imageAlt || activeStory.title;
+    } else {
+      nodes.story_image.removeAttribute('src');
+      nodes.story_image.alt = '';
+    }
     storyPausedForOffline = !nodes.offline_overlay.hidden;
     nodes.story_overlay.hidden = storyPausedForOffline;
     if (!storyPausedForOffline) nodes.story_continue.focus();
@@ -1481,6 +1542,9 @@ function buildUi(root, database) {
     activeStory = null;
     storyPausedForOffline = false;
     nodes.story_overlay.hidden = true;
+    nodes.story_figure.hidden = true;
+    nodes.story_image.removeAttribute('src');
+    nodes.story_image.alt = '';
     nodes.offline_overlay.hidden = true;
     lastLotteryResult = null;
     nodes.company_name.value = '';

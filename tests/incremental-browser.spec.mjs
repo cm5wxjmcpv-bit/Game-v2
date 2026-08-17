@@ -16,8 +16,14 @@ test('miner package selects the incremental runtime, mines deposits, and reloads
   await expect(page.locator('#incremental-deposit-hp')).toHaveText('20 / 20 HP');
   await expect(page.locator('#incremental-story-title')).toHaveText('First Shift');
   await expect(page.locator('#incremental-story-text')).toContainText('twenty men waiting');
+  await expect(page.locator('#incremental-story-figure')).toBeVisible();
+  await expect(page.locator('#incremental-story-image')).toHaveAttribute('src', /assets\/story\/first-shift\.webp$/);
+  await expect.poll(() => page.locator('#incremental-story-image').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
   await page.locator('#incremental-story-continue').click();
   await expect(page.locator('#incremental-buyout')).toBeDisabled();
+  await expect(page.locator('#incremental-deposit-art')).toBeVisible();
+  await expect(page.locator('#incremental-deposit-art')).toHaveAttribute('src', /assets\/deposits\/stone-face\.webp$/);
+  await expect.poll(() => page.locator('#incremental-deposit-art').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
 
   const target = page.locator('#incremental-mining-target');
   await target.click();
@@ -64,7 +70,7 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
     const key = 'pixel_engine_save_miner-incremental_slot_1';
     const save = JSON.parse(localStorage.getItem(key));
     if (!save) return;
-    save.payload.cash = 500;
+    save.payload.cash = 5000;
     save.payload.character.xp = 99;
     save.payload.currentDeposit.hp = 2;
     localStorage.setItem(key, JSON.stringify(save));
@@ -106,7 +112,7 @@ test('leveling, skills, and the contract buyout persist the employee-to-independ
   const wagesBeforeIndependentMining = afterBuyout.payload.employment.totalWages;
   expect(afterBuyout.payload.storyStage).toBe('independent');
   expect(afterBuyout.payload.employment.active).toBe(false);
-  expect(afterBuyout.payload.employment.contractBuyoutPaid).toBe(500);
+  expect(afterBuyout.payload.employment.contractBuyoutPaid).toBe(5000);
   expect(afterBuyout.payload.cash).toBe(1);
 
   const target = page.locator('#incremental-mining-target');
@@ -136,7 +142,7 @@ test('ore sales, Miller equipment, and scratch tickets persist without bypassing
     save.payload.cash = 100;
     save.payload.storyStage = 'independent';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = Date.now();
     save.payload.materials.stone = 12;
     save.payload.milestones = [
@@ -215,7 +221,7 @@ test('company creation, scalable generators, upgrades, and deposit automation pe
     save.payload.character.xp = 0;
     save.payload.storyStage = 'independent';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = Date.now();
     save.payload.currentDeposit.hp = 2;
     save.payload.milestones = [
@@ -316,7 +322,7 @@ test('mine progression shows combined requirements, pays a one-time unlock cost,
     save.payload.character.xp = 0;
     save.payload.storyStage = 'independent';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = Date.now();
     save.payload.mineProgress['blackstone-shaft-7'] = {
       depositsBroken: 35,
@@ -394,7 +400,7 @@ test('offline company production is capped, summarized, saved once, and excludes
     save.payload.character.level = 3;
     save.payload.storyStage = 'company-owner';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = now - 10_000;
     save.payload.company = {
       created: true,
@@ -472,7 +478,7 @@ test('Blackstone competition requirements, acquisition, story completion, and pr
     save.payload.character.xp = 0;
     save.payload.storyStage = 'company-owner';
     save.payload.employment.active = false;
-    save.payload.employment.contractBuyoutPaid = 500;
+    save.payload.employment.contractBuyoutPaid = 5000;
     save.payload.employment.endedAt = now - 10_000;
     save.payload.company = {
       created: true,
@@ -532,6 +538,8 @@ test('Blackstone competition requirements, acquisition, story completion, and pr
   await page.locator('#incremental-acquire-company').click();
   await expect(page.locator('#incremental-story-title')).toHaveText('The Company Is Yours');
   await expect(page.locator('#incremental-story-text')).toContainText('shaft where you started');
+  await expect(page.locator('#incremental-story-image')).toHaveAttribute('src', /assets\/story\/blackstone-new-shift\.webp$/);
+  await expect.poll(() => page.locator('#incremental-story-image').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
   await page.locator('#incremental-story-continue').click();
 
   await expect(page.locator('#incremental-rival-status')).toHaveText('Acquired');
@@ -589,7 +597,7 @@ test.describe('touch viewport', () => {
       save.payload.character.level = 3;
       save.payload.storyStage = 'company-owner';
       save.payload.employment.active = false;
-      save.payload.employment.contractBuyoutPaid = 500;
+      save.payload.employment.contractBuyoutPaid = 5000;
       save.payload.employment.endedAt = Date.now();
       save.payload.company = {
         created: true,

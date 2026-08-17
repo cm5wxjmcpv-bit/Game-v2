@@ -41,10 +41,11 @@ The referenced incremental JSON is a visual-editor-friendly contract with:
 - `start`: cash, level, XP, mine, deposit, and story stage
 - `employment`: data-driven company and role names
 - `resources`: unique IDs, display values, colors, and icons
-- `deposits`: durability, resource reference, reward range, XP, weight, and visual fallback
+- `deposits`: durability, resource reference, reward range, XP, weight, visual fallback, and optional relative PNG/JPG/WebP artwork variants
 - `mines`: unique IDs and resolved deposit references
+- `story` and `competition`: milestone text plus optional package-relative illustration paths and accessible alt text
 
-All IDs, references, finite numbers, reward bounds, weights, and nonnegative values are validated at load and by the automated audit. Runtime UI inserts package text through text nodes rather than executable HTML.
+All IDs, references, finite numbers, reward bounds, weights, nonnegative values, and artwork paths are validated at load and by the automated audit. Runtime UI inserts package text through text nodes rather than executable HTML. Artwork stays inside the package and falls back to the generated CSS deposit when no image is configured or an image cannot load.
 
 `IncrementalGame` owns deposit damage, reward settlement, replacement deposits, ticks, autosaves, and deterministic random injection. Its versioned save contains character/business expansion fields without requiring adventure fields such as HP, movement speed, maps, towns, bags, or combat equipment.
 

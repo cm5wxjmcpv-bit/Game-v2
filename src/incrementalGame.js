@@ -629,6 +629,8 @@ export class IncrementalGame {
       title: acquisition.completion.title,
       speaker: acquisition.completion.speaker,
       text: acquisition.completion.text,
+      image: acquisition.completion.image,
+      imageAlt: acquisition.completion.imageAlt,
       category: 'acquisition',
       reputationAward: 0,
     };

@@ -36,7 +36,7 @@
     "companyName": "Blackstone Mining Co.",
     "role": "Underpaid Mine Worker",
     "foremanName": "Foreman Cole",
-    "contractBuyoutCost": 500
+    "contractBuyoutCost": 5000
   },
   "independence": {
     "role": "Independent Miner",
@@ -446,6 +446,8 @@
         "title": "Blackstone Expands",
         "speaker": "Regional Mining Bulletin",
         "text": "Blackstone Mining opened another shaft. Foreman Cole calls your new company a temporary distraction.",
+        "image": "assets/story/blackstone-new-shift.webp",
+        "imageAlt": "Foreman Cole assigns another new worker inside Blackstone Shaft 7.",
         "reputationAward": 10,
         "trigger": {
           "type": "company-level",
@@ -457,6 +459,8 @@
         "title": "A Major Ore Contract",
         "speaker": "Regional Mining Bulletin",
         "text": "Blackstone secured a major ore contract, but buyers have started asking whether your operation can provide a second supply line.",
+        "image": "assets/story/senior-miner.webp",
+        "imageAlt": "A senior miner inspects a rich Blackstone ore vein with Foreman Cole.",
         "reputationAward": 15,
         "trigger": {
           "type": "company-level",
@@ -468,6 +472,8 @@
         "title": "Blackstone Has Noticed",
         "speaker": "Foreman Cole",
         "text": "Three productive mines? You have Blackstone's attention now. Do not mistake attention for respect.",
+        "image": "assets/story/first-shift-foreman.webp",
+        "imageAlt": "Foreman Cole confronts a miner beside the tracks in Blackstone Shaft 7.",
         "reputationAward": 20,
         "trigger": {
           "type": "mines-unlocked",
@@ -479,6 +485,8 @@
         "title": "An Offer From Blackstone",
         "speaker": "Blackstone Executive Office",
         "text": "Blackstone Mining has offered to purchase your company. The offer is profitable, final, and declined on your behalf.",
+        "image": "assets/story/first-promotion.webp",
+        "imageAlt": "A Blackstone executive presents an official company offer across his desk.",
         "reputationAward": 25,
         "trigger": {
           "type": "total-automated-production",
@@ -490,6 +498,8 @@
         "title": "The Region's Largest Producer",
         "speaker": "Regional Mining Bulletin",
         "text": "Your company has surpassed Blackstone's production rate. The company that once owned every rock you broke is now the smaller operation.",
+        "image": "assets/story/new-hire-strike.webp",
+        "imageAlt": "A miner drives a pickaxe into a Blackstone coal seam.",
         "reputationAward": 30,
         "trigger": {
           "type": "automation-power",
@@ -514,7 +524,9 @@
         "storyStage": "blackstone-owner",
         "title": "The Company Is Yours",
         "speaker": "Foreman Cole",
-        "text": "Blackstone Mining Co. now belongs to you. The shaft where you started is one operation in your company, and this acquisition is only the beginning."
+        "text": "Blackstone Mining Co. now belongs to you. The shaft where you started is one operation in your company, and this acquisition is only the beginning.",
+        "image": "assets/story/blackstone-new-shift.webp",
+        "imageAlt": "The original Blackstone shaft begins a new shift under your ownership."
       }
     }
   },
@@ -628,6 +640,8 @@
         "title": "First Shift",
         "speaker": "Foreman Cole",
         "text": "Keep swinging. There are twenty men waiting for your job.",
+        "image": "assets/story/first-shift.webp",
+        "imageAlt": "A new miner reports to Foreman Cole inside Blackstone Shaft 7.",
         "trigger": {
           "type": "start"
         }
@@ -637,6 +651,8 @@
         "title": "A Stronger Swing",
         "speaker": "Foreman Cole",
         "text": "Getting faster, are you? Blackstone still owns every rock you break.",
+        "image": "assets/story/miners-swing.webp",
+        "imageAlt": "A Blackstone miner swings a pickaxe in a timber-supported shaft.",
         "trigger": {
           "type": "level",
           "value": 2
@@ -647,6 +663,8 @@
         "title": "Management Has Noticed",
         "speaker": "Blackstone Notice",
         "text": "Your shift output is above target. Your wage rate remains unchanged.",
+        "image": "assets/story/first-promotion.webp",
+        "imageAlt": "A Blackstone manager hands the miner an official notice across his desk.",
         "trigger": {
           "type": "level",
           "value": 4
@@ -657,6 +675,8 @@
         "title": "Freedom Is Affordable",
         "speaker": "Contract Office",
         "text": "You now have enough cash to buy out your employment contract.",
+        "image": "assets/story/contract-release.webp",
+        "imageAlt": "The miner reviews the five-thousand-dollar Blackstone contract release.",
         "trigger": {
           "type": "contract-affordable"
         }
@@ -666,6 +686,8 @@
         "title": "Independent Miner",
         "speaker": "Foreman Cole",
         "text": "You'll be back when that little claim dries up.",
+        "image": "assets/story/the-walkout.webp",
+        "imageAlt": "The newly independent miner walks out of the Blackstone office toward daylight.",
         "trigger": {
           "type": "stage",
           "value": "independent"
@@ -676,6 +698,8 @@
         "title": "A Company of Your Own",
         "speaker": "County Clerk",
         "text": "The registration is official. Your claim is now a mining company, and your first hires can begin work.",
+        "image": "assets/story/first-light-claim.webp",
+        "imageAlt": "The independent miner stands at his own mountain claim at first light.",
         "trigger": {
           "type": "stage",
           "value": "company-owner"
@@ -763,7 +787,10 @@
       "visual": {
         "color": "#77716c",
         "accent": "#c4beb7",
-        "icon": "●"
+        "icon": "●",
+        "images": [
+          "assets/deposits/stone-face.webp"
+        ]
       }
     },
     {
@@ -780,7 +807,11 @@
       "visual": {
         "color": "#302e2d",
         "accent": "#77716e",
-        "icon": "◆"
+        "icon": "◆",
+        "images": [
+          "assets/deposits/coal-seam.webp",
+          "assets/deposits/coal-seam-layered.webp"
+        ]
       }
     },
     {
@@ -797,7 +828,10 @@
       "visual": {
         "color": "#8d4f32",
         "accent": "#e6a06f",
-        "icon": "◇"
+        "icon": "◇",
+        "images": [
+          "assets/deposits/copper-vein.webp"
+        ]
       }
     },
     {
@@ -814,7 +848,10 @@
       "visual": {
         "color": "#666c70",
         "accent": "#b8c0c4",
-        "icon": "⬢"
+        "icon": "⬢",
+        "images": [
+          "assets/deposits/iron-vein.webp"
+        ]
       }
     },
     {
@@ -831,7 +868,10 @@
       "visual": {
         "color": "#7d878c",
         "accent": "#e1eaee",
-        "icon": "◈"
+        "icon": "◈",
+        "images": [
+          "assets/deposits/silver-vein.webp"
+        ]
       }
     },
     {
@@ -848,7 +888,10 @@
       "visual": {
         "color": "#8f6d24",
         "accent": "#f5d66d",
-        "icon": "✦"
+        "icon": "✦",
+        "images": [
+          "assets/deposits/gold-vein.webp"
+        ]
       }
     },
     {
@@ -865,7 +908,10 @@
       "visual": {
         "color": "#236b4a",
         "accent": "#73e0a8",
-        "icon": "⬟"
+        "icon": "⬟",
+        "images": [
+          "assets/deposits/emerald-pocket.webp"
+        ]
       }
     },
     {
@@ -882,7 +928,10 @@
       "visual": {
         "color": "#7a2936",
         "accent": "#ef7380",
-        "icon": "◆"
+        "icon": "◆",
+        "images": [
+          "assets/deposits/ruby-pocket.webp"
+        ]
       }
     },
     {
@@ -899,7 +948,11 @@
       "visual": {
         "color": "#6e9ba2",
         "accent": "#dcfbff",
-        "icon": "◊"
+        "icon": "◊",
+        "images": [
+          "assets/deposits/diamond-cluster.webp",
+          "assets/deposits/diamond-quartz-spine.webp"
+        ]
       }
     }
   ],

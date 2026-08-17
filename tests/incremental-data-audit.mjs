@@ -61,7 +61,23 @@ for (const entry of catalog.games || []) {
   if (!payload) continue;
   try {
     const normalized = normalizeIncrementalConfig(payload, { gameId });
-    console.log(`Incremental contract ${gameId}: ${normalized.resources.length} resource(s), ${normalized.deposits.length} deposit(s), ${normalized.mines.length} mine(s), ${normalized.rareFinds.finds.length} rare find(s), ${normalized.miningEvents.events.length} mining event(s), ${normalized.equipment.items.length} equipment item(s), ${normalized.lottery.scratchTickets.length} scratch ticket(s), ${normalized.generators.length} generator(s), ${normalized.businessUpgrades.length} business upgrade(s), ${normalized.competition.milestones.length} competition milestone(s), ${normalized.competition.acquisition.productionMultiplier}x acquisition production, ${normalized.offlineProgress.capSeconds}s offline cap.`);
+    const assetReferences = new Set([
+      ...normalized.deposits.flatMap((deposit) => deposit.visual.images),
+      ...normalized.story.milestones.map((milestone) => milestone.image),
+      ...normalized.competition.milestones.map((milestone) => milestone.image),
+      normalized.competition.acquisition.completion.image,
+    ].filter(Boolean));
+    const packageRoot = path.dirname(manifestFile);
+    assetReferences.forEach((assetReference) => {
+      const assetFile = path.resolve(packageRoot, assetReference);
+      const relativeAsset = path.relative(packageRoot, assetFile);
+      if (relativeAsset.startsWith('..') || path.isAbsolute(relativeAsset)) {
+        fail(`${gameId}: artwork resolves outside its package (${assetReference})`);
+      } else if (!existsSync(assetFile)) {
+        fail(`${gameId}: artwork does not exist (${assetReference})`);
+      }
+    });
+    console.log(`Incremental contract ${gameId}: ${normalized.resources.length} resource(s), ${normalized.deposits.length} deposit(s), ${normalized.mines.length} mine(s), ${assetReferences.size} art asset(s), ${normalized.rareFinds.finds.length} rare find(s), ${normalized.miningEvents.events.length} mining event(s), ${normalized.equipment.items.length} equipment item(s), ${normalized.lottery.scratchTickets.length} scratch ticket(s), ${normalized.generators.length} generator(s), ${normalized.businessUpgrades.length} business upgrade(s), ${normalized.competition.milestones.length} competition milestone(s), ${normalized.competition.acquisition.productionMultiplier}x acquisition production, ${normalized.offlineProgress.capSeconds}s offline cap.`);
   } catch (error) {
     fail(`${gameId}: ${error.message}`);
   }

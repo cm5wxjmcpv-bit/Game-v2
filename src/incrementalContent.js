@@ -1,5 +1,6 @@
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+const IMAGE_ASSET_PATTERN = /^[a-z0-9._/-]+\.(?:png|jpe?g|webp)$/i;
 const SKILL_EFFECT_TYPES = new Set([
   'manual-power-flat',
   'mining-speed',
@@ -63,6 +64,37 @@ function integer(value, fallback = 0, minimum = 0) {
 function normalizedId(value) {
   const id = String(value || '').trim().toLowerCase();
   return ID_PATTERN.test(id) ? id : '';
+}
+
+function assetPath(value, label, errors) {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') {
+    errors.push(`${label} must be a relative PNG, JPG, or WebP path`);
+    return '';
+  }
+  const path = value.trim();
+  const segments = path.split('/');
+  if (path.length > 240
+    || path.startsWith('/')
+    || path.includes('\\')
+    || path.includes('//')
+    || segments.includes('..')
+    || !IMAGE_ASSET_PATTERN.test(path)) {
+    errors.push(`${label} must be a safe relative PNG, JPG, or WebP path`);
+    return '';
+  }
+  return path;
+}
+
+function assetPaths(value, label, errors) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    errors.push(`${label} must be an array when provided`);
+    return [];
+  }
+  return value
+    .map((entry, index) => assetPath(entry, `${label}[${index}]`, errors))
+    .filter(Boolean);
 }
 
 function uniqueIds(entries, label, errors) {
@@ -133,6 +165,8 @@ function normalizeMilestones(rawStory, errors) {
       title: text(entry?.title, 'Milestone', 100),
       speaker: text(entry?.speaker, '', 100),
       text: text(entry?.text, '', 360),
+      image: assetPath(entry?.image, `story.milestones[${index}].image`, errors),
+      imageAlt: text(entry?.imageAlt, entry?.title || 'Story illustration', 160),
       trigger: {
         type: triggerType,
         value: triggerType === 'stage'
@@ -586,6 +620,8 @@ function normalizeCompetition(rawCompetition, context, errors) {
         title: text(entry?.title, 'Competition Update', 100),
         speaker: text(entry?.speaker, rival.name, 100),
         text: text(entry?.text, '', 360),
+        image: assetPath(entry?.image, `${label}.image`, errors),
+        imageAlt: text(entry?.imageAlt, entry?.title || 'Competition illustration', 160),
         reputationAward: nonnegative(entry?.reputationAward),
         trigger: {
           type: triggerType,
@@ -669,6 +705,8 @@ function normalizeCompetition(rawCompetition, context, errors) {
         title: text(completionSource?.title, 'Acquisition Complete', 100),
         speaker: text(completionSource?.speaker, rival.name, 100),
         text: text(completionSource?.text, '', 360),
+        image: assetPath(completionSource?.image, 'competition.acquisition.completion.image', errors),
+        imageAlt: text(completionSource?.imageAlt, completionSource?.title || 'Acquisition illustration', 160),
       },
     },
   };
@@ -1106,6 +1144,9 @@ export function normalizeIncrementalConfig(raw, options = {}) {
     }
     const rewardMin = integer(entry?.reward?.min, 0);
     const rewardMax = integer(entry?.reward?.max, rewardMin);
+    const images = assetPaths(entry?.visual?.images, `deposits[${index}].visual.images`, errors);
+    const singleImage = assetPath(entry?.visual?.image, `deposits[${index}].visual.image`, errors);
+    if (singleImage && !images.includes(singleImage)) images.unshift(singleImage);
     return {
       id: normalizedId(entry?.id),
       name: text(entry?.name, entry?.id || 'Deposit', 80),
@@ -1118,6 +1159,7 @@ export function normalizeIncrementalConfig(raw, options = {}) {
         color: color(entry?.visual?.color, '#64748b'),
         accent: color(entry?.visual?.accent, '#cbd5e1'),
         icon: text(entry?.visual?.icon, '⛏', 8),
+        images,
       },
     };
   });

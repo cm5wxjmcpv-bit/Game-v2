@@ -325,6 +325,8 @@ function rawConfig() {
           title: 'First Shift',
           speaker: 'Foreman Test',
           text: 'Start mining.',
+          image: 'assets/story/first-shift.webp',
+          imageAlt: 'A test first-shift illustration.',
           trigger: { type: 'start' },
         },
         {
@@ -362,6 +364,12 @@ function rawConfig() {
         reward: { min: 2, max: 2 },
         xp: 5,
         weight: 1,
+        visual: {
+          images: [
+            'assets/deposits/stone-face.webp',
+            'assets/deposits/stone-face-alt.webp',
+          ],
+        },
       },
     ],
     mines: [
@@ -503,7 +511,12 @@ test('legacy manifests default to adventure while incremental manifests select t
 test('incremental config validates IDs, references, skill effects, milestone triggers, and finite values', () => {
   const normalized = config();
   assert.equal(normalized.depositsById['stone-face'].resourceId, 'stone');
+  assert.deepEqual(normalized.depositsById['stone-face'].visual.images, [
+    'assets/deposits/stone-face.webp',
+    'assets/deposits/stone-face-alt.webp',
+  ]);
   assert.equal(normalized.skillsById['mining-power'].effect.type, 'manual-power-flat');
+  assert.equal(normalized.story.milestones[0].image, 'assets/story/first-shift.webp');
   assert.equal(normalized.story.milestones.at(-1).trigger.value, 'independent');
   assert.equal(normalized.equipment.itemsById['iron-pickaxe'].requiresItemId, 'starter-pickaxe');
   assert.equal(normalized.store.categories[0].equipmentIds.length, 4);
@@ -541,9 +554,10 @@ test('incremental config validates IDs, references, skill effects, milestone tri
   broken.businessUpgrades[1].effect.generatorId = 'missing';
   broken.generators[0].growthRate = Number.POSITIVE_INFINITY;
   broken.offlineProgress.capSeconds = Number.POSITIVE_INFINITY;
+  broken.deposits[0].visual.images = ['https://example.com/not-local.webp'];
   assert.throws(
     () => normalizeIncrementalConfig(broken, { gameId: 'miner-incremental' }),
-    /missing resource|reward\.max|effect\.amount|trigger\.type|missing item|missing scratch ticket|total exactly 1|missing generator|growthRate|offlineProgress\.capSeconds/,
+    /missing resource|reward\.max|effect\.amount|trigger\.type|missing item|missing scratch ticket|total exactly 1|missing generator|growthRate|offlineProgress\.capSeconds|safe relative/,
   );
 
   const emptyCompanyLevels = rawConfig();
